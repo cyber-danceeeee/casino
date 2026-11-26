@@ -98,6 +98,31 @@ docker compose exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_PASSWORD" mysqldump -u cas
 
 迁移记录包含文件 SHA-256；重复启动跳过已完成安装。MySQL DDL 无法整份事务回滚，失败会留下 dirty 标记并阻止 API 启动。修复或恢复前请保留完整备份；不要通过删数据卷重试。可以用 `docker compose run --rm --entrypoint bash migrate` 检查 `/backups/` 中的备份。
 
+## 推送后服务器自动更新
+
+Linux 服务器部署目录为 `/opt/casino` 时，执行一次：
+
+```bash
+cd /opt/casino
+bash deploy/install-server-update.sh
+```
+
+服务器通过 systemd 每分钟检查 `origin/main`，发现新提交后快进更新、在服务器构建镜像、检查 Nacos 配置、保存私有数据库备份，再更新服务并运行两个入口的冒烟检查。无需向 GitHub 提交服务器密码，也不需要暴露部署 webhook。工程有本地未提交改动或分支发生分叉时拒绝覆盖；失败后间隔 5 分钟重试，新的提交可立即进入下一轮检查。
+
+构建与配置检查通过前保持已有容器运行。部署健康检查失败时尝试恢复上一版应用镜像；不会自动回滚数据库，避免覆盖上线期间的新交易。数据库迁移 dirty 错误需要检查日志并人工处理。数据库快照与详细日志仅保存在服务器 `/var/lib/casino-update/`，权限受限；管理员需要按磁盘容量维护备份。
+
+```bash
+systemctl status casino-update.timer
+journalctl -u casino-update.service -n 50 --no-pager
+cat /var/lib/casino-update/last-success
+# 手动触发一次更新
+systemctl start casino-update.service
+# 暂停自动更新
+systemctl stop casino-update.timer
+```
+
+服务器需能以非交互方式拉取仓库，现有 `.env` 持续保留。修改 Nacos 内容不会产生 Git 提交，仍需单独重启 API。自动更新只构建和更新本工程服务，不清理其他容器或数据卷。
+
 ## 多供应商与固定地区
 
 每次部署仍只有一个 H5。在后台 **H5 配置** 设置国家、币种并发布，然后进入 **游戏中心 → 供应商配置**：
