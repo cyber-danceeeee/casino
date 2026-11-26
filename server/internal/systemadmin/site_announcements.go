@@ -8,7 +8,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"casino/internal/tenancy"
+	"casino/internal/content"
 )
 
 var announcementTypes = map[string]bool{
@@ -45,8 +45,8 @@ type AnnouncementReorderInput struct {
 }
 
 type SiteAnnouncementRecord struct {
-	ID                     uint64            `gorm:"column:id;primaryKey" json:"id"`
-	TenantID               uint64            `gorm:"column:tenant_id" json:"tenantID"`
+	ID uint64 `gorm:"column:id;primaryKey" json:"id"`
+
 	SiteID                 uint64            `gorm:"column:site_id" json:"siteID"`
 	Title                  string            `gorm:"column:title" json:"title"`
 	Summary                string            `gorm:"column:summary" json:"summary"`
@@ -98,7 +98,7 @@ func (s *Service) ListSiteAnnouncements(siteID uint64, q Query, actor Actor) (Re
 		return Result{}, err
 	}
 	rows := []SiteAnnouncementRecord{}
-	db := s.db.Model(&SiteAnnouncementRecord{}).Where("tenant_id=? AND site_id=? AND deleted_at IS NULL", scope.TenantID, scope.SiteID)
+	db := s.db.Model(&SiteAnnouncementRecord{}).Where("site_id = ? AND deleted_at IS NULL", scope.SiteID)
 	db = like(db, "title", value(q, "keyword"))
 	db = exact(db, "publish_status", strings.ToUpper(value(q, "publishStatus")))
 	result, err := paginate(db.Order("is_pinned DESC,priority DESC,sort_order ASC,id ASC"), q, &rows)
@@ -112,7 +112,7 @@ func (s *Service) ListSiteAnnouncements(siteID uint64, q Query, actor Actor) (Re
 	return result, nil
 }
 
-func (s *Service) GetSiteAnnouncement(siteID, id uint64, actor Actor) (map[string]any, error) {
+func (s *Service) GetSiteAnnouncement(siteID uint64, id uint64, actor Actor) (map[string]any, error) {
 	scope, err := s.contentSiteScope(s.db, siteID, actor, false)
 	if err != nil {
 		return nil, err
@@ -125,7 +125,7 @@ func (s *Service) GetSiteAnnouncement(siteID, id uint64, actor Actor) (map[strin
 	return map[string]any{"overview": row}, nil
 }
 
-func (s *Service) SaveSiteAnnouncement(siteID, id uint64, input AnnouncementInput, actor Actor) (uint64, error) {
+func (s *Service) SaveSiteAnnouncement(siteID uint64, id uint64, input AnnouncementInput, actor Actor) (uint64, error) {
 	scope, err := s.contentSiteScope(s.db, siteID, actor, false)
 	if err != nil {
 		return 0, err
@@ -152,7 +152,7 @@ func (s *Service) SaveSiteAnnouncement(siteID, id uint64, input AnnouncementInpu
 		nowValue := now()
 		payload := marshal(draft)
 		if id == 0 {
-			row := SiteAnnouncementRecord{TenantID: scope.TenantID, SiteID: scope.SiteID, Title: draft.Title,
+			row := SiteAnnouncementRecord{SiteID: scope.SiteID, Title: draft.Title,
 				DraftPayload: payload, PublishedPayload: "{}", PublishStatus: siteContentDraft, CreatedBy: actor.ID, UpdatedBy: actor.ID,
 				DraftUpdatedAt: &nowValue, CreatedAt: nowValue, UpdatedAt: nowValue}
 			if err := tx.Create(&row).Error; err != nil {
@@ -160,7 +160,7 @@ func (s *Service) SaveSiteAnnouncement(siteID, id uint64, input AnnouncementInpu
 			}
 			id = row.ID
 		} else {
-			if err := tx.Model(&SiteAnnouncementRecord{}).Where("id=? AND tenant_id=? AND site_id=?", id, scope.TenantID, scope.SiteID).
+			if err := tx.Model(&SiteAnnouncementRecord{}).Where("id = ? AND site_id = ?", id, scope.SiteID).
 				Updates(map[string]any{"draft_payload": payload, "publish_status": siteContentDraft, "draft_updated_at": nowValue, "updated_by": actor.ID, "updated_at": nowValue}).Error; err != nil {
 				return err
 			}
@@ -173,7 +173,7 @@ func (s *Service) SaveSiteAnnouncement(siteID, id uint64, input AnnouncementInpu
 	return id, err
 }
 
-func (s *Service) CopySiteAnnouncement(siteID, id uint64, actor Actor) (uint64, error) {
+func (s *Service) CopySiteAnnouncement(siteID uint64, id uint64, actor Actor) (uint64, error) {
 	scope, err := s.contentSiteScope(s.db, siteID, actor, false)
 	if err != nil {
 		return 0, err
@@ -191,7 +191,7 @@ func (s *Service) CopySiteAnnouncement(siteID, id uint64, actor Actor) (uint64, 
 	return s.SaveSiteAnnouncement(siteID, 0, AnnouncementInput{AnnouncementDraft: draft, Reason: "copy announcement draft"}, actor)
 }
 
-func (s *Service) DeleteSiteAnnouncement(siteID, id uint64, actor Actor) error {
+func (s *Service) DeleteSiteAnnouncement(siteID uint64, id uint64, actor Actor) error {
 	scope, err := s.contentSiteScope(s.db, siteID, actor, false)
 	if err != nil {
 		return err
@@ -207,7 +207,7 @@ func (s *Service) DeleteSiteAnnouncement(siteID, id uint64, actor Actor) error {
 	draft.Deleted = true
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		nowValue := now()
-		if err := tx.Model(&SiteAnnouncementRecord{}).Where("id=? AND tenant_id=? AND site_id=?", id, scope.TenantID, scope.SiteID).
+		if err := tx.Model(&SiteAnnouncementRecord{}).Where("id = ? AND site_id = ?", id, scope.SiteID).
 			Updates(map[string]any{"draft_payload": marshal(draft), "publish_status": siteContentDraft, "draft_updated_at": nowValue, "updated_by": actor.ID, "updated_at": nowValue}).Error; err != nil {
 			return err
 		}
@@ -237,7 +237,7 @@ func (s *Service) ReorderSiteAnnouncements(siteID uint64, input AnnouncementReor
 				draft = decodeAnnouncement(row.PublishedPayload)
 			}
 			draft.SortOrder = index
-			if err := tx.Model(&SiteAnnouncementRecord{}).Where("id=? AND tenant_id=? AND site_id=?", id, scope.TenantID, scope.SiteID).
+			if err := tx.Model(&SiteAnnouncementRecord{}).Where("id = ? AND site_id = ?", id, scope.SiteID).
 				Updates(map[string]any{"draft_payload": marshal(draft), "publish_status": siteContentDraft, "draft_updated_at": now(), "updated_by": actor.ID, "updated_at": now()}).Error; err != nil {
 				return err
 			}
@@ -249,13 +249,13 @@ func (s *Service) ReorderSiteAnnouncements(siteID uint64, input AnnouncementReor
 	})
 }
 
-func (s *Service) PublicAnnouncements(scope tenancy.Scope, language, country, currency string, loggedIn bool, at time.Time) ([]PublicAnnouncement, error) {
-	if scope.TenantID == 0 || scope.SiteID == 0 {
+func (s *Service) PublicAnnouncements(scope content.Scope, language string, country string, currency string, loggedIn bool, at time.Time) ([]PublicAnnouncement, error) {
+	if scope.SiteID == 0 {
 		return []PublicAnnouncement{}, nil
 	}
 	rows := []PublicAnnouncement{}
 	err := s.db.Table("game_site_announcements").Select("id,title,summary,content,announcement_type,priority,is_pinned,published_at,config_version").
-		Where("tenant_id=? AND site_id=? AND config_version>0 AND enabled=1 AND deleted_at IS NULL", scope.TenantID, scope.SiteID).
+		Where("site_id = ? AND config_version > 0 AND enabled = 1 AND deleted_at IS NULL", scope.SiteID).
 		Where("visibility_scope IN ?", contentVisibilityValues(loggedIn)).
 		Where("(language_code='' OR language_code='ALL' OR LOWER(language_code) IN ?)", contentLanguageCandidates(language)).
 		Where("(country_code='' OR country_code='ALL' OR UPPER(country_code)=?)", strings.ToUpper(strings.TrimSpace(country))).
@@ -265,7 +265,7 @@ func (s *Service) PublicAnnouncements(scope tenancy.Scope, language, country, cu
 	return rows, err
 }
 
-func (s *Service) PublicAnnouncement(scope tenancy.Scope, id uint64, language, country, currency string, loggedIn bool, at time.Time) (PublicAnnouncement, error) {
+func (s *Service) PublicAnnouncement(scope content.Scope, id uint64, language string, country string, currency string, loggedIn bool, at time.Time) (PublicAnnouncement, error) {
 	rows, err := s.PublicAnnouncements(scope, language, country, currency, loggedIn, at)
 	if err != nil {
 		return PublicAnnouncement{}, err
@@ -303,9 +303,9 @@ func normalizeAnnouncementDraft(input AnnouncementDraft) (AnnouncementDraft, err
 	return input, nil
 }
 
-func (s *Service) announcementByID(db *gorm.DB, scope tenancy.Scope, id uint64, lock bool) (SiteAnnouncementRecord, error) {
+func (s *Service) announcementByID(db *gorm.DB, scope content.Scope, id uint64, lock bool) (SiteAnnouncementRecord, error) {
 	var row SiteAnnouncementRecord
-	query := db.Model(&SiteAnnouncementRecord{}).Where("id=? AND tenant_id=? AND site_id=? AND deleted_at IS NULL", id, scope.TenantID, scope.SiteID)
+	query := db.Model(&SiteAnnouncementRecord{}).Where("id = ? AND site_id = ? AND deleted_at IS NULL", id, scope.SiteID)
 	if lock {
 		query = query.Clauses(clause.Locking{Strength: "UPDATE"})
 	}

@@ -3,13 +3,13 @@ package agentadmin
 import (
 	"time"
 
-	"casino/internal/tenancy"
+	"casino/internal/content"
 )
 
 type ListQuery struct {
 	Page, PageSize int
 	Values         map[string]string
-	Scope          tenancy.Scope
+	Scope          content.Scope
 }
 type PageResult struct {
 	List     any   `json:"list"`
@@ -18,14 +18,14 @@ type PageResult struct {
 	PageSize int   `json:"pageSize"`
 }
 type Actor struct {
-	Scope                                  tenancy.Scope
+	Scope                                  content.Scope
 	ID                                     uint64
 	Username, IP, UserAgent, CorrelationID string
 }
 type Error struct{ Code, Message string }
 
-func (e *Error) Error() string            { return e.Message }
-func NewError(code, message string) error { return &Error{Code: code, Message: message} }
+func (e *Error) Error() string                   { return e.Message }
+func NewError(code string, message string) error { return &Error{Code: code, Message: message} }
 
 type ReasonCommand struct {
 	Reason string `json:"reason" binding:"required,max=500"`

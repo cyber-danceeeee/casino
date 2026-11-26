@@ -6,7 +6,6 @@ import "github.com/go-dev-frame/sponge/pkg/sgorm"
 type GameProviderTransactions struct {
 	sgorm.Model `gorm:"embedded"`
 
-	TenantID              uint64 `gorm:"column:tenant_id" json:"tenantID"`
 	SiteID                uint64 `gorm:"column:site_id" json:"siteID"`
 	ProviderCode          string `gorm:"column:provider_code;type:varchar(64);not null" json:"providerCode"`
 	ProviderTransactionID string `gorm:"column:provider_transaction_id;type:varchar(128);not null" json:"providerTransactionID"`

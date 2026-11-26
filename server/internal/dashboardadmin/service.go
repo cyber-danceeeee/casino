@@ -9,7 +9,7 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
-	"casino/internal/tenancy"
+	"casino/internal/content"
 )
 
 const MoneyFormat = "EXACT_DECIMAL_STRING"
@@ -20,7 +20,7 @@ type Filter struct {
 	CategoryID, ChannelID, AgentID                         uint64
 	Metric                                                 string
 	Limit                                                  int
-	Scope                                                  tenancy.Scope
+	Scope                                                  content.Scope
 }
 
 type Service struct{ db *gorm.DB }
@@ -62,7 +62,7 @@ func ParseFilter(values map[string]string) (Filter, error) {
 	return f, nil
 }
 
-func parseTime(value, fallback string) (time.Time, error) {
+func parseTime(value string, fallback string) (time.Time, error) {
 	if strings.TrimSpace(value) == "" {
 		value = fallback
 	}
@@ -115,7 +115,7 @@ type moneyRow struct {
 	Value4 decimal.Decimal `gorm:"column:value4"`
 }
 
-func (s *Service) Filters(scope tenancy.Scope) (map[string]any, error) {
+func (s *Service) Filters(scope content.Scope) (map[string]any, error) {
 	var countries, currencies, providers, categories, channels, agents []map[string]any
 	queries := []struct {
 		dest any
@@ -140,7 +140,7 @@ func (s *Service) Filters(scope tenancy.Scope) (map[string]any, error) {
 	return map[string]any{"countries": countries, "currencies": currencies, "providers": providers, "categories": categories, "channels": channels, "agents": agents}, nil
 }
 
-func dashboardOptionSQL(dest any, scope tenancy.Scope, _ string, alias string, base string, order string) struct {
+func dashboardOptionSQL(dest any, scope content.Scope, _ string, alias string, base string, order string) struct {
 	dest any
 	sql  string
 	args []any
@@ -153,16 +153,16 @@ func dashboardOptionSQL(dest any, scope tenancy.Scope, _ string, alias string, b
 	}{dest: dest, sql: base + where + order, args: args}
 }
 
-func dashboardScopeSQL(scope tenancy.Scope, alias string) (string, []any) {
-	if !scope.TenantScoped() {
+func dashboardScopeSQL(scope content.Scope, alias string) (string, []any) {
+	if !scope.SiteScoped() {
 		return "", nil
 	}
 	prefix := ""
 	if strings.TrimSpace(alias) != "" {
 		prefix = alias + "."
 	}
-	where := " AND " + prefix + "tenant_id=?"
-	args := []any{scope.TenantID}
+	where := ""
+	args := []any{}
 	if scope.SiteScoped() {
 		where += " AND " + prefix + "site_id IN (0, ?)"
 		args = append(args, scope.SiteID)
@@ -233,7 +233,7 @@ func metricFormat(key string) string {
 	return "money"
 }
 func numeric(v any) decimal.Decimal { d, _ := decimal.NewFromString(fmt.Sprint(v)); return d }
-func percentChange(current, previous any) any {
+func percentChange(current any, previous any) any {
 	p := numeric(previous)
 	if p.IsZero() {
 		return nil
@@ -244,7 +244,7 @@ func metricBasis() map[string]string {
 	return map[string]string{"deposit": "SUCCESS_PAID_AT", "withdrawal": "SUCCESS_COMPLETED_AT", "betting": "SETTLED_AT_EXCLUDING_ROLLBACK", "registration": "USER_CREATED_AT", "moneyFormat": MoneyFormat}
 }
 
-func (s *Service) overviewPeriod(f Filter, start, end time.Time) (map[string]any, error) {
+func (s *Service) overviewPeriod(f Filter, start time.Time, end time.Time) (map[string]any, error) {
 	scope, scopeArgs := userScope(f, "u")
 	betDimensions, betDimensionArgs := betDimensionScope(f, "b")
 	commissionScope, commissionScopeArgs := dashboardScopeSQL(f.Scope, "c")
@@ -297,7 +297,7 @@ func (s *Service) overviewPeriod(f Filter, start, end time.Time) (map[string]any
 	return map[string]any{"registeredUsers": a.RegisteredUsers, "activeUsers": a.ActiveUsers, "firstDepositUsers": a.FirstDepositUsers, "payingUsers": a.PayingUsers, "onlineUsers": a.OnlineUsers, "depositCount": a.DepositCount, "withdrawalCount": a.WithdrawalCount, "betCount": a.BetCount, "pendingWithdrawalCount": a.PendingWithdrawalCount, "depositSuccessRate": depositRate.Round(2).StringFixed(2), "withdrawalSuccessRate": withdrawalRate.Round(2).StringFixed(2), "depositAmount": decimalString(a.DepositAmount), "withdrawalAmount": decimalString(a.WithdrawalAmount), "netCashFlow": decimalString(a.DepositAmount.Sub(a.WithdrawalAmount)), "totalBet": decimalString(a.TotalBet), "totalWin": decimalString(a.TotalWin), "ggr": decimalString(ggr), "ngr": decimalString(ngr), "actualRTP": rtp.Round(2).StringFixed(2), "bonusCost": decimalString(a.BonusCost), "pendingWithdrawalAmount": decimalString(a.PendingWithdrawal)}, nil
 }
 
-func chart(dimensions, metrics []string, rows any, f Filter) map[string]any {
+func chart(dimensions []string, metrics []string, rows any, f Filter) map[string]any {
 	return map[string]any{"dimensions": dimensions, "metrics": metrics, "rows": rows, "currency": f.Currency, "moneyFormat": MoneyFormat}
 }
 

@@ -18,11 +18,11 @@ const next = computed(() =>
   <section class="setup-progress">
     <header>
       <div>
-        <span>{{ t("tenantExperience.setup.eyebrow") }}</span>
-        <h2>{{ t("tenantExperience.setup.title") }}</h2>
+        <span>{{ t("siteExperience.setup.eyebrow") }}</span>
+        <h2>{{ t("siteExperience.setup.title") }}</h2>
         <p>
           {{
-            t("tenantExperience.setup.summary", {
+            t("siteExperience.setup.summary", {
               completed: overview.setupCompleted || 0,
               total: overview.setupTotal || checklist.length,
             })
@@ -47,7 +47,7 @@ const next = computed(() =>
         <el-icon :class="item.status.toLowerCase()"
           ><CircleCheck v-if="item.status === 'COMPLETED'" /><Warning v-else
         /></el-icon>
-        <span>{{ t(`tenantExperience.setup.items.${item.key}`) }}</span>
+        <span>{{ t(`siteExperience.setup.items.${item.key}`) }}</span>
         <el-tag
           :type="
             item.status === 'COMPLETED'
@@ -59,12 +59,12 @@ const next = computed(() =>
           size="small"
           effect="plain"
         >
-          {{ t(`tenantExperience.setup.status.${item.status}`) }}
+          {{ t(`siteExperience.setup.status.${item.status}`) }}
         </el-tag>
       </button>
     </div>
     <el-button v-if="next" type="primary" @click="router.push(next.path)">{{
-      t("tenantExperience.setup.continue")
+      t("siteExperience.setup.continue")
     }}</el-button>
   </section>
 </template>

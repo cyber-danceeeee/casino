@@ -1,9 +1,10 @@
 package model
 
 import (
+	"time"
+
 	"github.com/go-dev-frame/sponge/pkg/sgorm"
 	"github.com/shopspring/decimal"
-	"time"
 )
 
 // GameRedPacketRounds Red packet rain rounds
@@ -35,5 +36,3 @@ var GameRedPacketRoundsColumnNames = map[string]bool{
 	"packet_count": true,
 	"status":       true,
 }
-
-

@@ -7,7 +7,7 @@ import (
 // gameSmsVerificationCodes business-level http error codes.
 // the gameSmsVerificationCodesNO value range is 1~999, if the same error code is used, it will cause panic.
 var (
-	gameSmsVerificationCodesNO = 36
+	gameSmsVerificationCodesNO       = 36
 	gameSmsVerificationCodesName     = "gameSmsVerificationCodes"
 	gameSmsVerificationCodesBaseCode = errcode.HCode(gameSmsVerificationCodesNO)
 

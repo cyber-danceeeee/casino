@@ -1,9 +1,10 @@
 package model
 
 import (
+	"time"
+
 	"github.com/go-dev-frame/sponge/pkg/sgorm"
 	"github.com/shopspring/decimal"
-	"time"
 )
 
 // GameAgentCommissionRecords Agent commission settlements
@@ -37,5 +38,3 @@ var GameAgentCommissionRecordsColumnNames = map[string]bool{
 	"status":            true,
 	"settled_at":        true,
 }
-
-

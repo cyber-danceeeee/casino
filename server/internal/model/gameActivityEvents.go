@@ -1,16 +1,16 @@
 package model
 
 import (
+	"time"
+
 	"github.com/go-dev-frame/sponge/pkg/sgorm"
 	"github.com/shopspring/decimal"
-	"time"
 )
 
 // GameActivityEvents Offer and activity list
 type GameActivityEvents struct {
 	sgorm.Model `gorm:"embedded"` // embed id and time
 
-	TenantID        uint64           `gorm:"column:tenant_id;type:bigint(20) unsigned;default:0;not null" json:"tenantID"`
 	SiteID          uint64           `gorm:"column:site_id;type:bigint(20) unsigned;default:0;not null" json:"siteID"`
 	ActivityCode    string           `gorm:"column:activity_code;type:varchar(64);not null" json:"activityCode"`
 	Slug            string           `gorm:"column:slug;type:varchar(128);not null" json:"slug"`
@@ -50,11 +50,11 @@ type GameActivityEvents struct {
 
 // GameActivityEventsColumnNames Whitelist for custom query fields to prevent sql injection attacks
 var GameActivityEventsColumnNames = map[string]bool{
-	"id":                true,
-	"created_at":        true,
-	"updated_at":        true,
-	"deleted_at":        true,
-	"tenant_id":         true,
+	"id":         true,
+	"created_at": true,
+	"updated_at": true,
+	"deleted_at": true,
+
 	"site_id":           true,
 	"activity_code":     true,
 	"slug":              true,

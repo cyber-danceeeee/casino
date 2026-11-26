@@ -565,202 +565,6 @@ func (h *AdminSystemHandler) UpdateConfig(c *gin.Context) {
 	systemWrite(c, nil, h.service.UpdateConfig(c.Param("key"), input, actor.Can(adminauth.PermissionSystemConfigSecretUpdate), systemActor(c)))
 }
 
-func (h *AdminSystemHandler) ListTenants(c *gin.Context) {
-	data, err := h.service.ListTenants(systemQuery(c, tenantSystemKeys))
-	systemWrite(c, data, err)
-}
-func (h *AdminSystemHandler) PlatformDashboard(c *gin.Context) {
-	data, err := h.service.PlatformDashboard(systemActor(c))
-	systemWrite(c, data, err)
-}
-func (h *AdminSystemHandler) ListBrandDeliveries(c *gin.Context) {
-	data, err := h.service.ListBrandDeliveries(systemQuery(c, deliverySystemKeys), systemActor(c))
-	systemWrite(c, data, err)
-}
-func (h *AdminSystemHandler) TenantPackages(c *gin.Context) {
-	data, err := h.service.TenantPackages(systemActor(c))
-	systemWrite(c, data, err)
-}
-func (h *AdminSystemHandler) CreateTenantPackage(c *gin.Context) {
-	var input systemadmin.TenantPackageInput
-	if !systemBind(c, &input) {
-		return
-	}
-	id, err := h.service.CreateTenantPackage(input, systemActor(c))
-	systemWrite(c, map[string]any{"id": id}, err)
-}
-func (h *AdminSystemHandler) UpdateTenantPackage(c *gin.Context) {
-	id, ok := systemID(c)
-	if !ok {
-		return
-	}
-	var input systemadmin.TenantPackageInput
-	if !systemBind(c, &input) {
-		return
-	}
-	systemWrite(c, nil, h.service.UpdateTenantPackage(id, input, systemActor(c)))
-}
-func (h *AdminSystemHandler) DeleteTenantPackage(c *gin.Context) {
-	id, ok := systemID(c)
-	if !ok {
-		return
-	}
-	var input systemadmin.ReasonInput
-	if !systemBind(c, &input) {
-		return
-	}
-	systemWrite(c, nil, h.service.DeleteTenantPackage(id, input.Reason, systemActor(c)))
-}
-func (h *AdminSystemHandler) TenantAudit(c *gin.Context) {
-	id, ok := systemID(c)
-	if !ok {
-		return
-	}
-	data, err := h.service.TenantAudit(id, systemQuery(c, auditSystemKeys), systemActor(c))
-	systemWrite(c, data, err)
-}
-func (h *AdminSystemHandler) GetTenant(c *gin.Context) {
-	id, ok := systemID(c)
-	if !ok {
-		return
-	}
-	data, err := h.service.TenantDetail(id)
-	systemWrite(c, data, err)
-}
-func (h *AdminSystemHandler) CreateTenant(c *gin.Context) {
-	var input systemadmin.TenantInput
-	if !systemBind(c, &input) {
-		return
-	}
-	id, err := h.service.CreateTenant(input, systemActor(c))
-	systemWrite(c, map[string]any{"id": id}, err)
-}
-func (h *AdminSystemHandler) ProvisionTenant(c *gin.Context) {
-	var input systemadmin.TenantProvisionInput
-	if !systemBind(c, &input) {
-		return
-	}
-	data, err := h.service.ProvisionTenant(input, systemActor(c))
-	systemWrite(c, data, err)
-}
-func (h *AdminSystemHandler) UpdateTenant(c *gin.Context) {
-	id, ok := systemID(c)
-	if !ok {
-		return
-	}
-	var input systemadmin.TenantInput
-	if !systemBind(c, &input) {
-		return
-	}
-	systemWrite(c, nil, h.service.UpdateTenant(id, input, systemActor(c)))
-}
-func (h *AdminSystemHandler) TenantStatus(c *gin.Context) {
-	id, ok := systemID(c)
-	if !ok {
-		return
-	}
-	var input statusReason
-	if !systemBind(c, &input) {
-		return
-	}
-	systemWrite(c, nil, h.service.TenantStatus(id, input.Enabled, input.Reason, systemActor(c)))
-}
-func (h *AdminSystemHandler) DeleteTenant(c *gin.Context) {
-	id, ok := systemID(c)
-	if !ok {
-		return
-	}
-	var input systemadmin.ReasonInput
-	if !systemBind(c, &input) {
-		return
-	}
-	systemWrite(c, nil, h.service.DeleteTenant(id, input.Reason, systemActor(c)))
-}
-
-func (h *AdminSystemHandler) TenantLedgerAccounts(c *gin.Context) {
-	id, ok := systemID(c)
-	if !ok {
-		return
-	}
-	data, err := h.service.TenantLedgerAccounts(id, systemQuery(c, tenantLedgerKeys), systemActor(c))
-	systemWrite(c, data, err)
-}
-
-func (h *AdminSystemHandler) TenantLedgerTransaction(c *gin.Context) {
-	tenantID, ok := systemID(c)
-	if !ok {
-		return
-	}
-	transactionID, ok := systemNamedID(c, "transactionID")
-	if !ok {
-		return
-	}
-	data, err := h.service.TenantLedgerTransaction(tenantID, transactionID, systemActor(c))
-	systemWrite(c, data, err)
-}
-
-func (h *AdminSystemHandler) CreditTenantDeposit(c *gin.Context) {
-	h.tenantLedgerAmount(c, h.service.CreditTenantDeposit)
-}
-
-func (h *AdminSystemHandler) SetTenantCreditLimit(c *gin.Context) {
-	id, ok := systemID(c)
-	if !ok {
-		return
-	}
-	var input systemadmin.TenantCreditLimitInput
-	if !systemBind(c, &input) {
-		return
-	}
-	input.IdempotencyKey = systemIdempotencyKey(c, input.IdempotencyKey)
-	data, err := h.service.SetTenantCreditLimit(id, input, systemActor(c))
-	systemWrite(c, data, err)
-}
-
-func (h *AdminSystemHandler) FreezeTenantFunds(c *gin.Context) {
-	h.tenantLedgerAmount(c, h.service.FreezeTenantFunds)
-}
-
-func (h *AdminSystemHandler) UnfreezeTenantFunds(c *gin.Context) {
-	h.tenantLedgerAmount(c, h.service.UnfreezeTenantFunds)
-}
-
-func (h *AdminSystemHandler) ReverseTenantLedgerTransaction(c *gin.Context) {
-	tenantID, ok := systemID(c)
-	if !ok {
-		return
-	}
-	transactionID, ok := systemNamedID(c, "transactionID")
-	if !ok {
-		return
-	}
-	var input systemadmin.TenantLedgerReverseInput
-	if !systemBind(c, &input) {
-		return
-	}
-	input.IdempotencyKey = systemIdempotencyKey(c, input.IdempotencyKey)
-	data, err := h.service.ReverseTenantLedgerTransaction(tenantID, transactionID, input, systemActor(c))
-	systemWrite(c, data, err)
-}
-
-func (h *AdminSystemHandler) tenantLedgerAmount(c *gin.Context, fn func(uint64, systemadmin.TenantLedgerAmountInput, systemadmin.Actor) (any, error)) {
-	id, ok := systemID(c)
-	if !ok {
-		return
-	}
-	var input systemadmin.TenantLedgerAmountInput
-	if !systemBind(c, &input) {
-		return
-	}
-	input.IdempotencyKey = systemIdempotencyKey(c, input.IdempotencyKey)
-	data, err := fn(id, input, systemActor(c))
-	systemWrite(c, data, err)
-}
-
-func (h *AdminSystemHandler) ListSites(c *gin.Context) {
-	data, err := h.service.ListSites(systemQuery(c, siteSystemKeys), systemActor(c))
-	systemWrite(c, data, err)
-}
 func (h *AdminSystemHandler) GetSite(c *gin.Context) {
 	id, ok := systemNamedID(c, "siteId")
 	if !ok {
@@ -996,14 +800,6 @@ func (h *AdminSystemHandler) ReorderSitePopups(c *gin.Context) {
 	systemWrite(c, nil, h.service.ReorderSitePopups(siteID, input, systemActor(c)))
 }
 
-func (h *AdminSystemHandler) CreateSite(c *gin.Context) {
-	var input systemadmin.SiteInput
-	if !systemBind(c, &input) {
-		return
-	}
-	id, err := h.service.CreateSite(input, systemActor(c))
-	systemWrite(c, map[string]any{"id": id}, err)
-}
 func (h *AdminSystemHandler) UpdateSite(c *gin.Context) {
 	id, ok := systemNamedID(c, "siteId")
 	if !ok {
@@ -1025,90 +821,6 @@ func (h *AdminSystemHandler) SiteStatus(c *gin.Context) {
 		return
 	}
 	systemWrite(c, nil, h.service.SiteStatus(id, input.Enabled, input.Reason, systemActor(c)))
-}
-func (h *AdminSystemHandler) DeleteSite(c *gin.Context) {
-	id, ok := systemNamedID(c, "siteId")
-	if !ok {
-		return
-	}
-	var input systemadmin.ReasonInput
-	if !systemBind(c, &input) {
-		return
-	}
-	systemWrite(c, nil, h.service.DeleteSite(id, input.Reason, systemActor(c)))
-}
-
-func (h *AdminSystemHandler) ListDomains(c *gin.Context) {
-	data, err := h.service.ListDomains(systemQuery(c, domainSystemKeys), systemActor(c))
-	systemWrite(c, data, err)
-}
-func (h *AdminSystemHandler) GetDomain(c *gin.Context) {
-	id, ok := systemID(c)
-	if !ok {
-		return
-	}
-	data, err := h.service.DomainDetail(id, systemActor(c))
-	systemWrite(c, data, err)
-}
-func (h *AdminSystemHandler) CreateDomain(c *gin.Context) {
-	var input systemadmin.DomainInput
-	if !systemBind(c, &input) {
-		return
-	}
-	id, err := h.service.CreateDomain(input, systemActor(c))
-	systemWrite(c, map[string]any{"id": id}, err)
-}
-func (h *AdminSystemHandler) UpdateDomain(c *gin.Context) {
-	id, ok := systemID(c)
-	if !ok {
-		return
-	}
-	var input systemadmin.DomainInput
-	if !systemBind(c, &input) {
-		return
-	}
-	systemWrite(c, nil, h.service.UpdateDomain(id, input, systemActor(c)))
-}
-func (h *AdminSystemHandler) DomainStatus(c *gin.Context) {
-	id, ok := systemID(c)
-	if !ok {
-		return
-	}
-	var input statusReason
-	if !systemBind(c, &input) {
-		return
-	}
-	systemWrite(c, nil, h.service.DomainStatus(id, input.Enabled, input.Reason, systemActor(c)))
-}
-func (h *AdminSystemHandler) VerifyDomain(c *gin.Context) {
-	id, ok := systemID(c)
-	if !ok {
-		return
-	}
-	data, err := h.service.VerifyDomain(c.Request.Context(), id, systemActor(c))
-	systemWrite(c, data, err)
-}
-func (h *AdminSystemHandler) UpdateDomainSSL(c *gin.Context) {
-	id, ok := systemID(c)
-	if !ok {
-		return
-	}
-	var input systemadmin.DomainSSLInput
-	if !systemBind(c, &input) {
-		return
-	}
-	systemWrite(c, nil, h.service.UpdateDomainSSL(id, input, systemActor(c)))
-}
-func (h *AdminSystemHandler) DeleteDomain(c *gin.Context) {
-	id, ok := systemID(c)
-	if !ok {
-		return
-	}
-	var input systemadmin.ReasonInput
-	if !systemBind(c, &input) {
-		return
-	}
-	systemWrite(c, nil, h.service.DeleteDomain(id, input.Reason, systemActor(c)))
 }
 
 func (h *AdminSystemHandler) ListCountries(c *gin.Context) {
@@ -1265,10 +977,9 @@ func (h *AdminSystemHandler) UploadPlatformAsset(c *gin.Context) {
 func (h *AdminSystemHandler) AppConfig(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")
 	db := database.GetDB()
-	scope := h5TenancyScope(c)
+	scope := h5ContentScope(c)
 	site := h5BootstrapSite(db, scope.SiteID)
-	tenant := h5BootstrapTenant(db, scope.TenantID)
-	countryCode := h5FirstNonEmpty(site.CountryCode, tenant.CountryCode, c.Query("country"))
+	countryCode := h5FirstNonEmpty(site.CountryCode, c.Query("country"))
 	data, err := h.service.PublicAppConfig(countryCode, c.Query("language"))
 	if err == nil && site.ID > 0 {
 		country := h5BootstrapCountry(db, countryCode)
@@ -1308,11 +1019,11 @@ func (h *AdminSystemHandler) AppConfig(c *gin.Context) {
 		branding["theme"] = themeValues
 		data["branding"] = branding
 		data["maintenance"] = h5EffectiveMaintenance(c, db, scope)
-		data["tenantId"] = scope.TenantID
+		data["siteId"] = scope.SiteID
 		data["siteId"] = scope.SiteID
 		data["resourceVersion"] = strings.TrimSpace(stringValue(data["resourceVersion"])) + "-site-" + strconv.FormatUint(site.ConfigVersion, 10)
 		if countryData, ok := data["country"].(map[string]any); ok {
-			countryData["timezone"] = h5FirstNonEmpty(site.Timezone, tenant.Timezone, country.Timezone)
+			countryData["timezone"] = h5FirstNonEmpty(site.Timezone, country.Timezone)
 		}
 	}
 	systemWrite(c, data, err)
@@ -1500,12 +1211,11 @@ type taskCommand struct {
 
 func systemActor(c *gin.Context) systemadmin.Actor {
 	actor, _ := adminauth.FromContext(c)
-	if singlesite.Active() && singlesite.ControlResource(c.Request.URL.Path) {
+	if singlesite.ControlResource(c.Request.URL.Path) {
 		actor.Platform = true
-		actor.TenantID = 0
 		actor.SiteID = 0
 	}
-	return systemadmin.Actor{ID: actor.ID, SessionID: actor.SessionID, Username: actor.Username, TenantID: actor.TenantID, SiteID: actor.SiteID, Platform: actor.Platform, IP: c.ClientIP(), UserAgent: c.GetHeader("User-Agent"), CorrelationID: systemCorrelationID(c), Sensitive: actor.Can(adminauth.PermissionSensitiveView)}
+	return systemadmin.Actor{ID: actor.ID, SessionID: actor.SessionID, Username: actor.Username, SiteID: actor.SiteID, Platform: actor.Platform, IP: c.ClientIP(), UserAgent: c.GetHeader("User-Agent"), CorrelationID: systemCorrelationID(c), Sensitive: actor.Can(adminauth.PermissionSensitiveView)}
 }
 func systemCorrelationID(c *gin.Context) string {
 	value := strings.TrimSpace(c.GetHeader("X-Correlation-ID"))
@@ -1569,19 +1279,15 @@ func systemError(c *gin.Context, err error) {
 	c.JSON(http.StatusOK, gin.H{"code": http.StatusInternalServerError, "msg": "internal error", "data": gin.H{"errorCode": "INTERNAL_ERROR"}})
 }
 
-var adminSystemKeys = []string{"administratorID", "tenantID", "tenant", "siteID", "site", "username", "displayName", "department", "role", "status", "mobile", "email", "createdFrom", "createdTo", "lastLoginFrom", "lastLoginTo"}
-var roleSystemKeys = []string{"tenantID", "tenant", "code", "name", "status", "dataScope", "createdFrom", "createdTo"}
+var adminSystemKeys = []string{"administratorID", "siteID", "site", "username", "displayName", "department", "role", "status", "mobile", "email", "createdFrom", "createdTo", "lastLoginFrom", "lastLoginTo"}
+var roleSystemKeys = []string{"code", "name", "status", "dataScope", "createdFrom", "createdTo"}
 var permissionSystemKeys = []string{"code", "name", "module", "permissionType", "status"}
 var departmentSystemKeys = []string{"code", "name", "status", "parentID"}
 var menuSystemKeys = []string{"code", "name", "menuType", "status", "permissionCode"}
 var configSystemKeys = []string{"key", "name", "category", "valueType", "editable", "sensitive"}
-var tenantSystemKeys = []string{"tenantID", "tenantCode", "tenantName", "companyName", "planCode", "countryCode", "packageCode", "defaultCurrency", "status", "lifecycleStatus", "createdFrom", "createdTo"}
-var tenantLedgerKeys = []string{"siteID", "currency"}
-var siteSystemKeys = []string{"tenantID", "tenant", "siteCode", "siteName", "primaryDomain", "adminDomain", "h5Domain", "countryCode", "currencyCode", "status", "lifecycleStatus", "createdFrom", "createdTo"}
-var domainSystemKeys = []string{"tenantID", "siteID", "domain", "domainType", "status", "lifecycleStatus"}
+var siteSystemKeys = []string{"siteCode", "siteName", "primaryDomain", "adminDomain", "h5Domain", "countryCode", "currencyCode", "status", "lifecycleStatus", "createdFrom", "createdTo"}
 var countrySystemKeys = []string{"countryCode", "countryName", "currencyCode", "status", "isDefault", "createdFrom", "createdTo"}
-var deliverySystemKeys = []string{"tenantID", "tenantName", "tenantCode", "adminUsername", "domain", "domainStatus", "status", "createdFrom", "createdTo"}
-var auditSystemKeys = []string{"tenantID", "siteID", "operator", "module", "action", "targetType", "result", "ip", "correlationID", "createdFrom", "createdTo"}
+var auditSystemKeys = []string{"siteID", "operator", "module", "action", "targetType", "result", "ip", "correlationID", "createdFrom", "createdTo"}
 var loginSystemKeys = []string{"administrator", "loginResult", "ip", "country", "device", "browser", "createdFrom", "createdTo"}
 var taskSystemKeys = []string{"taskCode", "taskName", "taskType", "status", "lastRunResult", "nextRunFrom", "nextRunTo"}
 var eventSystemKeys = []string{"eventType", "status", "aggregateType", "aggregateID"}

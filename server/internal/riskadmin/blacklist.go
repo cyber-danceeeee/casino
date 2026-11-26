@@ -167,7 +167,7 @@ func (s *BlacklistService) Remove(id uint64, reason string, actor Actor) error {
 	})
 }
 
-func normalizeBlacklist(kind, value string) (string, error) {
+func normalizeBlacklist(kind string, value string) (string, error) {
 	kind = strings.ToUpper(strings.TrimSpace(kind))
 	value = strings.TrimSpace(value)
 	if !valid(kind, "USER", "DEVICE", "IP", "EMAIL", "MOBILE", "BANK_ACCOUNT", "WALLET_ADDRESS", "PAYMENT_ACCOUNT") {
@@ -197,7 +197,7 @@ func normalizeBlacklist(kind, value string) (string, error) {
 	}
 	return value, nil
 }
-func hashBlacklist(kind, value string) string {
+func hashBlacklist(kind string, value string) string {
 	sum := sha256.Sum256([]byte(strings.ToUpper(kind) + ":" + value))
 	return hex.EncodeToString(sum[:])
 }
@@ -209,7 +209,7 @@ func last4(value string) string {
 	}
 	return string(r[len(r)-4:])
 }
-func relatedUsersForValue(tx *gorm.DB, kind, value string) []uint64 {
+func relatedUsersForValue(tx *gorm.DB, kind string, value string) []uint64 {
 	var ids []uint64
 	switch kind {
 	case "USER":

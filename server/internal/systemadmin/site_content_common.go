@@ -13,7 +13,7 @@ import (
 	"golang.org/x/net/html/atom"
 	"gorm.io/gorm"
 
-	"casino/internal/tenancy"
+	"casino/internal/content"
 )
 
 const (
@@ -28,12 +28,12 @@ var siteContentActions = map[string]bool{
 	"OPEN_VIP": true, "OPEN_DOWNLOAD": true,
 }
 
-func (s *Service) contentSiteScope(db *gorm.DB, siteID uint64, actor Actor, lock bool) (tenancy.Scope, error) {
+func (s *Service) contentSiteScope(db *gorm.DB, siteID uint64, actor Actor, lock bool) (content.Scope, error) {
 	row, err := s.siteRowForActor(db, siteID, actor, lock)
 	if err != nil {
-		return tenancy.Scope{}, err
+		return content.Scope{}, err
 	}
-	return tenancy.Scope{TenantID: row.TenantID, SiteID: row.ID, Platform: false}, nil
+	return content.Scope{SiteID: row.ID, Platform: false}, nil
 }
 
 type siteContentDimensions struct {
@@ -42,19 +42,19 @@ type siteContentDimensions struct {
 	DefaultLanguage string `gorm:"column:default_language"`
 }
 
-func loadSiteContentDimensions(db *gorm.DB, scope tenancy.Scope) (siteContentDimensions, error) {
+func loadSiteContentDimensions(db *gorm.DB, scope content.Scope) (siteContentDimensions, error) {
 	var row siteContentDimensions
-	err := db.Table("game_saas_sites").Select("country_code,currency_code,default_language").
-		Where("id=? AND tenant_id=? AND deleted_at IS NULL", scope.SiteID, scope.TenantID).Take(&row).Error
+	err := db.Table("game_site_config").Select("country_code,currency_code,default_language").
+		Where("id = ? AND deleted_at IS NULL", scope.SiteID).Take(&row).Error
 	if err != nil {
 		return row, rowNotFound("site")
 	}
 	return row, nil
 }
 
-func markSiteContentDraft(tx *gorm.DB, scope tenancy.Scope, actorID uint64) error {
+func markSiteContentDraft(tx *gorm.DB, scope content.Scope, actorID uint64) error {
 	nowValue := now()
-	return tx.Table("game_saas_sites").Where("id=? AND tenant_id=? AND deleted_at IS NULL", scope.SiteID, scope.TenantID).
+	return tx.Table("game_site_config").Where("id = ? AND deleted_at IS NULL", scope.SiteID).
 		Updates(map[string]any{"config_status": siteContentDraft, "config_draft_updated_at": nowValue, "updated_by": actorID, "updated_at": nowValue}).Error
 }
 
@@ -77,14 +77,14 @@ func normalizeContentVisibility(value string) (string, error) {
 	return value, nil
 }
 
-func validateContentTime(start, end *time.Time) error {
+func validateContentTime(start *time.Time, end *time.Time) error {
 	if start != nil && end != nil && end.Before(*start) {
 		return NewError("INVALID_TIME_RANGE", "end time must be after start time")
 	}
 	return nil
 }
 
-func validateSiteContentAction(action, target string) (string, string, error) {
+func validateSiteContentAction(action string, target string) (string, string, error) {
 	action = strings.ToUpper(strings.TrimSpace(action))
 	target = strings.TrimSpace(target)
 	if !siteContentActions[action] {
@@ -141,7 +141,7 @@ func isSafeContentPromotionTarget(target string) bool {
 	return true
 }
 
-func validateSiteImageAsset(db *gorm.DB, scope tenancy.Scope, assetID uint64, required bool) error {
+func validateSiteImageAsset(db *gorm.DB, scope content.Scope, assetID uint64, required bool) error {
 	if assetID == 0 {
 		if required {
 			return NewError("POPUP_ASSET_REQUIRED", "desktop popup asset is required")
@@ -150,7 +150,7 @@ func validateSiteImageAsset(db *gorm.DB, scope tenancy.Scope, assetID uint64, re
 	}
 	var count int64
 	err := db.Table("game_asset_library").Where("id=? AND asset_type='IMAGE' AND status='ACTIVE' AND deleted_at IS NULL", assetID).
-		Where("(asset_scope='PLATFORM' AND is_public=1) OR (tenant_id=? AND site_id IN (0,?))", scope.TenantID, scope.SiteID).Count(&count).Error
+		Where("(asset_scope = 'PLATFORM' AND is_public = 1) OR (site_id IN (0, ?))", scope.SiteID).Count(&count).Error
 	if err != nil {
 		return err
 	}

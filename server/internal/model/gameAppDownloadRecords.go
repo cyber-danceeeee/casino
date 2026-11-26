@@ -1,9 +1,10 @@
 package model
 
 import (
+	"time"
+
 	"github.com/go-dev-frame/sponge/pkg/sgorm"
 	"github.com/shopspring/decimal"
-	"time"
 )
 
 // GameAppDownloadRecords App download reward records
@@ -33,5 +34,3 @@ var GameAppDownloadRecordsColumnNames = map[string]bool{
 	"status":         true,
 	"rewarded_at":    true,
 }
-
-

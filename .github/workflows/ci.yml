@@ -49,6 +49,9 @@ jobs:
       - run: python3 scripts/smoke-test.py
       - name: Verify direct H5 configuration
         run: python3 scripts/test-single-site.py --disposable
+      - name: Verify single-site database structure
+        run: |
+          docker compose exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_PASSWORD" mysql -u casino game_casino --batch --skip-column-names -e "SELECT IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND COLUMN_NAME LIKE CHAR(116,101,110,97,110,116,37))=0 AND (SELECT COUNT(*) FROM game_site_config)=1, CHAR(111,107), CHAR(102,97,105,108));"' | grep -qx ok
       - name: Check migration replay
         run: docker compose run --rm migrate
       - if: failure()

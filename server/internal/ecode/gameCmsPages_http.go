@@ -7,7 +7,7 @@ import (
 // gameCmsPages business-level http error codes.
 // the gameCmsPagesNO value range is 1~999, if the same error code is used, it will cause panic.
 var (
-	gameCmsPagesNO = 14
+	gameCmsPagesNO       = 14
 	gameCmsPagesName     = "gameCmsPages"
 	gameCmsPagesBaseCode = errcode.HCode(gameCmsPagesNO)
 

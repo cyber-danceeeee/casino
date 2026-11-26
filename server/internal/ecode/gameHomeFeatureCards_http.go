@@ -7,7 +7,7 @@ import (
 // gameHomeFeatureCards business-level http error codes.
 // the gameHomeFeatureCardsNO value range is 1~999, if the same error code is used, it will cause panic.
 var (
-	gameHomeFeatureCardsNO = 21
+	gameHomeFeatureCardsNO       = 21
 	gameHomeFeatureCardsName     = "gameHomeFeatureCards"
 	gameHomeFeatureCardsBaseCode = errcode.HCode(gameHomeFeatureCardsNO)
 

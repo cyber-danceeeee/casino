@@ -10,46 +10,44 @@ var _ time.Time
 
 // Tip: suggested filling in the binding rules https://github.com/go-playground/validator in request struct fields tag.
 
-
 // CreateGameWelfareCardsRequest request params
 type CreateGameWelfareCardsRequest struct {
-	CardCode  string `json:"cardCode" binding:""`
-	Title  string `json:"title" binding:""`
-	PeriodType  string `json:"periodType" binding:""`
+	CardCode     string `json:"cardCode" binding:""`
+	Title        string `json:"title" binding:""`
+	PeriodType   string `json:"periodType" binding:""`
 	PriceAmount  string `json:"priceAmount" binding:""`
-	RewardAmount  string `json:"rewardAmount" binding:""`
-	RewardWallet  string `json:"rewardWallet" binding:""`
-	Status  int `json:"status" binding:""` // 1 enabled, 2 disabled
+	RewardAmount string `json:"rewardAmount" binding:""`
+	RewardWallet string `json:"rewardWallet" binding:""`
+	Status       int    `json:"status" binding:""` // 1 enabled, 2 disabled
 }
 
 // UpdateGameWelfareCardsByIDRequest request params
 type UpdateGameWelfareCardsByIDRequest struct {
 	ID uint64 `json:"id" binding:""` // uint64 id
 
-	CardCode  string `json:"cardCode" binding:""`
-	Title  string `json:"title" binding:""`
-	PeriodType  string `json:"periodType" binding:""`
+	CardCode     string `json:"cardCode" binding:""`
+	Title        string `json:"title" binding:""`
+	PeriodType   string `json:"periodType" binding:""`
 	PriceAmount  string `json:"priceAmount" binding:""`
-	RewardAmount  string `json:"rewardAmount" binding:""`
-	RewardWallet  string `json:"rewardWallet" binding:""`
-	Status  int `json:"status" binding:""` // 1 enabled, 2 disabled
+	RewardAmount string `json:"rewardAmount" binding:""`
+	RewardWallet string `json:"rewardWallet" binding:""`
+	Status       int    `json:"status" binding:""` // 1 enabled, 2 disabled
 }
 
 // GameWelfareCardsObjDetail detail
 type GameWelfareCardsObjDetail struct {
 	ID uint64 `json:"id"` // convert to uint64 id
 
-	CardCode  string `json:"cardCode"`
-	Title  string `json:"title"`
-	PeriodType  string `json:"periodType"`
-	PriceAmount  string `json:"priceAmount"`
-	RewardAmount  string `json:"rewardAmount"`
-	RewardWallet  string `json:"rewardWallet"`
-	Status  int `json:"status"` // 1 enabled, 2 disabled
-	CreatedAt  *time.Time `json:"createdAt"`
-	UpdatedAt  *time.Time `json:"updatedAt"`
+	CardCode     string     `json:"cardCode"`
+	Title        string     `json:"title"`
+	PeriodType   string     `json:"periodType"`
+	PriceAmount  string     `json:"priceAmount"`
+	RewardAmount string     `json:"rewardAmount"`
+	RewardWallet string     `json:"rewardWallet"`
+	Status       int        `json:"status"` // 1 enabled, 2 disabled
+	CreatedAt    *time.Time `json:"createdAt"`
+	UpdatedAt    *time.Time `json:"updatedAt"`
 }
-
 
 // CreateGameWelfareCardsReply only for api docs
 type CreateGameWelfareCardsReply struct {

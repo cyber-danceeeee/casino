@@ -50,7 +50,7 @@ func main() {
 	}
 }
 
-func run(configFile string, dryRun, deleteLocal bool) error {
+func run(configFile string, dryRun bool, deleteLocal bool) error {
 	if err := config.Init(configFile); err != nil {
 		return err
 	}
@@ -302,7 +302,7 @@ ORDER BY TABLE_NAME, ORDINAL_POSITION`).Rows()
 	return summary, nil
 }
 
-func shouldScanColumn(columnName, dataType string) bool {
+func shouldScanColumn(columnName string, dataType string) bool {
 	dataType = strings.ToLower(strings.TrimSpace(dataType))
 	if dataType == "json" {
 		return true

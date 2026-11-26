@@ -15,7 +15,9 @@ type Service struct{ db *gorm.DB }
 
 func New(db *gorm.DB) *Service { return &Service{db: db} }
 
-func domainError(code, message string) error { return &DomainError{Code: code, Message: message} }
+func domainError(code string, message string) error {
+	return &DomainError{Code: code, Message: message}
+}
 
 func normalizeQuery(q ListQuery) (ListQuery, int) {
 	if q.Page < 1 {
@@ -48,14 +50,14 @@ func (s *Service) paginate(db *gorm.DB, q ListQuery, out any) (PageResult, error
 	return PageResult{List: out, Total: total, Page: q.Page, PageSize: q.PageSize}, nil
 }
 
-func contains(db *gorm.DB, column, value string) *gorm.DB {
+func contains(db *gorm.DB, column string, value string) *gorm.DB {
 	if value = strings.TrimSpace(value); value != "" {
 		return db.Where(column+" LIKE ?", "%"+value+"%")
 	}
 	return db
 }
 
-func equal(db *gorm.DB, column, value string) *gorm.DB {
+func equal(db *gorm.DB, column string, value string) *gorm.DB {
 	if value = strings.TrimSpace(value); value != "" {
 		return db.Where(column+" = ?", value)
 	}
@@ -72,7 +74,7 @@ func money(value string, field string) (decimal.Decimal, error) {
 
 func moneyPtr(value decimal.Decimal) *decimal.Decimal { return &value }
 
-func validRange(min, max decimal.Decimal) error {
+func validRange(min decimal.Decimal, max decimal.Decimal) error {
 	if max.LessThan(min) {
 		return domainError("INVALID_AMOUNT_RANGE", "maximum amount must be greater than or equal to minimum amount")
 	}
@@ -106,7 +108,7 @@ func decimalString(value *decimal.Decimal) string {
 	return value.StringFixed(2)
 }
 
-func rewardTotal(bonus, cash *decimal.Decimal) decimal.Decimal {
+func rewardTotal(bonus *decimal.Decimal, cash *decimal.Decimal) decimal.Decimal {
 	total := decimal.Zero
 	if bonus != nil {
 		total = total.Add(*bonus)
@@ -125,9 +127,9 @@ func jsonState(value any) string {
 	return string(data)
 }
 
-func (s *Service) audit(tx *gorm.DB, actor Actor, permission, action, targetType string, targetID uint64, before, after any) error {
+func (s *Service) audit(tx *gorm.DB, actor Actor, permission string, action string, targetType string, targetID uint64, before any, after any) error {
 	return tx.Create(&model.GameAdminOperationLogs{
-		TenantID: actor.Scope.TenantID, SiteID: actor.Scope.SiteID,
+		SiteID:     actor.Scope.SiteID,
 		OperatorID: actor.ID, OperatorUsername: actor.Username, Permission: permission,
 		Action: action, TargetType: targetType, TargetID: targetID,
 		BeforeState: jsonState(before), AfterState: jsonState(after),
@@ -143,7 +145,7 @@ func notFound(err error, code string) error {
 	return err
 }
 
-func listContains(list, value string) bool {
+func listContains(list string, value string) bool {
 	value = strings.ToUpper(strings.TrimSpace(value))
 	if value == "" {
 		return true
@@ -161,14 +163,14 @@ func listContains(list, value string) bool {
 	return false
 }
 
-func amountInRange(amount decimal.Decimal, min, max *decimal.Decimal) bool {
+func amountInRange(amount decimal.Decimal, min *decimal.Decimal, max *decimal.Decimal) bool {
 	if min != nil && amount.LessThan(*min) {
 		return false
 	}
 	return max == nil || max.IsZero() || !amount.GreaterThan(*max)
 }
 
-func generatedTitle(titleZh, titleEn string) string {
+func generatedTitle(titleZh string, titleEn string) string {
 	if strings.TrimSpace(titleEn) != "" {
 		return strings.TrimSpace(titleEn)
 	}

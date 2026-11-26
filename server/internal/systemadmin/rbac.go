@@ -1,7 +1,6 @@
 package systemadmin
 
 import (
-	"casino/internal/singlesite"
 	"strings"
 	"time"
 
@@ -10,9 +9,8 @@ import (
 )
 
 type RoleRow struct {
-	ID                 uint64    `json:"id"`
-	TenantID           uint64    `json:"tenantID" gorm:"column:tenant_id"`
-	Tenant             string    `json:"tenant"`
+	ID uint64 `json:"id"`
+
 	Code               string    `json:"code"`
 	NameZh             string    `json:"nameZh" gorm:"column:name_zh"`
 	NameEn             string    `json:"nameEn" gorm:"column:name_en"`
@@ -29,16 +27,12 @@ type RoleRow struct {
 
 func (s *Service) ListRoles(q Query, actor Actor) (Result, error) {
 	rows := []RoleRow{}
-	db := s.db.Table("game_admin_roles r").Select(`r.id,r.tenant_id,COALESCE(t.tenant_name,'Platform') tenant,r.code,r.name_zh,r.name_en,r.description_zh,r.description_en,r.data_scope,r.status,r.system_protected,r.created_at,r.updated_at,
-		(SELECT COUNT(DISTINCT ar.admin_id) FROM game_admin_account_roles ar WHERE ar.role_id=r.id AND ar.deleted_at IS NULL) administrator_count,
-		(SELECT COUNT(DISTINCT rp.permission_id) FROM game_admin_role_permissions rp WHERE rp.role_id=r.id AND rp.deleted_at IS NULL) permission_count`).
-		Joins("LEFT JOIN game_saas_tenants t ON t.id=r.tenant_id AND t.deleted_at IS NULL").
+	db := s.db.Table("game_admin_roles r").Select("r.id, r.code, r.name_zh, r.name_en, r.description_zh, r.description_en, r.data_scope, r.status, r.system_protected, r.created_at, r.updated_at, (SELECT COUNT(DISTINCT ar.admin_id) FROM game_admin_account_roles AS ar WHERE ar.role_id = r.id AND ar.deleted_at IS NULL) AS administrator_count, (SELECT COUNT(DISTINCT rp.permission_id) FROM game_admin_role_permissions AS rp WHERE rp.role_id = r.id AND rp.deleted_at IS NULL) AS permission_count").
 		Where("r.deleted_at IS NULL")
 	if actor.Platform {
-		db = exact(db, "r.tenant_id", value(q, "tenantID"))
-		db = like(db, "t.tenant_name", value(q, "tenant"))
+
 	} else {
-		db = db.Where("r.tenant_id=?", actor.TenantID)
+		db = db
 	}
 	db = like(db, "r.code", value(q, "code"))
 	name := value(q, "name")
@@ -53,13 +47,10 @@ func (s *Service) ListRoles(q Query, actor Actor) (Result, error) {
 
 func (s *Service) RoleDetail(id uint64, actor Actor) (map[string]any, error) {
 	var role RoleRow
-	db := s.db.Table("game_admin_roles r").Select(`r.id,r.tenant_id,COALESCE(t.tenant_name,'Platform') tenant,r.code,r.name_zh,r.name_en,r.description_zh,r.description_en,r.data_scope,r.status,r.system_protected,r.created_at,r.updated_at,
-		(SELECT COUNT(*) FROM game_admin_account_roles ar WHERE ar.role_id=r.id AND ar.deleted_at IS NULL) administrator_count,
-		(SELECT COUNT(*) FROM game_admin_role_permissions rp WHERE rp.role_id=r.id AND rp.deleted_at IS NULL) permission_count`).
-		Joins("LEFT JOIN game_saas_tenants t ON t.id=r.tenant_id AND t.deleted_at IS NULL").
+	db := s.db.Table("game_admin_roles r").Select("r.id, r.code, r.name_zh, r.name_en, r.description_zh, r.description_en, r.data_scope, r.status, r.system_protected, r.created_at, r.updated_at, (SELECT COUNT(*) FROM game_admin_account_roles AS ar WHERE ar.role_id = r.id AND ar.deleted_at IS NULL) AS administrator_count, (SELECT COUNT(*) FROM game_admin_role_permissions AS rp WHERE rp.role_id = r.id AND rp.deleted_at IS NULL) AS permission_count").
 		Where("r.id=? AND r.deleted_at IS NULL", id)
 	if !actor.Platform {
-		db = db.Where("r.tenant_id=?", actor.TenantID)
+		db = db
 	}
 	if err := db.Take(&role).Error; err != nil {
 		return nil, rowNotFound("role")
@@ -97,7 +88,7 @@ func validateRole(input RoleInput, creating bool) error {
 func (s *Service) roleScopedTable(actor Actor) *gorm.DB {
 	db := s.db.Table("game_admin_roles")
 	if !actor.Platform {
-		db = db.Where("tenant_id=?", actor.TenantID)
+		db = db
 	}
 	return db
 }
@@ -118,7 +109,7 @@ func (s *Service) CreateRole(input RoleInput, actor Actor) (uint64, error) {
 	if err := validateRole(input, true); err != nil {
 		return 0, err
 	}
-	row := map[string]any{"tenant_id": actor.TenantID, "code": strings.TrimSpace(input.Code), "name": input.NameEn, "name_zh": input.NameZh, "name_en": input.NameEn, "description_zh": input.DescriptionZh, "description_en": input.DescriptionEn, "data_scope": input.DataScope, "status": boolValue(boolDefault(input.Enabled, true)), "created_at": now(), "updated_at": now()}
+	row := map[string]any{"code": strings.TrimSpace(input.Code), "name": input.NameEn, "name_zh": input.NameZh, "name_en": input.NameEn, "description_zh": input.DescriptionZh, "description_en": input.DescriptionEn, "data_scope": input.DataScope, "status": boolValue(boolDefault(input.Enabled, true)), "created_at": now(), "updated_at": now()}
 	result := s.db.Table("game_admin_roles").Create(row)
 	if result.Error != nil {
 		return 0, duplicateError(result.Error)
@@ -141,7 +132,7 @@ func (s *Service) UpdateRole(id uint64, input RoleInput, actor Actor) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		db := tx.Table("game_admin_roles").Where("id=? AND deleted_at IS NULL", id)
 		if !actor.Platform {
-			db = db.Where("tenant_id=?", actor.TenantID)
+			db = db
 		}
 		if err := db.Updates(updates).Error; err != nil {
 			return err
@@ -169,7 +160,7 @@ func (s *Service) RoleStatus(id uint64, enabled bool, reason string, actor Actor
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		db := tx.Table("game_admin_roles").Where("id=?", id)
 		if !actor.Platform {
-			db = db.Where("tenant_id=?", actor.TenantID)
+			db = db
 		}
 		if err := db.Updates(map[string]any{"status": boolValue(enabled), "updated_at": now()}).Error; err != nil {
 			return err
@@ -177,7 +168,7 @@ func (s *Service) RoleStatus(id uint64, enabled bool, reason string, actor Actor
 		return audit(tx, actor, "system:role:update", "system.role.status", "role", id, row, map[string]any{"enabled": enabled}, reason)
 	})
 }
-func replaceRelations(tx *gorm.DB, table, ownerColumn string, ownerID uint64, targetColumn string, ids []uint64) error {
+func replaceRelations(tx *gorm.DB, table string, ownerColumn string, ownerID uint64, targetColumn string, ids []uint64) error {
 	if err := tx.Table(table).Where(ownerColumn+"=? AND deleted_at IS NULL", ownerID).Update("deleted_at", now()).Error; err != nil {
 		return err
 	}
@@ -254,7 +245,7 @@ func (s *Service) CopyRole(id uint64, input RoleInput, actor Actor) (uint64, err
 	}
 	var newID uint64
 	err := s.db.Transaction(func(tx *gorm.DB) error {
-		row := map[string]any{"tenant_id": actor.TenantID, "code": input.Code, "name": input.NameEn, "name_zh": input.NameZh, "name_en": input.NameEn, "description_zh": input.DescriptionZh, "description_en": input.DescriptionEn, "data_scope": input.DataScope, "status": boolValue(boolDefault(input.Enabled, true)), "created_at": now(), "updated_at": now()}
+		row := map[string]any{"code": input.Code, "name": input.NameEn, "name_zh": input.NameZh, "name_en": input.NameEn, "description_zh": input.DescriptionZh, "description_en": input.DescriptionEn, "data_scope": input.DataScope, "status": boolValue(boolDefault(input.Enabled, true)), "created_at": now(), "updated_at": now()}
 		if err := tx.Table("game_admin_roles").Create(row).Error; err != nil {
 			return duplicateError(err)
 		}
@@ -294,7 +285,7 @@ func (s *Service) DeleteRole(id uint64, reason string, actor Actor) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		db := tx.Table("game_admin_roles").Where("id=?", id)
 		if !actor.Platform {
-			db = db.Where("tenant_id=?", actor.TenantID)
+			db = db
 		}
 		if err := db.Update("deleted_at", now()).Error; err != nil {
 			return err
@@ -321,9 +312,6 @@ func (s *Service) ListPermissions(q Query) (Result, error) {
 	rows := []PermissionRow{}
 	db := s.db.Table("game_admin_permissions p").Select(`p.id,p.code,p.name_zh,p.name_en,p.module,p.permission_type,p.api_path,p.enabled,p.system_protected,p.updated_at,
 		(SELECT COUNT(DISTINCT rp.role_id) FROM game_admin_role_permissions rp WHERE rp.permission_id=p.id AND rp.deleted_at IS NULL) assigned_role_count`).Where("p.deleted_at IS NULL")
-	if singlesite.Active() {
-		db = db.Where("p.code NOT LIKE ?", "system:tenant:%")
-	}
 	db = like(db, "p.code", value(q, "code"))
 	name := value(q, "name")
 	if name != "" {
@@ -361,12 +349,7 @@ func (s *Service) CreatePermission(input PermissionInput, actor Actor) (uint64, 
 			return duplicateError(err)
 		}
 		id = row["id"].(uint64)
-		if err := tx.Exec(`
-			INSERT INTO game_admin_role_permissions (role_id, permission_id, created_at, updated_at, deleted_at)
-			SELECT id, ?, NOW(3), NOW(3), NULL
-			FROM game_admin_roles
-			WHERE code = 'super-admin' AND status = 1 AND system_protected = 1 AND deleted_at IS NULL
-			ON DUPLICATE KEY UPDATE deleted_at = NULL, updated_at = VALUES(updated_at)`, id).Error; err != nil {
+		if err := tx.Exec("INSERT INTO game_admin_role_permissions (role_id, permission_id, created_at, updated_at, deleted_at) SELECT id, ?, NOW(3), NOW(3), NULL FROM game_admin_roles WHERE code = 'super-admin' AND status = 1 AND system_protected = 1 AND deleted_at IS NULL ON DUPLICATE KEY UPDATE deleted_at = NULL, updated_at = VALUES(updated_at)", id).Error; err != nil {
 			return err
 		}
 		return audit(tx, actor, "system:permission:create", "system.permission.create", "permission", id, nil, row, "")

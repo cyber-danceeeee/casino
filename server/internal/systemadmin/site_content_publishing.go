@@ -11,18 +11,18 @@ type contentPublishRow struct {
 	DraftPayload string `gorm:"column:draft_payload"`
 }
 
-func previewAnnouncementDrafts(db *gorm.DB, tenantID, siteID uint64) ([]map[string]any, error) {
-	return previewContentDrafts(db, "game_site_announcements", tenantID, siteID)
+func previewAnnouncementDrafts(db *gorm.DB, siteID uint64) ([]map[string]any, error) {
+	return previewContentDrafts(db, "game_site_announcements", siteID)
 }
 
-func previewPopupDrafts(db *gorm.DB, tenantID, siteID uint64) ([]map[string]any, error) {
-	return previewContentDrafts(db, "game_tenant_popup_campaigns", tenantID, siteID)
+func previewPopupDrafts(db *gorm.DB, siteID uint64) ([]map[string]any, error) {
+	return previewContentDrafts(db, "game_popup_campaigns", siteID)
 }
 
-func previewContentDrafts(db *gorm.DB, table string, tenantID, siteID uint64) ([]map[string]any, error) {
+func previewContentDrafts(db *gorm.DB, table string, siteID uint64) ([]map[string]any, error) {
 	var rows []contentPublishRow
 	if err := db.Table(table).Select("id,COALESCE(CAST(draft_payload AS CHAR),'') draft_payload").
-		Where("tenant_id=? AND site_id=? AND deleted_at IS NULL", tenantID, siteID).Order("id ASC").Find(&rows).Error; err != nil {
+		Where("site_id = ? AND deleted_at IS NULL", siteID).Order("id ASC").Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	out := make([]map[string]any, 0, len(rows))
@@ -37,10 +37,10 @@ func previewContentDrafts(db *gorm.DB, table string, tenantID, siteID uint64) ([
 	return out, nil
 }
 
-func publishAnnouncementDrafts(tx *gorm.DB, tenantID, siteID, actorID, configVersion uint64) (int, error) {
+func publishAnnouncementDrafts(tx *gorm.DB, siteID uint64, actorID uint64, configVersion uint64) (int, error) {
 	var rows []contentPublishRow
 	if err := tx.Table("game_site_announcements").Select("id,COALESCE(CAST(draft_payload AS CHAR),'') draft_payload").
-		Where("tenant_id=? AND site_id=? AND publish_status=? AND deleted_at IS NULL", tenantID, siteID, siteContentDraft).Order("id ASC").Find(&rows).Error; err != nil {
+		Where("site_id = ? AND publish_status = ? AND deleted_at IS NULL", siteID, siteContentDraft).Order("id ASC").Find(&rows).Error; err != nil {
 		return 0, err
 	}
 	nowValue := now()
@@ -50,7 +50,7 @@ func publishAnnouncementDrafts(tx *gorm.DB, tenantID, siteID, actorID, configVer
 			return 0, NewError("INVALID_ANNOUNCEMENT_DRAFT", "invalid announcement draft")
 		}
 		if raw.Deleted {
-			if err := tx.Table("game_site_announcements").Where("id=? AND tenant_id=? AND site_id=?", row.ID, tenantID, siteID).
+			if err := tx.Table("game_site_announcements").Where("id = ? AND site_id = ?", row.ID, siteID).
 				Updates(map[string]any{"deleted_at": nowValue, "updated_at": nowValue, "updated_by": actorID}).Error; err != nil {
 				return 0, err
 			}
@@ -69,17 +69,17 @@ func publishAnnouncementDrafts(tx *gorm.DB, tenantID, siteID, actorID, configVer
 			"published_payload": payload, "publish_status": siteContentPublished, "config_version": configVersion,
 			"published_at": nowValue, "published_by": actorID, "updated_by": actorID, "updated_at": nowValue,
 		}
-		if err := tx.Table("game_site_announcements").Where("id=? AND tenant_id=? AND site_id=? AND deleted_at IS NULL", row.ID, tenantID, siteID).Updates(updates).Error; err != nil {
+		if err := tx.Table("game_site_announcements").Where("id = ? AND site_id = ? AND deleted_at IS NULL", row.ID, siteID).Updates(updates).Error; err != nil {
 			return 0, err
 		}
 	}
 	return len(rows), nil
 }
 
-func publishPopupDrafts(tx *gorm.DB, tenantID, siteID, actorID, configVersion uint64) (int, error) {
+func publishPopupDrafts(tx *gorm.DB, siteID uint64, actorID uint64, configVersion uint64) (int, error) {
 	var rows []contentPublishRow
-	if err := tx.Table("game_tenant_popup_campaigns").Select("id,COALESCE(CAST(draft_payload AS CHAR),'') draft_payload").
-		Where("tenant_id=? AND site_id=? AND publish_status=? AND deleted_at IS NULL", tenantID, siteID, siteContentDraft).Order("id ASC").Find(&rows).Error; err != nil {
+	if err := tx.Table("game_popup_campaigns").Select("id,COALESCE(CAST(draft_payload AS CHAR),'') draft_payload").
+		Where("site_id = ? AND publish_status = ? AND deleted_at IS NULL", siteID, siteContentDraft).Order("id ASC").Find(&rows).Error; err != nil {
 		return 0, err
 	}
 	nowValue := now()
@@ -90,7 +90,7 @@ func publishPopupDrafts(tx *gorm.DB, tenantID, siteID, actorID, configVersion ui
 			return 0, NewError("INVALID_POPUP_DRAFT", "invalid popup draft")
 		}
 		if raw.Deleted {
-			if err := tx.Table("game_tenant_popup_campaigns").Where("id=? AND tenant_id=? AND site_id=?", row.ID, tenantID, siteID).
+			if err := tx.Table("game_popup_campaigns").Where("id = ? AND site_id = ?", row.ID, siteID).
 				Updates(map[string]any{"deleted_at": nowValue, "updated_at": nowValue, "updated_by": actorID}).Error; err != nil {
 				return 0, err
 			}
@@ -111,7 +111,7 @@ func publishPopupDrafts(tx *gorm.DB, tenantID, siteID, actorID, configVersion ui
 			"published_payload": payload, "publish_status": siteContentPublished, "config_version": configVersion,
 			"published_at": nowValue, "published_by": actorID, "updated_by": actorID, "updated_at": nowValue,
 		}
-		if err := tx.Table("game_tenant_popup_campaigns").Where("id=? AND tenant_id=? AND site_id=? AND deleted_at IS NULL", row.ID, tenantID, siteID).Updates(updates).Error; err != nil {
+		if err := tx.Table("game_popup_campaigns").Where("id = ? AND site_id = ? AND deleted_at IS NULL", row.ID, siteID).Updates(updates).Error; err != nil {
 			return 0, err
 		}
 	}

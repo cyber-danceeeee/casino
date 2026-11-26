@@ -1,8 +1,9 @@
 package model
 
 import (
-	"github.com/go-dev-frame/sponge/pkg/sgorm"
 	"time"
+
+	"github.com/go-dev-frame/sponge/pkg/sgorm"
 )
 
 // GameSupportTickets Support tickets
@@ -30,5 +31,3 @@ var GameSupportTicketsColumnNames = map[string]bool{
 	"status":          true,
 	"last_message_at": true,
 }
-
-

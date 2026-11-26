@@ -10,10 +10,10 @@ import (
 	"gorm.io/gorm"
 
 	"casino/internal/config"
+	"casino/internal/content"
 	"casino/internal/eventbus"
 	"casino/internal/game/domain"
 	"casino/internal/model"
-	"casino/internal/tenancy"
 )
 
 func (s *Service) ListProviders(q ListQuery) (PageResult, error) {
@@ -22,12 +22,7 @@ func (s *Service) ListProviders(q ListQuery) (PageResult, error) {
 	}
 	var rows []providerRecord
 	db := s.db.Table("game_game_providers p").
-		Select(`p.id,p.provider_code,p.name,p.logo_url,p.api_base_url,p.environment,p.api_status,p.status,p.wallet_mode,
-			p.callback_url,p.supported_countries,p.supported_currencies,p.maintenance_message,p.sort,
-			p.last_tested_at,p.last_sync_at,p.created_at,p.updated_at,COUNT(g.id) game_count,
-			COALESCE((SELECT sl.id FROM game_provider_sync_logs sl WHERE sl.tenant_id=p.tenant_id AND sl.site_id=p.site_id AND sl.provider_code=p.provider_code AND sl.deleted_at IS NULL ORDER BY sl.id DESC LIMIT 1),0) latest_sync_id,
-			COALESCE((SELECT sl.status FROM game_provider_sync_logs sl WHERE sl.tenant_id=p.tenant_id AND sl.site_id=p.site_id AND sl.provider_code=p.provider_code AND sl.deleted_at IS NULL ORDER BY sl.id DESC LIMIT 1),'') latest_sync_status,
-			(SELECT sl.started_at FROM game_provider_sync_logs sl WHERE sl.tenant_id=p.tenant_id AND sl.site_id=p.site_id AND sl.provider_code=p.provider_code AND sl.deleted_at IS NULL ORDER BY sl.id DESC LIMIT 1) latest_sync_started_at`).
+		Select("p.id, p.provider_code, p.name, p.logo_url, p.api_base_url, p.environment, p.api_status, p.status, p.wallet_mode, p.callback_url, p.supported_countries, p.supported_currencies, p.maintenance_message, p.sort, p.last_tested_at, p.last_sync_at, p.created_at, p.updated_at, COUNT(g.id) AS game_count, COALESCE((SELECT sl.id FROM game_provider_sync_logs AS sl WHERE sl.site_id = p.site_id AND sl.provider_code = p.provider_code AND sl.deleted_at IS NULL ORDER BY sl.id DESC LIMIT 1), 0) AS latest_sync_id, COALESCE((SELECT sl.status FROM game_provider_sync_logs AS sl WHERE sl.site_id = p.site_id AND sl.provider_code = p.provider_code AND sl.deleted_at IS NULL ORDER BY sl.id DESC LIMIT 1), '') AS latest_sync_status, (SELECT sl.started_at FROM game_provider_sync_logs AS sl WHERE sl.site_id = p.site_id AND sl.provider_code = p.provider_code AND sl.deleted_at IS NULL ORDER BY sl.id DESC LIMIT 1) AS latest_sync_started_at").
 		Joins("LEFT JOIN game_games g ON g.provider_id=p.id AND g.deleted_at IS NULL").
 		Where("p.deleted_at IS NULL").Group("p.id")
 	db = providerScope(db, "p", q.Scope)
@@ -47,7 +42,7 @@ func (s *Service) ListProviders(q ListQuery) (PageResult, error) {
 	return paginate(db.Order("p.sort ASC,p.id ASC"), q, &rows)
 }
 
-func (s *Service) ProviderDetail(code string, scope tenancy.Scope) (map[string]any, error) {
+func (s *Service) ProviderDetail(code string, scope content.Scope) (map[string]any, error) {
 	var row providerRecord
 	db := s.db.Table("game_game_providers p").Select(`p.*,COUNT(g.id) game_count`).
 		Joins("LEFT JOIN game_games g ON g.provider_id=p.id AND g.deleted_at IS NULL").
@@ -239,7 +234,6 @@ func (s *Service) DeleteProvider(ctx context.Context, code string, command Reaso
 }
 
 type syncLogRecord struct {
-	TenantID       uint64     `gorm:"column:tenant_id" json:"tenantID"`
 	SiteID         uint64     `gorm:"column:site_id" json:"siteID"`
 	ID             uint64     `json:"id"`
 	SyncNo         string     `json:"syncID"`
@@ -262,7 +256,7 @@ type syncLogRecord struct {
 
 func (syncLogRecord) TableName() string { return "game_provider_sync_logs" }
 
-func (s *Service) SyncProvider(ctx context.Context, code, reason string, actor Actor) (syncLogRecord, error) {
+func (s *Service) SyncProvider(ctx context.Context, code string, reason string, actor Actor) (syncLogRecord, error) {
 	if !actor.Scope.Platform {
 		return syncLogRecord{}, newError("PLATFORM_SCOPE_REQUIRED", "provider synchronization is platform-only")
 	}
@@ -286,13 +280,13 @@ func (s *Service) SyncProvider(ctx context.Context, code, reason string, actor A
 		return syncLogRecord{}, err
 	}
 	start := time.Now()
-	row := syncLogRecord{TenantID: actor.Scope.TenantID, SiteID: actor.Scope.SiteID, SyncNo: generatedCode("SYNC"), ProviderCode: code, Status: "PENDING", TriggeredByID: actor.ID, TriggeredBy: actor.Username, StartedAt: start}
+	row := syncLogRecord{SiteID: actor.Scope.SiteID, SyncNo: generatedCode("SYNC"), ProviderCode: code, Status: "PENDING", TriggeredByID: actor.ID, TriggeredBy: actor.Username, StartedAt: start}
 	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&row).Error; err != nil {
 			return err
 		}
 		_, err := eventbus.New(tx).PublishTx(tx, eventbus.Event{
-			Scope: actor.Scope, TenantID: actor.Scope.TenantID, SiteID: actor.Scope.SiteID,
+			Scope: actor.Scope, SiteID: actor.Scope.SiteID,
 			EventType: eventbus.EventProviderSyncRequested, AggregateType: "provider_sync", AggregateID: fmt.Sprint(row.ID),
 			Source: "gameadmin", Producer: "gameadmin", IdempotencyKey: "provider-sync:" + row.SyncNo,
 			RequestID: actor.CorrelationID, TraceID: actor.CorrelationID, CorrelationID: actor.CorrelationID,
@@ -307,7 +301,7 @@ func (s *Service) SyncProvider(ctx context.Context, code, reason string, actor A
 	return row, nil
 }
 
-func (s *Service) executeProviderSync(row syncLogRecord, code, reason string, actor Actor) error {
+func (s *Service) executeProviderSync(row syncLogRecord, code string, reason string, actor Actor) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer cancel()
 
@@ -347,7 +341,7 @@ func (s *Service) executeProviderSync(row syncLogRecord, code, reason string, ac
 				errorMessage = errorMessage[:500]
 			}
 			if err := tx.Table("game_provider_sync_log_items").Create(map[string]any{
-				"tenant_id": actor.Scope.TenantID, "site_id": actor.Scope.SiteID,
+				"site_id":     actor.Scope.SiteID,
 				"sync_log_id": row.ID, "provider_game_id": item.ProviderGameID, "game_name": item.GameName,
 				"change_type": item.ChangeType, "error_message": errorMessage, "created_at": completed, "updated_at": completed,
 			}).Error; err != nil {
@@ -373,18 +367,18 @@ func (s *Service) executeProviderSync(row syncLogRecord, code, reason string, ac
 	return nil
 }
 
-func providerScope(db *gorm.DB, alias string, scope tenancy.Scope) *gorm.DB {
+func providerScope(db *gorm.DB, alias string, scope content.Scope) *gorm.DB {
 	if !scope.Platform {
-		return tenancy.ApplySite(db, alias, scope)
+		return content.ApplySite(db, alias, scope)
 	}
 	prefix := ""
 	if strings.TrimSpace(alias) != "" {
 		prefix = strings.TrimSpace(alias) + "."
 	}
-	return db.Where(prefix + "tenant_id=0 AND " + prefix + "site_id=0")
+	return db.Where(prefix + "site_id=0")
 }
 
-func (s *Service) recoverStaleProviderSyncs(ctx context.Context, scope tenancy.Scope, providerCode string) error {
+func (s *Service) recoverStaleProviderSyncs(ctx context.Context, scope content.Scope, providerCode string) error {
 	cutoff := time.Now().Add(-35 * time.Minute)
 	db := providerScope(s.db.WithContext(ctx).Model(&syncLogRecord{}), "", scope).
 		Where("status IN ('PENDING','RUNNING') AND started_at<? AND deleted_at IS NULL", cutoff)
@@ -396,7 +390,7 @@ func (s *Service) recoverStaleProviderSyncs(ctx context.Context, scope tenancy.S
 		"error_message": "provider synchronization timed out and was recovered"}).Error
 }
 
-func (s *Service) CancelProviderSync(ctx context.Context, code, reason string, actor Actor) (syncLogRecord, error) {
+func (s *Service) CancelProviderSync(ctx context.Context, code string, reason string, actor Actor) (syncLogRecord, error) {
 	if !actor.Scope.Platform {
 		return syncLogRecord{}, newError("PLATFORM_SCOPE_REQUIRED", "provider synchronization is platform-only")
 	}
@@ -440,7 +434,7 @@ func (s *Service) HandleProviderSyncEvent(ctx eventbus.Context) error {
 	if err := s.db.Where("id=? AND deleted_at IS NULL", id).Take(&row).Error; err != nil {
 		return err
 	}
-	if row.TenantID != ctx.Event.TenantID || row.SiteID != ctx.Event.SiteID {
+	if row.SiteID != ctx.Event.SiteID {
 		return newError("PROVIDER_SYNC_SCOPE_MISMATCH", "provider sync is outside event scope")
 	}
 	if row.Status == "SUCCESS" {
@@ -458,7 +452,7 @@ func (s *Service) HandleProviderSyncEvent(ctx eventbus.Context) error {
 	row.StartedAt = claimedAt
 	actor := Actor{
 		ID: payloadUint64(ctx.Event.Payload["operatorID"]), Username: strings.TrimSpace(fmt.Sprint(ctx.Event.Payload["operatorUsername"])),
-		Scope: tenancy.Scope{TenantID: row.TenantID, SiteID: row.SiteID, Platform: row.TenantID == 0}, CorrelationID: ctx.Event.CorrelationID,
+		Scope: content.Scope{SiteID: row.SiteID, Platform: row.SiteID == 0}, CorrelationID: ctx.Event.CorrelationID,
 	}
 	return s.executeProviderSync(row, row.ProviderCode, strings.TrimSpace(fmt.Sprint(ctx.Event.Payload["reason"])), actor)
 }

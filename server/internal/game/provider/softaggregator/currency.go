@@ -5,7 +5,7 @@ import "strings"
 // SoftAggregator accepts the platform ISO currency without a country prefix.
 type currencyMapper struct{}
 
-func (currencyMapper) ToProviderCurrency(_, currency string) string {
+func (currencyMapper) ToProviderCurrency(_ string, currency string) string {
 	return strings.ToUpper(strings.TrimSpace(currency))
 }
 

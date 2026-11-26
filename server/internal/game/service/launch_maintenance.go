@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
+	"casino/internal/content"
 	"casino/internal/game/domain"
-	"casino/internal/tenancy"
 )
 
 type launchMaintenanceRow struct {
@@ -16,14 +16,14 @@ type launchMaintenanceRow struct {
 	AffectedCurrencies string `gorm:"column:affected_currencies"`
 }
 
-func (s *LaunchService) launchMaintenance(ctx context.Context, scope tenancy.Scope, providerCode string, gameID uint64, country, currency string) (domain.WalletErrorCode, string, bool) {
+func (s *LaunchService) launchMaintenance(ctx context.Context, scope content.Scope, providerCode string, gameID uint64, country string, currency string) (domain.WalletErrorCode, string, bool) {
 	nowValue := time.Now()
 	var providerRows []launchMaintenanceRow
 	_ = s.repo.DB().WithContext(ctx).Table("game_provider_maintenance").
 		Where("provider_code=? AND enabled=1 AND block_new_launches=1 AND deleted_at IS NULL", strings.ToUpper(providerCode)).
-		Where("(tenant_id=0 AND site_id=0) OR (tenant_id=? AND (site_id=0 OR site_id=?))", scope.TenantID, scope.SiteID).
+		Where("(site_id = 0) OR ((site_id = 0 OR site_id = ?))", scope.SiteID).
 		Where("start_at IS NULL OR start_at<=?", nowValue).Where("end_at IS NULL OR end_at>?", nowValue).
-		Order("tenant_id ASC,site_id ASC,id ASC").Find(&providerRows).Error
+		Order("site_id ASC, id ASC").Find(&providerRows).Error
 	for _, row := range providerRows {
 		if launchMaintenanceApplies(row.AffectedCountries, country) && launchMaintenanceApplies(row.AffectedCurrencies, currency) {
 			return domain.WalletErrorProviderMaintenance, launchMaintenanceMessage(row, "Provider is under maintenance"), true
@@ -31,7 +31,7 @@ func (s *LaunchService) launchMaintenance(ctx context.Context, scope tenancy.Sco
 	}
 	var gameRow launchMaintenanceRow
 	err := s.repo.DB().WithContext(ctx).Table("game_game_maintenance").
-		Where("tenant_id=? AND site_id=? AND game_id=? AND enabled=1 AND block_new_launches=1 AND deleted_at IS NULL", scope.TenantID, scope.SiteID, gameID).
+		Where("site_id = ? AND game_id = ? AND enabled = 1 AND block_new_launches = 1 AND deleted_at IS NULL", scope.SiteID, gameID).
 		Where("start_at IS NULL OR start_at<=?", nowValue).Where("end_at IS NULL OR end_at>?", nowValue).
 		Take(&gameRow).Error
 	if err == nil && launchMaintenanceApplies(gameRow.AffectedCountries, country) && launchMaintenanceApplies(gameRow.AffectedCurrencies, currency) {
@@ -40,7 +40,7 @@ func (s *LaunchService) launchMaintenance(ctx context.Context, scope tenancy.Sco
 	return "", "", false
 }
 
-func launchMaintenanceApplies(csv, value string) bool {
+func launchMaintenanceApplies(csv string, value string) bool {
 	if strings.TrimSpace(csv) == "" {
 		return true
 	}

@@ -10,7 +10,6 @@ import (
 type GameLobbySections struct {
 	sgorm.Model `gorm:"embedded"`
 
-	TenantID            uint64     `gorm:"column:tenant_id;type:bigint(20) unsigned;default:0;not null" json:"tenantID"`
 	SiteID              uint64     `gorm:"column:site_id;type:bigint(20) unsigned;default:0;not null" json:"siteID"`
 	SectionCode         string     `gorm:"column:section_code;type:varchar(64);not null" json:"sectionCode"`
 	SectionType         string     `gorm:"column:section_type;type:varchar(32);not null" json:"sectionType"`

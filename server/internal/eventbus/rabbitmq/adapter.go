@@ -123,8 +123,8 @@ func applyDefaults(config *Config) {
 		config.MaxRetries = len(retrySteps)
 	}
 	config.Queues = uniqueStrings(append(config.Queues,
-		eventbus.QueueLedger, eventbus.QueuePayment, eventbus.QueueProvider, eventbus.QueuePromotion,
-		eventbus.QueueNotification, eventbus.QueueAudit, eventbus.QueueDashboard, eventbus.QueueSystemJobs,
+		eventbus.QueuePayment, eventbus.QueueProvider, eventbus.QueuePromotion,
+		eventbus.QueueNotification, eventbus.QueueAudit, eventbus.QueueSystemJobs,
 		eventbus.QueueRetry, eventbus.QueueDead,
 	))
 }
@@ -167,7 +167,7 @@ func (a *Adapter) Publish(ctx context.Context, message eventbus.PublishMessage) 
 	return nil
 }
 
-func (a *Adapter) publishConfirmed(ctx context.Context, exchange, routingKey string, publishing amqp091.Publishing) error {
+func (a *Adapter) publishConfirmed(ctx context.Context, exchange string, routingKey string, publishing amqp091.Publishing) error {
 	a.publishMu.Lock()
 	defer a.publishMu.Unlock()
 	connection, err := a.ensureConnection(ctx)
@@ -622,7 +622,7 @@ func (a *Adapter) DeadMessages(ctx context.Context, queue string, limit int) ([]
 	return result, nil
 }
 
-func (a *Adapter) ReplayDead(ctx context.Context, queue, eventID string) error {
+func (a *Adapter) ReplayDead(ctx context.Context, queue string, eventID string) error {
 	deadQueue := normalizeDeadQueue(queue)
 	mainQueue := strings.TrimSuffix(deadQueue, ".dead")
 	if mainQueue == deadQueue || !contains(a.config.Queues, mainQueue) {
@@ -780,8 +780,8 @@ func (a *Adapter) managedQueue(queue string) bool {
 	return contains(a.allQueueNames(), queue)
 }
 
-func retryQueueName(queue, step string) string  { return queue + ".retry." + step }
-func retryRoutingKey(queue, step string) string { return queue + ".retry." + step }
+func retryQueueName(queue string, step string) string  { return queue + ".retry." + step }
+func retryRoutingKey(queue string, step string) string { return queue + ".retry." + step }
 
 func normalizeDeadQueue(queue string) string {
 	queue = strings.TrimSpace(queue)

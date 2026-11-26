@@ -14,9 +14,9 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"casino/internal/content"
 	"casino/internal/database"
 	"casino/internal/model"
-	"casino/internal/tenancy"
 )
 
 type Service struct{ db *gorm.DB }
@@ -96,7 +96,7 @@ func paginate(db *gorm.DB, query ListQuery, target any) (PageResult, error) {
 	return PageResult{List: target, Total: total, Page: query.Page, PageSize: query.PageSize}, nil
 }
 
-func contains(db *gorm.DB, column, value string) *gorm.DB {
+func contains(db *gorm.DB, column string, value string) *gorm.DB {
 	value = strings.TrimSpace(value)
 	if value == "" {
 		return db
@@ -104,7 +104,7 @@ func contains(db *gorm.DB, column, value string) *gorm.DB {
 	return db.Where(column+" LIKE ?", "%"+value+"%")
 }
 
-func equals(db *gorm.DB, column, value string) *gorm.DB {
+func equals(db *gorm.DB, column string, value string) *gorm.DB {
 	value = strings.TrimSpace(value)
 	if value == "" {
 		return db
@@ -112,7 +112,7 @@ func equals(db *gorm.DB, column, value string) *gorm.DB {
 	return db.Where(column+" = ?", value)
 }
 
-func timeRange(db *gorm.DB, column, from, to string) *gorm.DB {
+func timeRange(db *gorm.DB, column string, from string, to string) *gorm.DB {
 	if strings.TrimSpace(from) != "" {
 		db = db.Where(column+" >= ?", from)
 	}
@@ -122,7 +122,7 @@ func timeRange(db *gorm.DB, column, from, to string) *gorm.DB {
 	return db
 }
 
-func minorRange(db *gorm.DB, column, minValue, maxValue string) *gorm.DB {
+func minorRange(db *gorm.DB, column string, minValue string, maxValue string) *gorm.DB {
 	if value, ok := parseMinor(minValue); ok {
 		db = db.Where(column+" >= ?", value)
 	}
@@ -207,7 +207,7 @@ func (s *Service) ListBets(query ListQuery) (PageResult, error) {
 	rows := []BetRow{}
 	v := query.Values
 	db := s.db.Table("game_bet_records AS b").Select(baseBetSelect()).Joins("LEFT JOIN game_users u ON u.id=b.user_id").Joins("LEFT JOIN game_games g ON g.id=b.game_id").Where("b.deleted_at IS NULL")
-	db = tenancy.ApplySite(db, "b", query.Scope)
+	db = content.ApplySite(db, "b", query.Scope)
 	db = contains(db, "b.platform_bet_id", v["platformBetID"])
 	db = contains(db, "b.provider_bet_transaction_id", v["providerTransactionID"])
 	db = contains(db, "b.provider_round_id", v["providerRoundID"])
@@ -238,7 +238,7 @@ func (s *Service) ListRounds(query ListQuery) (PageResult, error) {
 	rows := []RoundRow{}
 	v := query.Values
 	db := s.db.Table("game_rounds r").Select("r.id,r.provider_round_id,r.user_id,u.user_no,u.username,r.game_id,COALESCE(g.name,'') game_name,r.provider_code,r.provider_game_id,r.total_bet_minor,r.total_win_minor,r.platform_profit_minor,r.currency,r.transaction_count,r.status,r.started_at,r.completed_at,r.created_at,r.updated_at").Joins("LEFT JOIN game_users u ON u.id=r.user_id").Joins("LEFT JOIN game_games g ON g.id=r.game_id").Where("r.deleted_at IS NULL")
-	db = tenancy.ApplySite(db, "r", query.Scope)
+	db = content.ApplySite(db, "r", query.Scope)
 	db = contains(db, "r.provider_round_id", v["providerRoundID"])
 	db = contains(db, "u.user_no", v["userNo"])
 	db = contains(db, "u.username", v["username"])
@@ -261,7 +261,7 @@ func (s *Service) ListRollbacks(query ListQuery) (PageResult, error) {
 	rows := []RollbackRow{}
 	v := query.Values
 	db := s.db.Table("game_rollbacks rb").Select("rb.id,rb.rollback_id,rb.original_provider_transaction_id,rb.provider_transaction_id,rb.provider_round_id,rb.user_id,u.user_no,u.username,rb.provider_code,rb.game_id,COALESCE(g.name,'') game_name,rb.original_operation,rb.original_amount_minor,rb.rollback_amount_minor,rb.currency,rb.status,rb.failure_reason,rb.created_at,rb.completed_at").Joins("LEFT JOIN game_users u ON u.id=rb.user_id").Joins("LEFT JOIN game_games g ON g.id=rb.game_id").Where("rb.deleted_at IS NULL")
-	db = tenancy.ApplySite(db, "rb", query.Scope)
+	db = content.ApplySite(db, "rb", query.Scope)
 	db = contains(db, "rb.rollback_id", v["rollbackID"])
 	db = contains(db, "rb.original_provider_transaction_id", v["originalTransactionID"])
 	db = contains(db, "rb.provider_transaction_id", v["providerTransactionID"])
@@ -285,7 +285,7 @@ func (s *Service) ListAbnormal(query ListQuery) (PageResult, error) {
 	rows := []AbnormalRow{}
 	v := query.Values
 	db := s.db.Table("game_abnormal_bet_events a").Select("a.id,a.risk_event_id,a.bet_record_id,a.user_id,u.user_no,u.username,a.provider_code,a.game_id,COALESCE(g.name,'') game_name,a.provider_round_id,a.risk_type,a.risk_level,a.review_status,a.bet_amount_minor,a.win_amount_minor,a.trigger_count,a.assigned_reviewer,a.latest_reason,a.created_at,a.updated_at").Joins("LEFT JOIN game_users u ON u.id=a.user_id").Joins("LEFT JOIN game_games g ON g.id=a.game_id").Where("a.deleted_at IS NULL")
-	db = tenancy.ApplySite(db, "a", query.Scope)
+	db = content.ApplySite(db, "a", query.Scope)
 	db = contains(db, "u.user_no", v["userNo"])
 	db = contains(db, "u.username", v["username"])
 	db = equals(db, "a.provider_code", v["providerCode"])
@@ -308,7 +308,7 @@ func (s *Service) ListCallbacks(query ListQuery) (PageResult, error) {
 	v := query.Values
 	db := callbackJoins(s.db.Table("game_provider_callback_logs c").Select(callbackSelectSQL(false))).
 		Where("c.deleted_at IS NULL")
-	db = tenancy.ApplySite(db, "c", query.Scope)
+	db = content.ApplySite(db, "c", query.Scope)
 	db = equals(db, "c.provider_code", v["providerCode"])
 	db = equals(db, "c.operation", v["operation"])
 	db = contains(db, "u.user_no", v["userNo"])
@@ -329,7 +329,7 @@ func (s *Service) ListCallbacks(query ListQuery) (PageResult, error) {
 	return result, err
 }
 
-func (s *Service) BetDetail(id uint64, scope tenancy.Scope) (map[string]any, error) {
+func (s *Service) BetDetail(id uint64, scope content.Scope) (map[string]any, error) {
 	row, err := s.singleBet(id, scope)
 	if err != nil {
 		return nil, notFound(err)
@@ -337,22 +337,22 @@ func (s *Service) BetDetail(id uint64, scope tenancy.Scope) (map[string]any, err
 	return map[string]any{"overview": row, "transactionTimeline": s.providerTransactions(row.ProviderCode, row.ProviderRoundID, row.UserID, scope), "walletTransactions": s.walletTransactions(row.UserID, "game_provider_transaction", 0, scope), "providerRequests": s.callbackLogs(row.ProviderCode, row.ProviderRoundID, row.UserID, scope), "roundInformation": s.roundByProvider(row.ProviderCode, row.ProviderRoundID, row.UserID, scope), "operationLogs": s.operationLogs("bet", id, scope)}, nil
 }
 
-func (s *Service) RoundDetail(id uint64, scope tenancy.Scope) (map[string]any, error) {
+func (s *Service) RoundDetail(id uint64, scope content.Scope) (map[string]any, error) {
 	var row RoundRow
 	db := s.db.Table("game_rounds r").Select("r.id,r.provider_round_id,r.user_id,u.user_no,u.username,r.game_id,COALESCE(g.name,'') game_name,r.provider_code,r.provider_game_id,r.total_bet_minor,r.total_win_minor,r.platform_profit_minor,r.currency,r.transaction_count,r.status,r.started_at,r.completed_at,r.created_at,r.updated_at").Joins("LEFT JOIN game_users u ON u.id=r.user_id").Joins("LEFT JOIN game_games g ON g.id=r.game_id").Where("r.id=? AND r.deleted_at IS NULL", id)
-	db = tenancy.ApplySite(db, "r", scope).Take(&row)
+	db = content.ApplySite(db, "r", scope).Take(&row)
 	if db.Error != nil {
 		return nil, notFound(db.Error)
 	}
 	setRoundMoney(&row)
 	bets := []BetRow{}
 	betDB := s.db.Table("game_bet_records b").Select(baseBetSelect()).Joins("LEFT JOIN game_users u ON u.id=b.user_id").Joins("LEFT JOIN game_games g ON g.id=b.game_id").Where("b.provider_code=? AND b.provider_round_id=? AND b.user_id=? AND b.deleted_at IS NULL", row.ProviderCode, row.ProviderRoundID, row.UserID)
-	_ = tenancy.ApplySite(betDB, "b", scope).Order("b.id").Scan(&bets).Error
+	_ = content.ApplySite(betDB, "b", scope).Order("b.id").Scan(&bets).Error
 	fillBetMoney(bets)
 	return map[string]any{"roundSummary": row, "bettingRecords": bets, "walletTransactions": s.providerTransactions(row.ProviderCode, row.ProviderRoundID, row.UserID, scope), "providerCallbacks": s.callbackLogs(row.ProviderCode, row.ProviderRoundID, row.UserID, scope), "operationLogs": s.operationLogs("round", id, scope)}, nil
 }
 
-func (s *Service) RollbackDetail(id uint64, scope tenancy.Scope) (map[string]any, error) {
+func (s *Service) RollbackDetail(id uint64, scope content.Scope) (map[string]any, error) {
 	rows, err := s.rollbackRows(scope, "rb.id = ?", id)
 	if err != nil || len(rows) == 0 {
 		return nil, newError("ROLLBACK_NOT_FOUND", "rollback record not found")
@@ -361,22 +361,22 @@ func (s *Service) RollbackDetail(id uint64, scope tenancy.Scope) (map[string]any
 	return map[string]any{"overview": row, "originalTransaction": s.providerTransaction(row.ProviderCode, row.OriginalProviderTransactionID, scope), "rollbackTransaction": s.providerTransaction(row.ProviderCode, row.ProviderTransactionID, scope), "walletEffect": s.walletTransactions(row.UserID, "game_provider_transaction", 0, scope), "providerRequest": s.callbackLogs(row.ProviderCode, row.ProviderRoundID, row.UserID, scope), "operationLogs": s.operationLogs("rollback", id, scope)}, nil
 }
 
-func (s *Service) AbnormalDetail(id uint64, scope tenancy.Scope) (map[string]any, error) {
+func (s *Service) AbnormalDetail(id uint64, scope content.Scope) (map[string]any, error) {
 	rows, err := s.abnormalRows(scope, "a.id = ?", id)
 	if err != nil || len(rows) == 0 {
 		return nil, newError("ABNORMAL_BET_NOT_FOUND", "abnormal bet not found")
 	}
 	row := rows[0]
 	var history, notes []map[string]any
-	_ = tenancy.ApplySite(s.db.Table("game_abnormal_bet_review_histories"), "", scope).Where("abnormal_bet_id=? AND deleted_at IS NULL", id).Order("created_at DESC").Find(&history).Error
-	_ = tenancy.ApplySite(s.db.Table("game_abnormal_bet_notes"), "", scope).Where("abnormal_bet_id=? AND deleted_at IS NULL", id).Order("created_at DESC").Find(&notes).Error
+	_ = content.ApplySite(s.db.Table("game_abnormal_bet_review_histories"), "", scope).Where("abnormal_bet_id=? AND deleted_at IS NULL", id).Order("created_at DESC").Find(&history).Error
+	_ = content.ApplySite(s.db.Table("game_abnormal_bet_notes"), "", scope).Where("abnormal_bet_id=? AND deleted_at IS NULL", id).Order("created_at DESC").Find(&notes).Error
 	bet, _ := s.singleBet(row.BetRecordID, scope)
 	return map[string]any{"riskSummary": row, "betInformation": bet, "relatedTransactions": s.providerTransactions(row.ProviderCode, row.ProviderRoundID, row.UserID, scope), "relatedRounds": s.roundByProvider(row.ProviderCode, row.ProviderRoundID, row.UserID, scope), "relatedDevicesAndIPs": s.userDeviceSummary(row.UserID, scope), "reviewHistory": history, "internalNotes": notes, "operationLogs": s.operationLogs("abnormal_bet", id, scope)}, nil
 }
 
-func (s *Service) CallbackDetail(id uint64, scope tenancy.Scope) (map[string]any, error) {
+func (s *Service) CallbackDetail(id uint64, scope content.Scope) (map[string]any, error) {
 	var row map[string]any
-	result := callbackJoins(tenancy.ApplySite(s.db.Table("game_provider_callback_logs c").Select(callbackSelectSQL(true)), "c", scope)).
+	result := callbackJoins(content.ApplySite(s.db.Table("game_provider_callback_logs c").Select(callbackSelectSQL(true)), "c", scope)).
 		Where("c.id=? AND c.deleted_at IS NULL", id).Take(&row)
 	if result.Error != nil {
 		return nil, notFound(result.Error)
@@ -384,43 +384,43 @@ func (s *Service) CallbackDetail(id uint64, scope tenancy.Scope) (map[string]any
 	return map[string]any{"overview": safeMap(row, []string{"id", "callback_id", "provider_code", "operation", "user_no", "username", "user_phone", "provider_player_id", "provider_transaction_id", "provider_round_id", "game_id", "game_name", "provider_game_id", "amount_minor", "currency", "http_method", "request_path", "source_ip", "processing_result", "duration_ms", "correlation_id", "failure_reason", "created_at"}), "request": safeMap(row, []string{"http_method", "request_path", "request_headers", "query_parameters", "request_body", "source_ip"}), "validation": safeMap(row, []string{"signature_result", "timestamp_validation", "processing_result", "failure_reason"}), "normalizedCommand": jsonObject(row["normalized_command"]), "walletResult": jsonObject(row["wallet_result"]), "providerResponse": jsonObject(row["provider_response"]), "operationLogs": s.operationLogs("provider_callback", id, scope)}, nil
 }
 
-func (s *Service) singleBet(id uint64, scope tenancy.Scope) (BetRow, error) {
+func (s *Service) singleBet(id uint64, scope content.Scope) (BetRow, error) {
 	var row BetRow
 	db := s.db.Table("game_bet_records b").Select(baseBetSelect()).Joins("LEFT JOIN game_users u ON u.id=b.user_id").Joins("LEFT JOIN game_games g ON g.id=b.game_id").Where("b.id=? AND b.deleted_at IS NULL", id)
-	db = tenancy.ApplySite(db, "b", scope).Take(&row)
+	db = content.ApplySite(db, "b", scope).Take(&row)
 	setBetMoney(&row)
 	return row, db.Error
 }
-func (s *Service) rollbackRows(scope tenancy.Scope, where string, args ...any) ([]RollbackRow, error) {
+func (s *Service) rollbackRows(scope content.Scope, where string, args ...any) ([]RollbackRow, error) {
 	rows := []RollbackRow{}
 	db := s.db.Table("game_rollbacks rb").Select("rb.id,rb.rollback_id,rb.original_provider_transaction_id,rb.provider_transaction_id,rb.provider_round_id,rb.user_id,u.user_no,u.username,rb.provider_code,rb.game_id,COALESCE(g.name,'') game_name,rb.original_operation,rb.original_amount_minor,rb.rollback_amount_minor,rb.currency,rb.status,rb.failure_reason,rb.created_at,rb.completed_at").Joins("LEFT JOIN game_users u ON u.id=rb.user_id").Joins("LEFT JOIN game_games g ON g.id=rb.game_id").Where(where, args...).Where("rb.deleted_at IS NULL")
-	db = tenancy.ApplySite(db, "rb", scope).Scan(&rows)
+	db = content.ApplySite(db, "rb", scope).Scan(&rows)
 	fillRollbackMoney(rows)
 	return rows, db.Error
 }
-func (s *Service) abnormalRows(scope tenancy.Scope, where string, args ...any) ([]AbnormalRow, error) {
+func (s *Service) abnormalRows(scope content.Scope, where string, args ...any) ([]AbnormalRow, error) {
 	rows := []AbnormalRow{}
 	db := s.db.Table("game_abnormal_bet_events a").Select("a.id,a.risk_event_id,a.bet_record_id,a.user_id,u.user_no,u.username,a.provider_code,a.game_id,COALESCE(g.name,'') game_name,a.provider_round_id,a.risk_type,a.risk_level,a.review_status,a.bet_amount_minor,a.win_amount_minor,a.trigger_count,a.assigned_reviewer,a.latest_reason,a.created_at,a.updated_at").Joins("LEFT JOIN game_users u ON u.id=a.user_id").Joins("LEFT JOIN game_games g ON g.id=a.game_id").Where(where, args...).Where("a.deleted_at IS NULL")
-	db = tenancy.ApplySite(db, "a", scope).Scan(&rows)
+	db = content.ApplySite(db, "a", scope).Scan(&rows)
 	fillAbnormalMoney(rows)
 	return rows, db.Error
 }
-func (s *Service) providerTransactions(provider, round string, userID uint64, scope tenancy.Scope) []map[string]any {
+func (s *Service) providerTransactions(provider string, round string, userID uint64, scope content.Scope) []map[string]any {
 	var rows []map[string]any
 	db := s.db.Table("game_provider_transactions").Select("id,provider_code,provider_transaction_id,provider_round_id,provider_game_id,user_id,wallet_transaction_id,operation,amount_minor,currency,status,related_transaction_id,balance_before_minor,balance_after_minor,created_at").Where("provider_code=? AND provider_round_id=? AND user_id=? AND deleted_at IS NULL", provider, round, userID)
-	_ = tenancy.ApplySite(db, "", scope).Order("created_at,id").Find(&rows).Error
+	_ = content.ApplySite(db, "", scope).Order("created_at,id").Find(&rows).Error
 	return rows
 }
-func (s *Service) providerTransaction(provider, transaction string, scope tenancy.Scope) map[string]any {
+func (s *Service) providerTransaction(provider string, transaction string, scope content.Scope) map[string]any {
 	var row map[string]any
 	db := s.db.Table("game_provider_transactions").Select("id,provider_code,provider_transaction_id,provider_round_id,provider_game_id,user_id,wallet_transaction_id,operation,amount_minor,currency,status,related_transaction_id,balance_before_minor,balance_after_minor,created_at").Where("provider_code=? AND provider_transaction_id=? AND deleted_at IS NULL", provider, transaction)
-	_ = tenancy.ApplySite(db, "", scope).Take(&row).Error
+	_ = content.ApplySite(db, "", scope).Take(&row).Error
 	return row
 }
-func (s *Service) walletTransactions(userID uint64, source string, sourceID uint64, scope tenancy.Scope) []map[string]any {
+func (s *Service) walletTransactions(userID uint64, source string, sourceID uint64, scope content.Scope) []map[string]any {
 	var rows []map[string]any
 	db := s.db.Table("game_wallet_transactions").Select("id,txn_no,external_txn_no,user_id,wallet_id,wallet_type,direction,category,source_type,source_id,provider_code,order_no,amount,currency,status,balance_before,balance_after,created_at,completed_at").Where("user_id=? AND deleted_at IS NULL", userID)
-	db = tenancy.ApplySite(db, "", scope)
+	db = content.ApplySite(db, "", scope)
 	if source != "" {
 		db = db.Where("source_type=?", source)
 	}
@@ -430,10 +430,10 @@ func (s *Service) walletTransactions(userID uint64, source string, sourceID uint
 	_ = db.Order("created_at,id").Find(&rows).Error
 	return rows
 }
-func (s *Service) callbackLogs(provider, round string, userID uint64, scope tenancy.Scope) []map[string]any {
+func (s *Service) callbackLogs(provider string, round string, userID uint64, scope content.Scope) []map[string]any {
 	var rows []map[string]any
 	db := s.db.Table("game_provider_callback_logs").Select("id,callback_id,provider_code,operation,user_id,provider_transaction_id,provider_round_id,provider_game_id,amount_minor,currency,signature_result,timestamp_validation,processing_result,http_status,source_ip,duration_ms,failure_reason,created_at").Where("provider_code=? AND deleted_at IS NULL", provider)
-	db = tenancy.ApplySite(db, "", scope)
+	db = content.ApplySite(db, "", scope)
 	if round != "" {
 		db = db.Where("provider_round_id=?", round)
 	}
@@ -443,24 +443,24 @@ func (s *Service) callbackLogs(provider, round string, userID uint64, scope tena
 	_ = db.Order("created_at,id").Find(&rows).Error
 	return rows
 }
-func (s *Service) roundByProvider(provider, round string, userID uint64, scope tenancy.Scope) map[string]any {
+func (s *Service) roundByProvider(provider string, round string, userID uint64, scope content.Scope) map[string]any {
 	var row map[string]any
 	db := s.db.Table("game_rounds").Where("provider_code=? AND provider_round_id=? AND user_id=? AND deleted_at IS NULL", provider, round, userID)
-	_ = tenancy.ApplySite(db, "", scope).Take(&row).Error
+	_ = content.ApplySite(db, "", scope).Take(&row).Error
 	return row
 }
-func (s *Service) operationLogs(target string, id uint64, scope tenancy.Scope) []map[string]any {
+func (s *Service) operationLogs(target string, id uint64, scope content.Scope) []map[string]any {
 	var rows []map[string]any
 	db := s.db.Table("game_admin_operation_logs").Select("id,operator_id,operator_username,permission,action,before_state,after_state,reason,ip_address,correlation_id,created_at").Where("target_type=? AND target_id=? AND deleted_at IS NULL", target, id)
-	_ = tenancy.ApplySite(db, "", scope).Order("created_at DESC").Find(&rows).Error
+	_ = content.ApplySite(db, "", scope).Order("created_at DESC").Find(&rows).Error
 	return rows
 }
-func (s *Service) userDeviceSummary(userID uint64, scope tenancy.Scope) map[string]any {
+func (s *Service) userDeviceSummary(userID uint64, scope content.Scope) map[string]any {
 	var devices, logins []map[string]any
 	deviceDB := s.db.Table("game_user_devices").Select("id,device_id,platform,device_model,os_name,first_ip,last_ip,first_seen_at,last_seen_at,risk_status").Where("user_id=? AND deleted_at IS NULL", userID)
-	_ = tenancy.ApplySite(deviceDB, "", scope).Find(&devices).Error
+	_ = content.ApplySite(deviceDB, "", scope).Find(&devices).Error
 	loginDB := s.db.Table("game_user_login_records").Select("ip_address,country,region,device_id,platform,created_at").Where("user_id=? AND deleted_at IS NULL", userID)
-	_ = tenancy.ApplySite(loginDB, "", scope).Order("created_at DESC").Limit(20).Find(&logins).Error
+	_ = content.ApplySite(loginDB, "", scope).Order("created_at DESC").Limit(20).Find(&logins).Error
 	return map[string]any{"devices": devices, "recentLogins": logins}
 }
 func notFound(err error) error {
@@ -529,7 +529,7 @@ func (s *Service) MarkCallbackForInvestigation(id uint64, command ReasonCommand,
 	})
 }
 
-func (s *Service) createReviewEvent(targetID, roundID, callbackID uint64, riskType, riskLevel, reason, permission string, actor Actor) error {
+func (s *Service) createReviewEvent(targetID uint64, roundID uint64, callbackID uint64, riskType string, riskLevel string, reason string, permission string, actor Actor) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		var bet model.GameBetOrders
 		if targetID > 0 {
@@ -597,7 +597,7 @@ func (s *Service) AddAbnormalNote(id uint64, command NoteCommand, actor Actor) e
 		return audit(tx, actor, "bet:abnormal:note", "add_note", "abnormal_bet", id, row.UserID, nil, map[string]any{"noteID": note.ID}, "internal note added")
 	})
 }
-func (s *Service) updateAbnormal(id uint64, action, status, reason string, actor Actor, updates func(*model.GameAbnormalBetEvents) map[string]any) error {
+func (s *Service) updateAbnormal(id uint64, action string, status string, reason string, actor Actor, updates func(*model.GameAbnormalBetEvents) map[string]any) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		var row model.GameAbnormalBetEvents
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id=?", id).First(&row).Error; err != nil {
@@ -623,13 +623,13 @@ func (s *Service) updateAbnormal(id uint64, action, status, reason string, actor
 		return audit(tx, actor, "bet:abnormal:review", strings.ToLower(action), "abnormal_bet", id, row.UserID, map[string]any{"reviewStatus": before}, map[string]any{"reviewStatus": after}, reason)
 	})
 }
-func history(tx *gorm.DB, row *model.GameAbnormalBetEvents, action, before, after, reason string, actor Actor) error {
-	return tx.Create(&model.GameAbnormalBetReviewHistories{TenantID: actor.Scope.TenantID, SiteID: actor.Scope.SiteID, AbnormalBetID: row.ID, Action: action, BeforeStatus: before, AfterStatus: after, OperatorID: actor.ID, OperatorUsername: actor.Username, Reason: reason}).Error
+func history(tx *gorm.DB, row *model.GameAbnormalBetEvents, action string, before string, after string, reason string, actor Actor) error {
+	return tx.Create(&model.GameAbnormalBetReviewHistories{SiteID: actor.Scope.SiteID, AbnormalBetID: row.ID, Action: action, BeforeStatus: before, AfterStatus: after, OperatorID: actor.ID, OperatorUsername: actor.Username, Reason: reason}).Error
 }
-func audit(tx *gorm.DB, actor Actor, permission, action, target string, targetID, userID uint64, before, after any, reason string) error {
+func audit(tx *gorm.DB, actor Actor, permission string, action string, target string, targetID uint64, userID uint64, before any, after any, reason string) error {
 	beforeJSON, _ := json.Marshal(before)
 	afterJSON, _ := json.Marshal(after)
-	return tx.Create(&model.GameAdminOperationLogs{TenantID: actor.Scope.TenantID, SiteID: actor.Scope.SiteID, OperatorID: actor.ID, OperatorUsername: actor.Username, Permission: permission, Action: action, TargetType: target, TargetID: targetID, TargetUserID: userID, BeforeState: string(beforeJSON), AfterState: string(afterJSON), Reason: reason, IPAddress: actor.IP, UserAgent: actor.UserAgent, CorrelationID: actor.CorrelationID}).Error
+	return tx.Create(&model.GameAdminOperationLogs{SiteID: actor.Scope.SiteID, OperatorID: actor.ID, OperatorUsername: actor.Username, Permission: permission, Action: action, TargetType: target, TargetID: targetID, TargetUserID: userID, BeforeState: string(beforeJSON), AfterState: string(afterJSON), Reason: reason, IPAddress: actor.IP, UserAgent: actor.UserAgent, CorrelationID: actor.CorrelationID}).Error
 }
 func randomID(prefix string) string {
 	b := make([]byte, 10)

@@ -8,10 +8,10 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"casino/internal/content"
 	"casino/internal/model"
 	"casino/internal/operationdefaults"
 	"casino/internal/storage"
-	"casino/internal/tenancy"
 )
 
 const (
@@ -71,15 +71,15 @@ type MusicInput struct {
 
 func (s *Service) ListMusic(q ListQuery) (PageResult, error) {
 	var rows []musicRecord
-	db := tenancy.ApplySite(s.db.Model(&model.GameOperationMusic{}), "", q.Scope).Where("deleted_at IS NULL")
+	db := content.ApplySite(s.db.Model(&model.GameOperationMusic{}), "", q.Scope).Where("deleted_at IS NULL")
 	db = contains(db, "code", q.Values["code"])
 	if name := strings.TrimSpace(q.Values["name"]); name != "" {
-		db = tenancy.ApplySite(s.db.Model(&model.GameOperationMusic{}), "", q.Scope).
+		db = content.ApplySite(s.db.Model(&model.GameOperationMusic{}), "", q.Scope).
 			Where("deleted_at IS NULL").
 			Where("code LIKE ? OR name_zh LIKE ? OR name_en LIKE ?", "%"+name+"%", "%"+name+"%", "%"+name+"%")
 	}
 	db = equal(db, "scene", q.Values["scene"])
-	if !q.Scope.TenantScoped() {
+	if !q.Scope.SiteScoped() {
 		db = boolFilter(db, "enabled", q.Values["enabled"])
 		result, err := page(db.Order("id DESC"), q, &rows)
 		for i := range rows {
@@ -101,7 +101,7 @@ func (s *Service) ListMusic(q ListQuery) (PageResult, error) {
 	return result, nil
 }
 
-func (s *Service) GetMusicPlaybackConfig(scope tenancy.Scope) (MusicPlaybackConfig, error) {
+func (s *Service) GetMusicPlaybackConfig(scope content.Scope) (MusicPlaybackConfig, error) {
 	config := MusicPlaybackConfig{Mode: "RANDOM", MusicOptions: []MusicPlaybackOption{}}
 	rows, err := s.systemConfigRows([]string{musicPlaybackModeKey, musicSpecifiedIDKey}, scope)
 	if err != nil {
@@ -143,7 +143,7 @@ func (s *Service) SaveMusicPlaybackConfig(in MusicPlaybackConfigInput, actor Act
 			return newError("MUSIC_REQUIRED", "specified music is required")
 		}
 		var count int64
-		if err := tenancy.ApplySite(s.db.Model(&model.GameOperationMusic{}), "", actor.Scope).
+		if err := content.ApplySite(s.db.Model(&model.GameOperationMusic{}), "", actor.Scope).
 			Where("id = ? AND enabled = 1 AND scene IN ? AND deleted_at IS NULL", in.SpecifiedMusicID, []string{"LOBBY", "GLOBAL"}).
 			Count(&count).Error; err != nil {
 			return err
@@ -168,28 +168,28 @@ func (s *Service) SaveMusicPlaybackConfig(in MusicPlaybackConfigInput, actor Act
 	})
 }
 
-func (s *Service) H5MusicConfig(scope tenancy.Scope) (map[string]any, error) {
+func (s *Service) H5MusicConfig(scope content.Scope) (map[string]any, error) {
 	playback, err := s.GetMusicPlaybackConfig(scope)
 	if err != nil {
 		return nil, err
 	}
 	now := time.Now()
-	var tenantRows []model.GameOperationMusic
-	queryMusic := func(currentScope tenancy.Scope) *gorm.DB {
+	var siteRows []model.GameOperationMusic
+	queryMusic := func(currentScope content.Scope) *gorm.DB {
 		query := s.db.Model(&model.GameOperationMusic{}).
 			Where("enabled = 1 AND deleted_at IS NULL AND scene IN ?", []string{"LOBBY", "GLOBAL"}).
 			Where("(start_at IS NULL OR start_at <= ?) AND (end_at IS NULL OR end_at >= ?)", now, now)
 		if currentScope.Platform {
-			query = query.Where("tenant_id = 0 AND site_id = 0")
+			query = query.Where("site_id = 0")
 		} else {
-			query = tenancy.ApplySite(query, "", currentScope)
+			query = content.ApplySite(query, "", currentScope)
 		}
 		return query.Order("id DESC")
 	}
-	if err := queryMusic(scope).Find(&tenantRows).Error; err != nil {
+	if err := queryMusic(scope).Find(&siteRows).Error; err != nil {
 		return nil, err
 	}
-	rows := tenantRows
+	rows := siteRows
 	if playback.Mode == "SPECIFIED" {
 		selected := rows[:0]
 		for _, row := range rows {
@@ -218,7 +218,7 @@ func (s *Service) H5MusicConfig(scope tenancy.Scope) (map[string]any, error) {
 
 func (s *Service) SetMusicEnabled(id uint64, enabled bool, actor Actor) error {
 	var before model.GameOperationMusic
-	if err := tenancy.ApplySite(s.db.Model(&model.GameOperationMusic{}), "", actor.Scope).Where("id = ? AND deleted_at IS NULL", id).First(&before).Error; err != nil {
+	if err := content.ApplySite(s.db.Model(&model.GameOperationMusic{}), "", actor.Scope).Where("id = ? AND deleted_at IS NULL", id).First(&before).Error; err != nil {
 		return notFound(err, "MUSIC_NOT_FOUND")
 	}
 	if before.Enabled == enabled {
@@ -226,14 +226,14 @@ func (s *Service) SetMusicEnabled(id uint64, enabled bool, actor Actor) error {
 	}
 	after := map[string]any{"enabled": enabled, "updated_at": time.Now()}
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		if err := tenancy.ApplySite(tx.Table("game_operation_music"), "", actor.Scope).Where("id = ? AND deleted_at IS NULL", id).Updates(after).Error; err != nil {
+		if err := content.ApplySite(tx.Table("game_operation_music"), "", actor.Scope).Where("id = ? AND deleted_at IS NULL", id).Updates(after).Error; err != nil {
 			return err
 		}
 		return audit(tx, actor, "operation:music:update", "music.status.update", "operation_music", id, before, after, "")
 	})
 }
 
-func upsertMusicConfig(tx *gorm.DB, scope tenancy.Scope, key, value, valueType string) error {
+func upsertMusicConfig(tx *gorm.DB, scope content.Scope, key string, value string, valueType string) error {
 	names := map[string][2]string{
 		musicPlaybackModeKey: {"背景音乐播放方式", "Background Music Playback Mode"},
 		musicSpecifiedIDKey:  {"指定背景音乐", "Specified Background Music"},
@@ -246,14 +246,14 @@ func upsertMusicConfig(tx *gorm.DB, scope tenancy.Scope, key, value, valueType s
 		"description_zh": name[0], "description_en": name[1], "editable": 1, "sensitive": 0,
 		"restart_required": 0, "status": 1, "updated_at": now,
 	}
-	result := tenancy.ApplySiteStrict(tx.Table("game_system_configs"), "", scope).
+	result := content.ApplySiteStrict(tx.Table("game_system_configs"), "", scope).
 		Where("config_key = ? AND deleted_at IS NULL", key).
 		Updates(values)
 	if result.Error != nil || result.RowsAffected > 0 {
 		return result.Error
 	}
 	row := map[string]any{
-		"tenant_id": scope.TenantID, "site_id": scope.SiteID,
+		"site_id":    scope.SiteID,
 		"config_key": key, "name_zh": name[0], "name_en": name[1], "category": "OPERATION",
 		"config_value": value, "value_type": valueType, "description": name[1],
 		"description_zh": name[0], "description_en": name[1], "editable": 1, "sensitive": 0,
@@ -262,9 +262,9 @@ func upsertMusicConfig(tx *gorm.DB, scope tenancy.Scope, key, value, valueType s
 	return tx.Table("game_system_configs").Clauses(clause.OnConflict{DoNothing: true}).Create(row).Error
 }
 
-func (s *Service) GetMusic(id uint64, scope tenancy.Scope) (map[string]any, error) {
+func (s *Service) GetMusic(id uint64, scope content.Scope) (map[string]any, error) {
 	var row model.GameOperationMusic
-	if err := tenancy.ApplySite(s.db.Model(&model.GameOperationMusic{}), "", scope).Where("id = ? AND deleted_at IS NULL", id).First(&row).Error; err != nil {
+	if err := content.ApplySite(s.db.Model(&model.GameOperationMusic{}), "", scope).Where("id = ? AND deleted_at IS NULL", id).First(&row).Error; err != nil {
 		return nil, notFound(err, "MUSIC_NOT_FOUND")
 	}
 	signMusicAssets(&row)
@@ -285,21 +285,21 @@ func (s *Service) SaveMusic(id uint64, in MusicInput, actor Actor) (uint64, erro
 		var before model.GameOperationMusic
 		action, permission := "create", "operation:music:create"
 		if id > 0 {
-			if err := tenancy.ApplySite(tx.Model(&model.GameOperationMusic{}), "", actor.Scope).Where("id = ? AND deleted_at IS NULL", id).First(&before).Error; err != nil {
+			if err := content.ApplySite(tx.Model(&model.GameOperationMusic{}), "", actor.Scope).Where("id = ? AND deleted_at IS NULL", id).First(&before).Error; err != nil {
 				return notFound(err, "MUSIC_NOT_FOUND")
 			}
 			action, permission = "update", "operation:music:update"
 		}
-		row := model.GameOperationMusic{TenantID: actor.Scope.TenantID, SiteID: actor.Scope.SiteID, Code: in.Code, NameZh: strings.TrimSpace(in.NameZh), NameEn: strings.TrimSpace(in.NameEn), AudioURL: operationAssetRef(in.AudioURL), Scene: in.Scene, Loop: true, VolumePercent: in.VolumePercent, SortOrder: in.SortOrder, Enabled: in.Enabled, StartAt: in.StartTime, EndAt: in.EndTime}
+		row := model.GameOperationMusic{SiteID: actor.Scope.SiteID, Code: in.Code, NameZh: strings.TrimSpace(in.NameZh), NameEn: strings.TrimSpace(in.NameEn), AudioURL: operationAssetRef(in.AudioURL), Scene: in.Scene, Loop: true, VolumePercent: in.VolumePercent, SortOrder: in.SortOrder, Enabled: in.Enabled, StartAt: in.StartTime, EndAt: in.EndTime}
 		if id == 0 {
 			if err := tx.Create(&row).Error; err != nil {
 				return err
 			}
 			id = row.ID
-		} else if err := tenancy.ApplySite(tx.Model(&model.GameOperationMusic{}), "", actor.Scope).Where("id = ?", id).Select("code", "name_zh", "name_en", "audio_url", "scene", "loop_play", "volume_percent", "sort_order", "enabled", "start_at", "end_at").Updates(row).Error; err != nil {
+		} else if err := content.ApplySite(tx.Model(&model.GameOperationMusic{}), "", actor.Scope).Where("id = ?", id).Select("code", "name_zh", "name_en", "audio_url", "scene", "loop_play", "volume_percent", "sort_order", "enabled", "start_at", "end_at").Updates(row).Error; err != nil {
 			return err
 		}
-		if err := tenancy.ApplySite(tx.Model(&model.GameOperationMusic{}), "", actor.Scope).Where("id = ?", id).First(&row).Error; err != nil {
+		if err := content.ApplySite(tx.Model(&model.GameOperationMusic{}), "", actor.Scope).Where("id = ?", id).First(&row).Error; err != nil {
 			return err
 		}
 		return audit(tx, actor, permission, action, "operation_music", id, before, row, "")
@@ -311,6 +311,6 @@ func (s *Service) DeleteMusic(id uint64, actor Actor) error {
 	return s.softDelete("game_operation_music", "operation_music", id, "operation:music:delete", actor)
 }
 
-func (s *Service) RecordAssetUpload(kind, assetURL string, actor Actor) error {
+func (s *Service) RecordAssetUpload(kind string, assetURL string, actor Actor) error {
 	return audit(s.db, actor, "operation:asset:upload", "upload", "operation_asset", 0, nil, map[string]any{"kind": kind, "url": assetURL}, "")
 }

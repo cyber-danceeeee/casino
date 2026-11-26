@@ -5,7 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"casino/internal/tenancy"
+	"casino/internal/content"
+
 	"gorm.io/gorm"
 )
 
@@ -39,9 +40,7 @@ func (s *UserAssociationService) List(q ListQuery) (PageResult, error) {
 	var rows []associationRow
 	relatedSQL := "(SELECT COUNT(DISTINCT a2.user_id) FROM (?) a2 JOIN game_users u2 ON u2.id=a2.user_id AND u2.deleted_at IS NULL WHERE a2.association_type=a.association_type AND a2.association_value=a.association_value"
 	selectArgs := []any{associationUnion(s.db)}
-	if q.Scope.TenantScoped() {
-		relatedSQL += " AND u2.tenant_id=?"
-		selectArgs = append(selectArgs, q.Scope.TenantID)
+	if q.Scope.SiteScoped() {
 		if q.Scope.SiteScoped() {
 			relatedSQL += " AND u2.site_id=?"
 			selectArgs = append(selectArgs, q.Scope.SiteID)
@@ -52,7 +51,7 @@ func (s *UserAssociationService) List(q ListQuery) (PageResult, error) {
 		Select("a.*,u.user_no,u.username,COALESCE(p.risk_level,'LOW') risk_level,"+relatedSQL+" related_account_count", selectArgs...).
 		Joins("JOIN game_users u ON u.id=a.user_id AND u.deleted_at IS NULL").
 		Joins("LEFT JOIN game_user_risk_profiles p ON p.user_id=a.user_id AND p.deleted_at IS NULL")
-	db = tenancy.ApplySiteStrict(db, "u", q.Scope)
+	db = content.ApplySiteStrict(db, "u", q.Scope)
 	db = equal(db, "a.user_id", q.Values["userID"])
 	db = contains(db, "u.username", q.Values["username"])
 	db = equal(db, "a.association_type", q.Values["associationType"])
@@ -74,9 +73,9 @@ func (s *UserAssociationService) List(q ListQuery) (PageResult, error) {
 	res.List = rows
 	return res, nil
 }
-func (s *UserAssociationService) Detail(userID uint64, scope tenancy.Scope) (map[string]any, error) {
+func (s *UserAssociationService) Detail(userID uint64, scope content.Scope) (map[string]any, error) {
 	var user map[string]any
-	userQuery := tenancy.ApplySiteStrict(s.db.Table("game_users"), "", scope)
+	userQuery := content.ApplySiteStrict(s.db.Table("game_users"), "", scope)
 	if err := userQuery.Select("id,user_no,username,country_code,status,risk_review_required").Where("id=? AND deleted_at IS NULL", userID).Take(&user).Error; err != nil {
 		return nil, mapError(err, "USER_NOT_FOUND")
 	}
@@ -89,11 +88,11 @@ func (s *UserAssociationService) Detail(userID uint64, scope tenancy.Scope) (map
 	for _, a := range associations {
 		var ids []uint64
 		related := s.db.Table("(?) a", associationUnion(s.db)).Joins("JOIN game_users ru ON ru.id=a.user_id AND ru.deleted_at IS NULL")
-		related = tenancy.ApplySiteStrict(related, "ru", scope)
+		related = content.ApplySiteStrict(related, "ru", scope)
 		related.Where("association_type=? AND association_value=? AND user_id<>?", a.AssociationType, a.AssociationValue, userID).Distinct().Pluck("user_id", &ids)
 		for _, id := range ids {
 			var u map[string]any
-			relatedUser := tenancy.ApplySiteStrict(s.db.Table("game_users"), "", scope)
+			relatedUser := content.ApplySiteStrict(s.db.Table("game_users"), "", scope)
 			relatedUser.Select("id,user_no,username,status").Where("id=? AND deleted_at IS NULL", id).Take(&u)
 			relatedUsers[id] = u
 			nodes = append(nodes, map[string]any{"id": fmt.Sprint(id), "type": "USER", "label": u["username"]})

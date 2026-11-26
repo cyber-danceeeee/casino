@@ -42,7 +42,7 @@ def call(path, body=None, method=None, base=admin_base, headers=None):
 
 
 config = call('/app/config', base=h5_base)
-assert config['siteId'] > 0 and config['currency']['code']
+assert config['siteId'] == 1 and config['currency']['code']
 other_scope = call('/app/config', base=h5_base,
                    headers={'X-Tenant-ID': '99999', 'X-Site-ID': '99999'})
 assert other_scope['siteId'] == config['siteId']
@@ -69,6 +69,21 @@ actor = call('/admin/auth/me')
 assert actor['adminType'] == 'SITE' and not actor['platform']
 assert actor['siteID'] == config['siteId']
 
+def assert_no_owner_fields(value):
+    if isinstance(value, dict):
+        assert not any('tenant' in key.lower() for key in value), 'Removed ownership fields remain in an API response'
+        for item in value.values():
+            assert_no_owner_fields(item)
+    elif isinstance(value, list):
+        for item in value:
+            assert_no_owner_fields(item)
+
+assert_no_owner_fields(config)
+assert_no_owner_fields(actor)
+if state_path := os.getenv('CASINO_TEST_SESSION_FILE'):
+    with os.fdopen(os.open(state_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), 'w') as state_file:
+        json.dump({'token': token, 'password': password, 'actor': actor}, state_file)
+
 codes = {item['code'] for item in call('/admin/system/navigation')['list']}
 assert {'brand-config', 'user-list', 'game-sync', 'system-admins', 'system-roles'}.issubset(codes)
 assert not {'tenants', 'sites', 'tenant-packages', 'create-brand'}.intersection(codes)
@@ -80,7 +95,10 @@ for path in ['/admin/system/tenants', '/admin/system/tenant-packages',
     except HTTPError as error:
         assert error.code == 404
 for path in ['/admin/system/admins', '/admin/system/roles', '/admin/system/countries',
-             '/admin/game-providers', '/admin/games']:
+             '/admin/game-providers', '/admin/games', '/admin/banners', '/admin/promotions',
+             '/admin/assets', '/admin/social-links', '/admin/notifications',
+             '/admin/system/permissions', '/admin/system/menus', '/admin/system/configs',
+             '/admin/maintenance/site']:
     call(path)
 assert call('/admin/system/h5/markets')['list']
 
@@ -100,4 +118,16 @@ assert published['siteId'] == site['siteID']
 assert published['branding']['theme']['primaryColor'] == '#12ab34'
 assert published['branding']['appName'] == 'Single H5 Acceptance'
 assert published['seo']['title'] == 'Single H5 Acceptance'
-print('Single-site initialization, login/MFA, permissions, SaaS API removal, draft isolation and H5 publication passed.')
+# A real H5 registration creates a user session and its configured wallet.
+admin_token = token
+player_password = 'Player9!' + secrets.token_hex(8)
+phone = '3' + ''.join(str(secrets.randbelow(10)) for _ in range(9))
+player = call('/auth/register', {'phone': phone, 'password': player_password,
+                               'phoneCountryCode': '+92'}, base=h5_base)
+assert player['token']
+assert_no_owner_fields(player)
+token = player['token']
+assert_no_owner_fields(call('/me', base=h5_base))
+token = admin_token
+assert call('/admin/users')['total'] >= 1
+print('Single-site MFA, permissions, API removal, H5 publication, player registration and wallet session passed.')

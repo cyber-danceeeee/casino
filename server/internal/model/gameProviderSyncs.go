@@ -10,7 +10,6 @@ import (
 type GameProviderSyncs struct {
 	sgorm.Model `gorm:"embedded"`
 
-	TenantID                 uint64     `gorm:"column:tenant_id" json:"tenantID"`
 	SiteID                   uint64     `gorm:"column:site_id" json:"siteID"`
 	ProviderCode             string     `gorm:"column:provider_code;type:varchar(64);not null" json:"providerCode"`
 	LastSuccessfulSyncAt     *time.Time `gorm:"column:last_successful_sync_at;type:datetime(3)" json:"lastSuccessfulSyncAt"`

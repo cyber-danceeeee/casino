@@ -209,7 +209,7 @@ func (s *PromotionReportService) Report(q Query) (Result, error) {
 COALESCE((SELECT SUM(br.bet_amount-br.payout_amount) FROM game_bet_records br WHERE br.user_id IN (SELECT DISTINCT bx.user_id FROM game_bonus_records bx WHERE bx.promotion_id=p.id AND bx.deleted_at IS NULL) AND br.currency=b.currency AND br.bet_status='SETTLED' AND COALESCE(br.rollback_status,'')<>'ROLLED_BACK' AND br.deleted_at IS NULL AND br.settled_at>=? AND br.settled_at<=?),0) promotion_ggr`
 	db := s.db.Table("game_activity_events p").Select(selectSQL, from, to).Joins("JOIN game_bonus_records b ON b.promotion_id=p.id AND b.deleted_at IS NULL AND b.issued_at>=? AND b.issued_at<=?", from, to).Joins("LEFT JOIN game_users u ON u.id=b.user_id AND u.deleted_at IS NULL").Where("p.deleted_at IS NULL")
 	db = reportScoped(db, "p", q)
-	// game_bonus_records predates tenant columns. The scoped promotion and player
+	// game_bonus_records predates site columns. The scoped promotion and player
 	// joins are the trusted ownership boundary for these rows.
 	db = reportScoped(db, "u", q)
 	db = applyEqual(db, "p.id", val(q, "promotion"))

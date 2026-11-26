@@ -125,7 +125,7 @@ onBeforeUnmount(() => {
       <el-tag :type="statusType" effect="plain" size="small">
         {{
           t(
-            `tenantExperience.status.${statusKey(overview.publishStatus)}`,
+            `siteExperience.status.${statusKey(overview.publishStatus)}`,
             overview.publishStatus || "-",
           )
         }}
@@ -151,7 +151,7 @@ onBeforeUnmount(() => {
         })
       }}</span>
       <span>{{
-        t("tenantExperience.release.lastUpdated", {
+        t("siteExperience.release.lastUpdated", {
           time: formatBackendTime(String(overview.draftUpdatedAt || "")),
         })
       }}</span>
@@ -162,7 +162,7 @@ onBeforeUnmount(() => {
         size="small"
         :disabled="!unpublishedCount"
         @click="changesVisible = true"
-        >{{ t("tenantExperience.release.viewChanges") }}</el-button
+        >{{ t("siteExperience.release.viewChanges") }}</el-button
       >
       <el-button :icon="Monitor" size="small" @click="preview">{{
         t("brandPortal.actions.preview")
@@ -202,7 +202,7 @@ onBeforeUnmount(() => {
 
     <el-drawer
       v-model="changesVisible"
-      :title="t('tenantExperience.release.changeList')"
+      :title="t('siteExperience.release.changeList')"
       size="min(560px, 92vw)"
     >
       <div
@@ -212,7 +212,7 @@ onBeforeUnmount(() => {
       >
         <header>
           <strong>{{
-            t(`tenantExperience.modules.${change.module}`, change.module)
+            t(`siteExperience.modules.${change.module}`, change.module)
           }}</strong
           ><span
             >{{ change.updatedBy || "-" }} ·
@@ -221,13 +221,13 @@ onBeforeUnmount(() => {
         </header>
         <p>
           {{
-            t(`tenantExperience.changeSummary.${change.module}`, change.summary)
+            t(`siteExperience.changeSummary.${change.module}`, change.summary)
           }}
         </p>
         <div v-if="change.after" class="change-diff">
           <div v-for="[key, value] in businessEntries(change.after)" :key="key">
             <span>{{
-              t(`tenantExperience.configKeys.${key}`, humanizeBusinessKey(key))
+              t(`siteExperience.configKeys.${key}`, humanizeBusinessKey(key))
             }}</span
             ><strong>{{
               typeof value === "object" ? JSON.stringify(value) : value
@@ -237,7 +237,7 @@ onBeforeUnmount(() => {
       </div>
       <el-empty
         v-if="!overview.pendingChanges?.length"
-        :description="t('tenantExperience.release.noChanges')"
+        :description="t('siteExperience.release.noChanges')"
       />
     </el-drawer>
   </section>

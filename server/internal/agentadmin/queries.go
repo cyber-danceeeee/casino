@@ -3,7 +3,7 @@ package agentadmin
 import (
 	"fmt"
 
-	"casino/internal/tenancy"
+	"casino/internal/content"
 )
 
 func (s *Service) ListAgents(q ListQuery) (PageResult, error) {
@@ -79,7 +79,7 @@ func (s *Service) ListAgents(q ListQuery) (PageResult, error) {
 	return result, nil
 }
 
-func (s *Service) AgentDetail(id uint64, scope tenancy.Scope) (map[string]any, error) {
+func (s *Service) AgentDetail(id uint64, scope content.Scope) (map[string]any, error) {
 	q := ListQuery{Page: 1, PageSize: 1, Values: map[string]string{"agentID": fmt.Sprint(id)}, Scope: scope}
 	list, e := s.ListAgents(q)
 	if e != nil {
@@ -146,7 +146,7 @@ func (s *Service) ListChannels(q ListQuery) (PageResult, error) {
 	var rows []channelRow
 	return paginate(db.Order("c.created_at DESC"), q, &rows)
 }
-func (s *Service) ChannelDetail(id uint64, scope tenancy.Scope) (map[string]any, error) {
+func (s *Service) ChannelDetail(id uint64, scope content.Scope) (map[string]any, error) {
 	var r channelRow
 	db := s.db.Table("game_agent_channels c").Select(`c.*,a.name agent_name,
 	(SELECT COUNT(*) FROM game_user_agent_attributions ua WHERE ua.channel_id=c.id AND ua.active=1 AND ua.deleted_at IS NULL) registered_users,
@@ -174,7 +174,7 @@ func (s *Service) ListPlans(q ListQuery) (PageResult, error) {
 	var rows []planRow
 	return paginate(db.Order("p.created_at DESC"), q, &rows)
 }
-func (s *Service) PlanDetail(id uint64, scope tenancy.Scope) (map[string]any, error) {
+func (s *Service) PlanDetail(id uint64, scope content.Scope) (map[string]any, error) {
 	var r planRow
 	db := s.db.Table("game_commission_plans p").Select("p.*,(SELECT COUNT(*) FROM game_agents a WHERE a.commission_plan_id=p.id AND a.deleted_at IS NULL) assigned_agent_count").Where("p.id=? AND p.deleted_at IS NULL", id)
 	db = scoped(db, "p", scope)
@@ -187,7 +187,7 @@ func (s *Service) PlanDetail(id uint64, scope tenancy.Scope) (map[string]any, er
 	return map[string]any{"record": r, "cpaRules": map[string]any{"cpaAmount": r.CPAAmount}, "revenueShareRules": map[string]any{"revenueShareRate": r.RevenueShareRate, "negativeCarryover": r.NegativeCarryover, "deductionRules": jsonValue(r.DeductionRules)}, "deductionRules": jsonValue(r.DeductionRules), "tierRules": jsonValue(r.TierRules), "eligibleProducts": jsonValue(r.EligibleProducts), "assignedAgents": agents, "operationLogs": s.logsFor("commission_plan", id, scope)}, nil
 }
 
-func (s *Service) logsFor(target string, id uint64, scope tenancy.Scope) []map[string]any {
+func (s *Service) logsFor(target string, id uint64, scope content.Scope) []map[string]any {
 	rows := make([]map[string]any, 0)
 	db := scoped(s.db.Table("game_admin_operation_logs"), "", scope).Where("target_type=? AND target_id=? AND deleted_at IS NULL", target, id)
 	_ = db.Order("created_at DESC").Limit(100).Find(&rows).Error

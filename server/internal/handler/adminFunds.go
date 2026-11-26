@@ -80,7 +80,7 @@ func (h *adminFundsHandler) GetWallet(c *gin.Context) {
 	if !ok {
 		return
 	}
-	data, err := h.service.GetWallet(id, adminTenancyScope(c))
+	data, err := h.service.GetWallet(id, adminContentScope(c))
 	h.write(c, data, err)
 }
 func (h *adminFundsHandler) FreezeWallet(c *gin.Context)   { h.walletStatus(c, true) }
@@ -106,7 +106,7 @@ func (h *adminFundsHandler) GetTransaction(c *gin.Context) {
 	if !ok {
 		return
 	}
-	data, err := h.service.GetTransaction(id, adminTenancyScope(c))
+	data, err := h.service.GetTransaction(id, adminContentScope(c))
 	h.write(c, data, err)
 }
 
@@ -119,7 +119,7 @@ func (h *adminFundsHandler) GetAdjustment(c *gin.Context) {
 	if !ok {
 		return
 	}
-	data, err := h.service.GetAdjustment(id, adminTenancyScope(c))
+	data, err := h.service.GetAdjustment(id, adminContentScope(c))
 	h.write(c, data, err)
 }
 func (h *adminFundsHandler) CreateAdjustment(c *gin.Context) {
@@ -141,7 +141,7 @@ func (h *adminFundsHandler) ApproveAdjustment(c *gin.Context) {
 		return
 	}
 	actor, _ := adminauth.FromContext(c)
-	large, err := h.service.IsLargeAdjustment(id, adminTenancyScope(c))
+	large, err := h.service.IsLargeAdjustment(id, adminContentScope(c))
 	if err != nil {
 		fundError(c, err)
 		return
@@ -183,7 +183,7 @@ func (h *adminFundsHandler) GetDeposit(c *gin.Context) {
 	if !ok {
 		return
 	}
-	data, err := h.service.GetDeposit(id, adminTenancyScope(c))
+	data, err := h.service.GetDeposit(id, adminContentScope(c))
 	h.write(c, data, err)
 }
 func (h *adminFundsHandler) ReviewDeposit(c *gin.Context) {
@@ -229,7 +229,7 @@ func (h *adminFundsHandler) GetWithdrawal(c *gin.Context) {
 	if !ok {
 		return
 	}
-	data, err := h.service.GetWithdrawal(id, adminTenancyScope(c))
+	data, err := h.service.GetWithdrawal(id, adminContentScope(c))
 	h.write(c, data, err)
 }
 func (h *adminFundsHandler) RiskReviewWithdrawal(c *gin.Context)    { h.withdrawReview(c, "RISK") }
@@ -275,7 +275,7 @@ func (h *adminFundsHandler) GetReconciliation(c *gin.Context) {
 	if !ok {
 		return
 	}
-	data, err := h.service.GetReconciliation(id, adminTenancyScope(c))
+	data, err := h.service.GetReconciliation(id, adminContentScope(c))
 	h.write(c, data, err)
 }
 func (h *adminFundsHandler) GenerateReconciliation(c *gin.Context) {
@@ -316,7 +316,7 @@ func (h *adminFundsHandler) GetDepositMethod(c *gin.Context) {
 	if !ok {
 		return
 	}
-	data, err := h.depositConfig.GetMethod(id, adminTenancyScope(c))
+	data, err := h.depositConfig.GetMethod(id, adminContentScope(c))
 	h.write(c, data, err)
 }
 func (h *adminFundsHandler) CreateDepositMethod(c *gin.Context) { h.saveDepositMethod(c, 0) }
@@ -352,7 +352,7 @@ func (h *adminFundsHandler) GetDepositChannel(c *gin.Context) {
 	if !ok {
 		return
 	}
-	data, err := h.depositConfig.GetChannel(id, adminTenancyScope(c))
+	data, err := h.depositConfig.GetChannel(id, adminContentScope(c))
 	h.write(c, data, err)
 }
 func (h *adminFundsHandler) CreateDepositChannel(c *gin.Context) { h.saveDepositChannel(c, 0) }
@@ -388,7 +388,7 @@ func (h *adminFundsHandler) GetDepositAmountOption(c *gin.Context) {
 	if !ok {
 		return
 	}
-	data, err := h.depositConfig.GetAmountOption(id, adminTenancyScope(c))
+	data, err := h.depositConfig.GetAmountOption(id, adminContentScope(c))
 	h.write(c, data, err)
 }
 func (h *adminFundsHandler) CreateDepositAmountOption(c *gin.Context) {
@@ -438,7 +438,7 @@ func fundActor(c *gin.Context) fundadmin.Actor {
 	if correlation == "" {
 		correlation = c.GetString("request_id")
 	}
-	return fundadmin.Actor{ID: actor.ID, Username: actor.Username, Permissions: actor.Permissions, Scope: adminTenancyScope(c), IP: c.ClientIP(), UserAgent: c.GetHeader("User-Agent"), CorrelationID: correlation}
+	return fundadmin.Actor{ID: actor.ID, Username: actor.Username, Permissions: actor.Permissions, Scope: adminContentScope(c), IP: c.ClientIP(), UserAgent: c.GetHeader("User-Agent"), CorrelationID: correlation}
 }
 func depositConfigActor(c *gin.Context) depositconfig.Actor {
 	actor, _ := adminauth.FromContext(c)
@@ -446,7 +446,7 @@ func depositConfigActor(c *gin.Context) depositconfig.Actor {
 	if correlation == "" {
 		correlation = c.GetString("request_id")
 	}
-	return depositconfig.Actor{ID: actor.ID, Username: actor.Username, Scope: adminTenancyScope(c), IP: c.ClientIP(), UserAgent: c.GetHeader("User-Agent"), CorrelationID: correlation}
+	return depositconfig.Actor{ID: actor.ID, Username: actor.Username, Scope: adminContentScope(c), IP: c.ClientIP(), UserAgent: c.GetHeader("User-Agent"), CorrelationID: correlation}
 }
 func fundPathID(c *gin.Context) (uint64, bool) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -472,7 +472,7 @@ func fundListQuery(c *gin.Context, keys []string) fundadmin.ListQuery {
 			values[key] = value
 		}
 	}
-	return fundadmin.ListQuery{Page: page, PageSize: pageSize, Values: values, Scope: adminTenancyScope(c)}
+	return fundadmin.ListQuery{Page: page, PageSize: pageSize, Values: values, Scope: adminContentScope(c)}
 }
 func depositConfigList(c *gin.Context, keys []string) depositconfig.ListQuery {
 	query := fundListQuery(c, keys)

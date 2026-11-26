@@ -166,7 +166,7 @@ func (s *Service) Dispatch(ctx context.Context, message DeliveryMessage, registr
 		return nil
 	}
 	record := Record{
-		ID: headerUint64(message.Headers, HeaderOutboxID), EventID: envelope.EventID, TenantID: envelope.TenantID, SiteID: envelope.SiteID,
+		ID: headerUint64(message.Headers, HeaderOutboxID), EventID: envelope.EventID, SiteID: envelope.SiteID,
 		EventType: envelope.EventType, EventVersion: envelope.EventVersion, AggregateType: envelope.AggregateType, AggregateID: envelope.AggregateID,
 		Source: envelope.Producer, TraceID: envelope.TraceID, RequestID: envelope.RequestID, CorrelationID: envelope.CorrelationID,
 		CausationID: envelope.CausationID, Producer: envelope.Producer, OccurredAt: envelope.OccurredAt,
@@ -236,8 +236,6 @@ func headerUint64(headers map[string]any, key string) uint64 {
 // RoutingKey keeps the public event protocol independent from Go constants.
 func RoutingKey(eventType string) string {
 	switch NormalizeType(eventType) {
-	case EventLedgerTransactionPosted:
-		return "ledger.transaction.posted"
 	case EventWalletBalanceChanged:
 		return "wallet.balance.changed"
 	case EventPlayerDepositSucceeded:
@@ -250,20 +248,8 @@ func RoutingKey(eventType string) string {
 		return "provider.bet"
 	case EventGameBetSettled:
 		return "provider.win"
-	case EventTenantDepositCredited:
-		return "tenant.deposit.credited"
-	case EventTenantCreditChanged:
-		return "tenant.credit.changed"
-	case EventTenantFundsFrozen:
-		return "tenant.funds.frozen"
-	case EventTenantFundsUnfrozen:
-		return "tenant.funds.unfrozen"
-	case EventTenantLedgerReversed:
-		return "ledger.transaction.reversed"
 	case EventWhiteLabelConfigPublished:
-		return "tenant.config.published"
-	case EventTenantProvisioned:
-		return "tenant.provisioned"
+		return "site.config.published"
 	case EventSupportExportRequested:
 		return "task.support.export.requested"
 	case EventReportExportRequested:

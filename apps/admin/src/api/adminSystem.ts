@@ -5,115 +5,10 @@ export type SystemRecord = Record<string, unknown> & { id?: number; enabled?: bo
 export type SystemPage = { list: SystemRecord[]; total: number; page: number; pageSize: number }
 export type SystemDetail = Record<string, unknown>
 export type AdminNavigationItem = { id: number; parentID?: number | null; code: string; routePath: string; icon: string }
-export type TenantProvisionResult = {
-  brandName: string
-  tenantID: number
-  siteID: number
-  adminID: number
-  roleID: number
-  adminUsername: string
-  temporaryPassword: string
-  primaryDomain: string
-  h5Domain: string
-  adminDomain: string
-  h5Url: string
-  adminUrl: string
-  bootstrapUrl: string
-  lobbyUrl: string
-  domainStatus: string
-  initialConfigVersion: number
-  lobbySections: number
-  providers: number
-  deliveryEmail: string
-  emailNotificationStatus: string
-}
-export type TenantSummary = {
-  id: number
-  tenantCode: string
-  tenantName: string
-  companyName: string
-  contactName: string
-  contactEmail: string
-  contactPhone: string
-  planCode: string
-  packageCode: string
-  countryCode: string
-  defaultCurrency: string
-  defaultLanguage: string
-  timezone: string
-  expiresAt?: string | null
-  enabled: boolean
-  status: string
-  maintenanceEnabled: boolean
-  maintenanceMessage: string
-  primaryDomain: string
-  adminDomain: string
-  h5Domain: string
-  domainStatus: string
-  ownerAdminID: number
-  ownerUsername: string
-  siteCount: number
-  adminCount: number
-  gameCount: number
-  playerCount: number
-  lastLoginTime?: string | null
-  remark: string
-  createdAt: string
-  updatedAt: string
-}
-export type TenantSiteSummary = {
-  id: number; tenantID: number; siteCode: string; siteName: string; primaryDomain: string; adminDomain: string; h5Domain: string
-  androidPackageName?: string; androidAPKObjectKey?: string; androidAPKName?: string; androidAPKSize?: number; androidAPKUploadedAt?: string | null
-  countryCode: string; currencyCode: string; defaultLanguage: string; timezone: string; configStatus: string; configVersion: number
-  configPublishedAt?: string | null; configDraftUpdatedAt?: string | null; isInitialized: boolean; enabled: boolean; status: string; createdAt: string
-}
-export type TenantAdminSummary = {
-  id: number; siteID: number; username: string; displayName: string; mobile: string; email: string; status: boolean
-  mfaEnabled: boolean; lastLoginIP: string; lastLoginTime?: string | null; createdAt: string
-}
-export type TenantDomainSummary = {
-  id: number; tenantID: number; tenant: string; siteID: number; site: string; domain: string; domainType: string; isPrimary: boolean
-  enabled: boolean; status: string; verificationStatus: string; sslStatus: string; sslExpiresAt?: string | null
-  lastVerifiedAt?: string | null; verificationError: string; createdAt: string; updatedAt: string
-}
-export type TenantAuditRecord = {
-  logID: number; operatorID: number; tenantID: number; siteID: number; operator: string; permission: string; module: string
-  action: string; result: string; targetType: string; targetID: number; reason: string; ip: string; correlationID: string; createdAt: string
-}
-export type TenantDetail = {
-  overview: TenantSummary
-  sites: TenantSiteSummary[]
-  administrators: TenantAdminSummary[]
-  domains: TenantDomainSummary[]
-  providerAuthorizations: Array<Record<string, unknown>>
-  gameAuthorizations: Array<Record<string, unknown>>
-  assets: Array<Record<string, unknown>>
-  ledgerAccounts: Array<Record<string, unknown>>
-  audit: { list: TenantAuditRecord[]; total: number; page: number; pageSize: number }
-}
-export type BrandDeliveryRecord = {
-  id: number; tenantID: number; tenantName: string; tenantCode: string; siteID: number; siteName: string; adminID: number
-  adminUsername: string; primaryDomain: string; h5Url: string; adminUrl: string; domainStatus: string
-  initialConfigVersion: number; status: string; deliveredBy: number; deliveredByName: string; deliveredAt: string
-}
-export type TenantPackage = {
-  id: number; code: string; nameZh: string; nameEn: string; tenantCount: number; sites: number; games: number; providers: number; storageGB: number; players: number; status: string; sortOrder: number
-}
-export type TenantPackageInput = Omit<TenantPackage, 'id' | 'tenantCount'> & { reason?: string }
-export type PlatformBranding = { platformName: string; platformLogoUrl: string; platformContact: string; platformUSDTAddress: string }
+export type PlatformBranding = { platformName: string; platformLogoUrl: string; platformContact: string }
 export type UploadedAsset = { url: string; key: string; name: string; size: number; mimeType: string }
-export type PlatformDashboard = {
-  sampledAt: string
-  overview: { totalTenants: number; activeTenants: number; totalSites: number; totalPlayers: number; pendingDomains: number; runningJobs: number }
-  financeByCurrency: Array<{ currency: string; totalBet: string; totalWin: string; ggr: string; ngr: string; deposit: string; withdrawal: string }>
-  providers: Array<Record<string, unknown>>
-  recentTenants: TenantSummary[]
-}
 export type BrandOverview = SystemDetail & {
-  tenantID: number
   siteID: number
-  tenantCode: string
-  tenantName: string
   brandName: string
   countryCode: string
   currencyCode: string
@@ -160,7 +55,7 @@ export type AnnouncementConfiguration = {
   startAt: string | null; endAt: string | null; enabled: boolean; deleted?: boolean
 }
 export type SiteAnnouncementRecord = {
-  id: number; tenantID: number; siteID: number; publishStatus: 'DRAFT' | 'PUBLISHED'
+  id: number; siteID: number; publishStatus: 'DRAFT' | 'PUBLISHED'
   configVersion: number; draftUpdatedAt: string; publishedAt: string
   draftConfiguration: AnnouncementConfiguration; publishedConfiguration: AnnouncementConfiguration
 }
@@ -181,7 +76,7 @@ export type PopupConfiguration = {
   startAt: string | null; endAt: string | null; priority: number; enabled: boolean; deleted?: boolean
 }
 export type SitePopupRecord = {
-  id: number; tenantID: number; siteID: number; publishStatus: 'DRAFT' | 'PUBLISHED'
+  id: number; siteID: number; publishStatus: 'DRAFT' | 'PUBLISHED'
   configVersion: number; draftUpdatedAt: string; publishedAt: string
   draftConfiguration: PopupConfiguration; publishedConfiguration: PopupConfiguration
   component?: PopupComponentRecord
@@ -244,42 +139,13 @@ export const systemAPI = {
     update: (key: string, value: string, reason: string) => apiPut<void>(`${root}/configs/${encodeURIComponent(key)}`, { value, reason }),
   },
   platformBranding: () => apiGet<PlatformBranding>('/admin/platform-branding'),
-  tenants: {
-    list: (params: SystemQuery) => apiGet<{ list: TenantSummary[]; total: number; page: number; pageSize: number }>(`${root}/tenants`, params),
-    detail: (id: number) => apiGet<TenantDetail>(`${root}/tenants/${id}`),
-    provision: (payload: unknown) => apiPost<TenantProvisionResult>(`${root}/tenants/provision`, payload),
-    create: (payload: unknown) => apiPost<{ id: number }>(`${root}/tenants`, payload),
-    update: (id: number, payload: unknown) => apiPut<void>(`${root}/tenants/${id}`, payload),
-    remove: (id: number, reason: string) => apiDelete<void>(`${root}/tenants/${id}`, { reason }),
-    status: (id: number, enabled: boolean, reason: string) => apiPatch<void>(`${root}/tenants/${id}/status`, { enabled, reason }),
-    audit: (id: number, params: SystemQuery) => apiGet<{ list: TenantAuditRecord[]; total: number; page: number; pageSize: number }>(`${root}/tenants/${id}/audit`, params),
-    ledgerAccounts: (id: number, params: SystemQuery = {}) => apiGet<Array<Record<string, unknown>>>(`${root}/tenants/${id}/ledger/accounts`, params),
-  },
-  platformDashboard: () => apiGet<PlatformDashboard>(`${root}/platform/dashboard`),
-  tenantDeliveries: (params: SystemQuery) => apiGet<{ list: BrandDeliveryRecord[]; total: number; page: number; pageSize: number }>(`${root}/tenant-deliveries`, params),
-  tenantPackages: {
-    list: () => apiGet<{ list: TenantPackage[] }>(`${root}/tenant-packages`),
-    create: (payload: TenantPackageInput) => apiPost<{ id: number }>(`${root}/tenant-packages`, payload),
-    update: (id: number, payload: TenantPackageInput) => apiPut<void>(`${root}/tenant-packages/${id}`, payload),
-    remove: (id: number, reason: string) => apiDelete<void>(`${root}/tenant-packages/${id}`, { reason }),
-  },
   sites: {
-    list: (params: SystemQuery) => apiGet<SystemPage>(`${root}/sites`, params),
     detail: (id: number) => apiGet<SystemDetail>(`${root}/sites/${id}`),
-    create: (payload: unknown) => apiPost<{ id: number }>(`${root}/sites`, payload),
     update: (id: number, payload: unknown) => apiPut<void>(`${root}/sites/${id}`, payload),
-    remove: (id: number, reason: string) => apiDelete<void>(`${root}/sites/${id}`, { reason }),
     status: (id: number, enabled: boolean, reason: string) => apiPatch<void>(`${root}/sites/${id}/status`, { enabled, reason }),
     preview: (id: number) => apiGet<SystemDetail>(`${root}/sites/${id}/config/preview`),
     publish: (id: number, reason: string) => apiPost<SystemDetail>(`${root}/sites/${id}/config/publish`, { reason }),
     uploadAPK: async (file: File) => uploadForm<UploadedAsset>(`${root}/sites/apk/upload`, file),
-  },
-  domains: {
-    list: (params: SystemQuery) => apiGet<{ list: TenantDomainSummary[]; total: number; page: number; pageSize: number }>(`${root}/domains`, params),
-    detail: (id: number) => apiGet<SystemDetail>(`${root}/domains/${id}`),
-    status: (id: number, enabled: boolean, reason: string) => apiPatch<void>(`${root}/domains/${id}/status`, { enabled, reason }),
-    verify: (id: number) => apiPost<TenantDomainSummary>(`${root}/domains/${id}/verify`),
-    updateSSL: (id: number, sslExpiresAt: string | null, reason: string) => apiPut<void>(`${root}/domains/${id}/ssl`, { sslExpiresAt, reason }),
   },
   announcements: {
     list: (siteID: number, params: SystemQuery) => apiGet<{ list: SiteAnnouncementRecord[]; total: number; page: number; pageSize: number }>(`${root}/sites/${siteID}/announcements`, params),

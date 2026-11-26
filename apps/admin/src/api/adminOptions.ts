@@ -12,7 +12,6 @@ export type AdminOption = {
 
 export type AdminOptionSource =
   | "providers"
-  | "tenants"
   | "sites"
   | "games"
   | "gameCategories"

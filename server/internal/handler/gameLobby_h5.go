@@ -13,9 +13,9 @@ import (
 	"github.com/go-dev-frame/sponge/pkg/gin/response"
 	"gorm.io/gorm"
 
+	"casino/internal/content"
 	"casino/internal/database"
 	"casino/internal/model"
-	"casino/internal/tenancy"
 )
 
 type h5LobbyBannerDTO struct {
@@ -72,7 +72,7 @@ type h5LobbySectionDTO struct {
 
 func (h *gameGamesHandler) Lobby(c *gin.Context) {
 	db := database.GetDB()
-	scope := h5TenancyScope(c)
+	scope := h5ContentScope(c)
 	if blocked, code, message := h5MaintenanceBlocked(c, db, scope); blocked {
 		h5MachineError(c, http.StatusServiceUnavailable, code, message)
 		return
@@ -146,12 +146,12 @@ func (h *gameGamesHandler) Lobby(c *gin.Context) {
 	})
 }
 
-func h5LobbySections(db *gorm.DB, scope tenancy.Scope, country, currency string) ([]model.GameLobbySections, error) {
+func h5LobbySections(db *gorm.DB, scope content.Scope, country string, currency string) ([]model.GameLobbySections, error) {
 	var rows []model.GameLobbySections
 	q := db.Model(&model.GameLobbySections{}).Where("deleted_at IS NULL AND enabled = ? AND publish_status = ?", true, "PUBLISHED")
 	q = h5LobbyScope(q, scope)
 	q = h5Availability(q, "game_lobby_sections", country, currency)
-	if err := q.Order("tenant_id DESC, site_id DESC, sort_order ASC, id ASC").Find(&rows).Error; err != nil {
+	if err := q.Order("site_id DESC, sort_order ASC, id ASC").Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	seen := map[string]bool{}
@@ -172,9 +172,9 @@ func h5LobbySections(db *gorm.DB, scope tenancy.Scope, country, currency string)
 	return out, nil
 }
 
-func h5LobbyScope(db *gorm.DB, scope tenancy.Scope) *gorm.DB {
-	if scope.TenantID > 0 {
-		db = db.Where("tenant_id IN (0, ?)", scope.TenantID)
+func h5LobbyScope(db *gorm.DB, scope content.Scope) *gorm.DB {
+	if scope.SiteID > 0 {
+		db = db
 	}
 	if scope.SiteID > 0 {
 		db = db.Where("site_id IN (0, ?)", scope.SiteID)
@@ -182,10 +182,10 @@ func h5LobbyScope(db *gorm.DB, scope tenancy.Scope) *gorm.DB {
 	return db
 }
 
-func h5LobbyBanners(ctx context.Context, db *gorm.DB, scope tenancy.Scope) []h5LobbyBannerDTO {
+func h5LobbyBanners(ctx context.Context, db *gorm.DB, scope content.Scope) []h5LobbyBannerDTO {
 	now := time.Now()
 	var rows []model.GameBanners
-	_ = tenancy.ApplySite(db.Model(&model.GameBanners{}), "", scope).
+	_ = content.ApplySite(db.Model(&model.GameBanners{}), "", scope).
 		Where("status = ? AND position IN ? AND (start_at IS NULL OR start_at <= ?) AND (end_at IS NULL OR end_at >= ?)", 1, []string{"home", "top-banner"}, now, now).
 		Order("sort ASC, id ASC").
 		Limit(20).
@@ -197,9 +197,9 @@ func h5LobbyBanners(ctx context.Context, db *gorm.DB, scope tenancy.Scope) []h5L
 	return out
 }
 
-func h5LobbyCategories(ctx context.Context, db *gorm.DB, scope tenancy.Scope) []h5LobbyCategoryDTO {
+func h5LobbyCategories(ctx context.Context, db *gorm.DB, scope content.Scope) []h5LobbyCategoryDTO {
 	var rows []model.GameGameCategories
-	_ = tenancy.ApplySite(db.Model(&model.GameGameCategories{}), "", scope).
+	_ = content.ApplySite(db.Model(&model.GameGameCategories{}), "", scope).
 		Where("status = ?", 1).
 		Order("sort ASC, id ASC").
 		Find(&rows).Error
@@ -210,9 +210,9 @@ func h5LobbyCategories(ctx context.Context, db *gorm.DB, scope tenancy.Scope) []
 	return out
 }
 
-func h5LobbyProviders(ctx context.Context, db *gorm.DB, scope tenancy.Scope, country, currency string) []h5LobbyProviderDTO {
+func h5LobbyProviders(ctx context.Context, db *gorm.DB, scope content.Scope, country string, currency string) []h5LobbyProviderDTO {
 	var rows []model.GameGameProviders
-	q := tenancy.ApplySite(db.Model(&model.GameGameProviders{}), "", scope).Where("status = ?", 1)
+	q := content.ApplySite(db.Model(&model.GameGameProviders{}), "", scope).Where("status = ?", 1)
 	q = h5Availability(q, "game_game_providers", country, currency)
 	if supported := h5SupportedGameProviderCodes(); len(supported) > 0 {
 		q = q.Where("provider_code IN ?", supported)
@@ -227,7 +227,7 @@ func h5LobbyProviders(ctx context.Context, db *gorm.DB, scope tenancy.Scope, cou
 	return out
 }
 
-func h5LobbyGameBuckets(c *gin.Context, db *gorm.DB, scope tenancy.Scope, country, currency string, sections []model.GameLobbySections) map[string][]h5GameDTO {
+func h5LobbyGameBuckets(c *gin.Context, db *gorm.DB, scope content.Scope, country string, currency string, sections []model.GameLobbySections) map[string][]h5GameDTO {
 	limits := h5LobbySectionLimits(sections)
 	out := map[string][]h5GameDTO{
 		"hotGames":         h5LobbyGames(c.Request.Context(), db, scope, country, currency, h5LobbyLimitValue(limits, "hot-games"), "hot"),
@@ -244,7 +244,7 @@ func h5LobbyGameBuckets(c *gin.Context, db *gorm.DB, scope tenancy.Scope, countr
 	return out
 }
 
-func h5LobbyGames(ctx context.Context, db *gorm.DB, scope tenancy.Scope, country, currency string, limit int, bucket string) []h5GameDTO {
+func h5LobbyGames(ctx context.Context, db *gorm.DB, scope content.Scope, country string, currency string, limit int, bucket string) []h5GameDTO {
 	var games []model.GameGames
 	catalogScope := scope
 	q := h5LobbyGameQuery(db, catalogScope, country, currency)
@@ -262,9 +262,9 @@ func h5LobbyGames(ctx context.Context, db *gorm.DB, scope tenancy.Scope, country
 	return h5GameDTOs(ctx, games, providers)
 }
 
-func h5LobbyRecentGames(ctx context.Context, db *gorm.DB, scope tenancy.Scope, country, currency string, userID uint64, limit int) []h5GameDTO {
+func h5LobbyRecentGames(ctx context.Context, db *gorm.DB, scope content.Scope, country string, currency string, userID uint64, limit int) []h5GameDTO {
 	var ids []uint64
-	_ = tenancy.ApplySite(db.Table("game_game_launch_logs"), "", scope).
+	_ = content.ApplySite(db.Table("game_game_launch_logs"), "", scope).
 		Where("user_id = ? AND game_id > 0 AND deleted_at IS NULL", userID).
 		Group("game_id").
 		Order("MAX(created_at) DESC").
@@ -282,12 +282,12 @@ func h5LobbyRecentGames(ctx context.Context, db *gorm.DB, scope tenancy.Scope, c
 	return h5GameDTOs(ctx, games, providers)
 }
 
-func h5LobbyGameQuery(db *gorm.DB, scope tenancy.Scope, country, currency string) *gorm.DB {
+func h5LobbyGameQuery(db *gorm.DB, scope content.Scope, country string, currency string) *gorm.DB {
 	q := db.Model(&model.GameGames{}).
 		Joins("JOIN game_game_providers gp ON gp.id = game_games.provider_id AND gp.deleted_at IS NULL").
 		Where("game_games.status = ? AND game_games.provider_enabled = ? AND game_games.platform_enabled = ? AND gp.status = ?", 1, true, true, 1)
-	q = tenancy.ApplySite(q, "game_games", scope)
-	q = tenancy.ApplySite(q, "gp", scope)
+	q = content.ApplySite(q, "game_games", scope)
+	q = content.ApplySite(q, "gp", scope)
 	q = h5Availability(q, "game_games", country, currency)
 	q = h5Availability(q, "gp", country, currency)
 	if supported := h5SupportedGameProviderCodes(); len(supported) > 0 {
@@ -298,7 +298,7 @@ func h5LobbyGameQuery(db *gorm.DB, scope tenancy.Scope, country, currency string
 	return q
 }
 
-func h5Availability(db *gorm.DB, alias, country, currency string) *gorm.DB {
+func h5Availability(db *gorm.DB, alias string, country string, currency string) *gorm.DB {
 	if country != "" {
 		db = db.Where("("+alias+".supported_countries = '' OR FIND_IN_SET(?, "+alias+".supported_countries))", country)
 	}

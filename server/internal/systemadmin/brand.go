@@ -1,7 +1,6 @@
 package systemadmin
 
 import (
-	"casino/internal/singlesite"
 	"fmt"
 	"strings"
 )
@@ -14,42 +13,24 @@ type brandSetupItem struct {
 
 func (s *Service) BrandOverview(actor Actor) (map[string]any, error) {
 	if actor.Platform {
-		return nil, NewError("TENANT_SCOPE_REQUIRED", "brand overview requires tenant scope")
+		return nil, NewError("SITE_REQUIRED", "brand overview requires H5 content scope")
 	}
 	row, err := s.brandSiteRow(actor)
 	if err != nil {
 		return nil, err
 	}
-	var tenant TenantRow
-	if err := s.db.Table("game_saas_tenants t").
-		Select(tenantSelect()).
-		Where("t.id=? AND t.deleted_at IS NULL", row.TenantID).
-		Take(&tenant).Error; err != nil {
-		return nil, rowNotFound("tenant")
-	}
 	var gamesEnabled int64
 	_ = s.db.Table("game_games").
-		Where("tenant_id=? AND site_id=? AND deleted_at IS NULL AND platform_enabled=1 AND provider_enabled=1", row.TenantID, row.ID).
+		Where("site_id = ? AND deleted_at IS NULL AND platform_enabled = 1 AND provider_enabled = 1", row.ID).
 		Count(&gamesEnabled).Error
 	var providersEnabled int64
 	_ = s.db.Table("game_game_providers").
-		Where("tenant_id=? AND site_id=? AND deleted_at IS NULL AND status=1", row.TenantID, row.ID).
+		Where("site_id = ? AND deleted_at IS NULL AND status = 1", row.ID).
 		Count(&providersEnabled).Error
 	var gamesConfigured int64
 	_ = s.db.Table("game_games").
-		Where("tenant_id=? AND site_id=? AND deleted_at IS NULL AND COALESCE(platform_enabled_draft,platform_enabled)=1", row.TenantID, row.ID).
+		Where("site_id = ? AND deleted_at IS NULL AND COALESCE(platform_enabled_draft, platform_enabled) = 1", row.ID).
 		Count(&gamesConfigured).Error
-	gameLimit, providerLimit := -1, -1
-	if !singlesite.Active() && s.db.Migrator().HasTable("game_saas_tenant_packages") {
-		var limits struct {
-			Games     int `gorm:"column:game_limit"`
-			Providers int `gorm:"column:provider_limit"`
-		}
-		if err := s.db.Table("game_saas_tenant_packages").Select("game_limit,provider_limit").
-			Where("package_code=? AND deleted_at IS NULL", tenant.PackageCode).Take(&limits).Error; err == nil {
-			gameLimit, providerLimit = limits.Games, limits.Providers
-		}
-	}
 	meta := siteConfigMeta(row)
 	draft := siteDraftConfig(row)
 	maintenance := parseJSONMap(firstDraft(row.MaintenanceDraft, row.MaintenanceConfig))
@@ -65,7 +46,7 @@ func (s *Service) BrandOverview(actor Actor) (map[string]any, error) {
 		}
 	}
 	updatedBy := ""
-	_ = s.db.Table("game_admin_operation_logs").Where("tenant_id=? AND site_id=? AND deleted_at IS NULL", row.TenantID, row.ID).Order("created_at DESC").Limit(1).Pluck("operator_username", &updatedBy).Error
+	_ = s.db.Table("game_admin_operation_logs").Where("site_id = ? AND deleted_at IS NULL", row.ID).Order("created_at DESC").Limit(1).Pluck("operator_username", &updatedBy).Error
 	changes := make([]map[string]any, 0, len(modules))
 	for _, module := range modules {
 		change := map[string]any{"module": module, "summary": module + " draft updated", "updatedBy": updatedBy, "updatedAt": row.ConfigDraftUpdatedAt}
@@ -76,11 +57,8 @@ func (s *Service) BrandOverview(actor Actor) (map[string]any, error) {
 		changes = append(changes, change)
 	}
 	return map[string]any{
-		"tenantID":           row.TenantID,
 		"siteID":             row.ID,
-		"tenantCode":         tenant.TenantCode,
-		"tenantName":         tenant.TenantName,
-		"brandName":          firstNonEmpty(stringFromMap(draft, "siteName"), row.SiteName, tenant.TenantName),
+		"brandName":          firstNonEmpty(stringFromMap(draft, "siteName"), row.SiteName),
 		"countryCode":        stringFromMap(draft, "countryCode"),
 		"currencyCode":       stringFromMap(draft, "currencyCode"),
 		"defaultLanguage":    stringFromMap(draft, "defaultLanguage"),
@@ -95,9 +73,6 @@ func (s *Service) BrandOverview(actor Actor) (map[string]any, error) {
 		"gamesEnabled":       gamesEnabled,
 		"gamesConfigured":    gamesConfigured,
 		"providersEnabled":   providersEnabled,
-		"packageCode":        tenant.PackageCode,
-		"gameLimit":          gameLimit,
-		"providerLimit":      providerLimit,
 		"publishStatus":      meta["status"],
 		"publishedVersion":   meta["configVersion"],
 		"draftVersion":       draftVersion(meta),
@@ -126,7 +101,7 @@ func pendingReleaseModulesIfAvailable(s *Service, row SiteRow) ([]string, bool, 
 		}
 		return []string{}, false, nil
 	}
-	checks := []string{"game_lobby_sections", "game_games", "game_site_banners", "game_site_announcements", "game_tenant_popup_campaigns", "game_h5_navigation_items"}
+	checks := []string{"game_lobby_sections", "game_games", "game_site_banners", "game_site_announcements", "game_popup_campaigns", "game_h5_navigation_items"}
 	for _, table := range checks {
 		if !s.db.Migrator().HasTable(table) {
 			if strings.EqualFold(row.ConfigStatus, "DRAFT") {
@@ -138,7 +113,7 @@ func pendingReleaseModulesIfAvailable(s *Service, row SiteRow) ([]string, bool, 
 	return pendingReleaseModules(s.db, row)
 }
 
-func (s *Service) brandSetupChecklist(row SiteRow, draft map[string]any, gamesEnabled, providersEnabled int64) []brandSetupItem {
+func (s *Service) brandSetupChecklist(row SiteRow, draft map[string]any, gamesEnabled int64, providersEnabled int64) []brandSetupItem {
 	brand := configMap(draft["brandConfig"])
 	theme := configMap(draft["themeConfig"])
 	country := firstNonEmpty(stringFromMap(draft, "countryCode"), row.CountryCode)
@@ -146,20 +121,17 @@ func (s *Service) brandSetupChecklist(row SiteRow, draft map[string]any, gamesEn
 	language := firstNonEmpty(stringFromMap(draft, "defaultLanguage"), row.DefaultLanguage)
 
 	var domainCount, paymentCount, lobbyCount, bannerCount, supportCount int64
-	if s.db.Migrator().HasTable("game_saas_domains") {
-		_ = s.db.Table("game_saas_domains").Where("tenant_id=? AND site_id=? AND enabled=1 AND status='ACTIVE' AND deleted_at IS NULL", row.TenantID, row.ID).Count(&domainCount).Error
-	}
 	if s.db.Migrator().HasTable("game_payment_channels") {
-		_ = s.db.Table("game_payment_channels").Where("tenant_id IN (0, ?) AND site_id IN (0, ?) AND status=1 AND country_code IN ('', ?) AND currency_code IN ('', ?) AND deleted_at IS NULL", row.TenantID, row.ID, country, currency).Count(&paymentCount).Error
+		_ = s.db.Table("game_payment_channels").Where("site_id IN (0, ?) AND status = 1 AND country_code IN ('', ?) AND currency_code IN ('', ?) AND deleted_at IS NULL", row.ID, country, currency).Count(&paymentCount).Error
 	}
 	if s.db.Migrator().HasTable("game_lobby_sections") {
-		_ = s.db.Table("game_lobby_sections").Where("tenant_id=? AND site_id=? AND enabled=1 AND deleted_at IS NULL", row.TenantID, row.ID).Count(&lobbyCount).Error
+		_ = s.db.Table("game_lobby_sections").Where("site_id = ? AND enabled = 1 AND deleted_at IS NULL", row.ID).Count(&lobbyCount).Error
 	}
 	if s.db.Migrator().HasTable("game_site_banners") {
-		_ = s.db.Table("game_site_banners").Where("tenant_id=? AND site_id=? AND enabled=1 AND deleted_at IS NULL", row.TenantID, row.ID).Count(&bannerCount).Error
+		_ = s.db.Table("game_site_banners").Where("site_id = ? AND enabled = 1 AND deleted_at IS NULL", row.ID).Count(&bannerCount).Error
 	}
 	if s.db.Migrator().HasTable("game_social_links") {
-		_ = s.db.Table("game_social_links").Where("tenant_id=? AND site_id=? AND enabled=1 AND deleted_at IS NULL", row.TenantID, row.ID).Count(&supportCount).Error
+		_ = s.db.Table("game_social_links").Where("site_id = ? AND enabled = 1 AND deleted_at IS NULL", row.ID).Count(&supportCount).Error
 	}
 	if firstNonEmpty(stringFromMap(brand, "customerService"), stringFromMap(brand, "supportUrl")) != "" {
 		supportCount++
@@ -190,7 +162,7 @@ func (s *Service) brandSetupChecklist(row SiteRow, draft map[string]any, gamesEn
 	}
 }
 
-func setupPercent(completed, total int) int {
+func setupPercent(completed int, total int) int {
 	if total == 0 {
 		return 0
 	}
@@ -236,10 +208,9 @@ func (s *Service) brandSiteRow(actor Actor) (SiteRow, error) {
 		return s.siteRowForActor(s.db, actor.SiteID, actor, false)
 	}
 	var row SiteRow
-	query := s.db.Table("game_saas_sites s").
+	query := s.db.Table("game_site_config s").
 		Select(siteSelect()).
-		Joins("LEFT JOIN game_saas_tenants t ON t.id=s.tenant_id AND t.deleted_at IS NULL").
-		Where("s.tenant_id=? AND s.deleted_at IS NULL", actor.TenantID).
+		Where("s.deleted_at IS NULL").
 		Order("s.enabled DESC,s.id ASC")
 	if err := query.Take(&row).Error; err != nil {
 		return row, rowNotFound("site")

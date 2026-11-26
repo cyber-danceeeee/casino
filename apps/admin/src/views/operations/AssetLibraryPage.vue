@@ -77,7 +77,7 @@ const uploadForm = reactive<{
 }>({
   assetType: "",
   usageType: "GENERAL",
-  assetScope: "TENANT",
+  assetScope: "SITE",
   displayName: "",
   altText: "",
   tags: "",
@@ -101,12 +101,12 @@ const detail = ref<AssetDetail | null>(null);
 const canUploadPlatformAssets = computed(() => Boolean(actor.value?.platform));
 const scopeOptions = computed<Array<{ label: string; value: AssetScope }>>(() => [
   { label: t("assetLibrary.scopes.PLATFORM"), value: "PLATFORM" },
-  { label: t("assetLibrary.scopes.TENANT"), value: "TENANT" },
+  { label: t("assetLibrary.scopes.SITE"), value: "SITE" },
 ]);
 const uploadScopeOptions = computed(() =>
   canUploadPlatformAssets.value
     ? scopeOptions.value
-    : scopeOptions.value.filter((item) => item.value === "TENANT"),
+    : scopeOptions.value.filter((item) => item.value === "SITE"),
 );
 
 async function loadRows() {
@@ -141,7 +141,7 @@ function resetFilters() {
 function resetUploadForm() {
   uploadForm.assetType = "";
   uploadForm.usageType = "GENERAL";
-  uploadForm.assetScope = canUploadPlatformAssets.value ? "PLATFORM" : "TENANT";
+  uploadForm.assetScope = canUploadPlatformAssets.value ? "PLATFORM" : "SITE";
   uploadForm.displayName = "";
   uploadForm.altText = "";
   uploadForm.tags = "";

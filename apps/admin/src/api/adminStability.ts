@@ -1,7 +1,7 @@
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut, http } from '@/api/http'
 
 export type OpsQuery = Record<string, string | number | boolean | undefined>
-export type OpsRecord = Record<string, unknown> & { id?: number; status?: string; tenantID?: number; siteID?: number }
+export type OpsRecord = Record<string, unknown> & { id?: number; status?: string; siteID?: number }
 export type OpsPage<T = OpsRecord> = { list: T[]; total: number; page: number; pageSize: number }
 
 const admin = '/admin'
@@ -45,8 +45,8 @@ export const operationsAPI = {
     note: (payload: unknown) => apiPost<{ id: number }>(`${admin}/operations/notes`, payload),
   },
   maintenance: {
-    tenants: (params: OpsQuery) => apiGet<OpsPage>(`${admin}/maintenance/tenant`, params),
-    saveTenant: (payload: unknown) => apiPut<{ id: number }>(`${admin}/maintenance/tenant`, payload),
+    site: (params: OpsQuery) => apiGet<OpsPage>(`${admin}/maintenance/site`, params),
+    saveSite: (payload: unknown) => apiPut<{ id: number }>(`${admin}/maintenance/site`, payload),
     providers: (params: OpsQuery) => apiGet<OpsPage>(`${admin}/maintenance/providers`, params),
     saveProvider: (payload: unknown) => apiPut<{ id: number }>(`${admin}/maintenance/providers`, payload),
     games: (params: OpsQuery) => apiGet<OpsPage>(`${admin}/maintenance/games`, params),

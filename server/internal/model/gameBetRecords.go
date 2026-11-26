@@ -1,16 +1,16 @@
 package model
 
 import (
+	"time"
+
 	"github.com/go-dev-frame/sponge/pkg/sgorm"
 	"github.com/shopspring/decimal"
-	"time"
 )
 
 // GameBetRecords Bet records
 type GameBetRecords struct {
 	sgorm.Model `gorm:"embedded"` // embed id and time
 
-	TenantID       uint64           `gorm:"column:tenant_id;type:bigint(20) unsigned;default:0;not null" json:"tenantID"`
 	SiteID         uint64           `gorm:"column:site_id;type:bigint(20) unsigned;default:0;not null" json:"siteID"`
 	BetNo          string           `gorm:"column:bet_no;type:varchar(64);not null" json:"betNo"`
 	UserID         uint64           `gorm:"column:user_id;type:bigint(20) unsigned;not null" json:"userID"`
@@ -28,11 +28,11 @@ type GameBetRecords struct {
 
 // GameBetRecordsColumnNames Whitelist for custom query fields to prevent sql injection attacks
 var GameBetRecordsColumnNames = map[string]bool{
-	"id":               true,
-	"created_at":       true,
-	"updated_at":       true,
-	"deleted_at":       true,
-	"tenant_id":        true,
+	"id":         true,
+	"created_at": true,
+	"updated_at": true,
+	"deleted_at": true,
+
 	"site_id":          true,
 	"bet_no":           true,
 	"user_id":          true,

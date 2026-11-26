@@ -232,7 +232,7 @@ func (h *gameAppDownloadRecordsHandler) List(c *gin.Context) {
 
 	response.Success(c, gin.H{
 		"gameAppDownloadRecordss": data,
-		"total":        total,
+		"total":                   total,
 	})
 }
 

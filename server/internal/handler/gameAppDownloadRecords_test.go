@@ -103,7 +103,7 @@ func Test_gameAppDownloadRecordsHandler_Create(t *testing.T) {
 	}
 
 	t.Logf("%+v", result)
-	
+
 }
 
 func Test_gameAppDownloadRecordsHandler_DeleteByID(t *testing.T) {

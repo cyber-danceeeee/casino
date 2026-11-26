@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"casino/internal/adminauth"
+	"casino/internal/content"
 	"casino/internal/model"
-	"casino/internal/tenancy"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -34,7 +34,6 @@ const (
 	discrepancyStatusMismatch       = "STATUS_MISMATCH"
 	discrepancyDuplicateCallback    = "DUPLICATE_CALLBACK"
 	discrepancyMissingWalletEntry   = "MISSING_WALLET_ENTRY"
-	discrepancyMissingLedgerEntry   = "MISSING_LEDGER_ENTRY"
 	discrepancyRollbackNotApplied   = "ROLLBACK_NOT_APPLIED"
 )
 
@@ -51,7 +50,6 @@ type reconciliationStats struct {
 	Callbacks            int64
 	WalletTransactions   int64
 	BetRecords           int64
-	LedgerTransactions   int64
 }
 
 type reconciliationBuild struct {
@@ -61,49 +59,47 @@ type reconciliationBuild struct {
 }
 
 type reconcileTransactionRow struct {
-	ProviderTransactionRowID uint64    `gorm:"column:provider_transaction_row_id"`
-	TenantID                 uint64    `gorm:"column:tenant_id"`
-	SiteID                   uint64    `gorm:"column:site_id"`
-	ProviderID               uint64    `gorm:"column:provider_id"`
-	ProviderCode             string    `gorm:"column:provider_code"`
-	ProviderTransactionID    string    `gorm:"column:provider_transaction_id"`
-	ProviderRoundID          string    `gorm:"column:provider_round_id"`
-	ProviderGameID           string    `gorm:"column:provider_game_id"`
-	UserID                   uint64    `gorm:"column:user_id"`
-	WalletTransactionID      uint64    `gorm:"column:wallet_transaction_id"`
-	Operation                string    `gorm:"column:operation"`
-	ProviderStatus           string    `gorm:"column:provider_status"`
-	ProviderAmountMinor      int64     `gorm:"column:provider_amount_minor"`
-	Currency                 string    `gorm:"column:currency"`
-	RelatedTransactionID     string    `gorm:"column:related_transaction_id"`
-	BalanceBeforeMinor       int64     `gorm:"column:balance_before_minor"`
-	BalanceAfterMinor        int64     `gorm:"column:balance_after_minor"`
-	SourceCreatedAt          time.Time `gorm:"column:source_created_at"`
-	WalletExists             uint64    `gorm:"column:wallet_exists"`
-	WalletAmountMinor        int64     `gorm:"column:wallet_amount_minor"`
-	WalletStatus             int       `gorm:"column:wallet_status"`
-	WalletDirection          string    `gorm:"column:wallet_direction"`
-	WalletCurrency           string    `gorm:"column:wallet_currency"`
-	WalletOrderNo            string    `gorm:"column:wallet_order_no"`
-	WalletTxnNo              string    `gorm:"column:wallet_txn_no"`
-	BetRecordID              uint64    `gorm:"column:bet_record_id"`
-	BetAmountMinor           int64     `gorm:"column:bet_amount_minor"`
-	WinAmountMinor           int64     `gorm:"column:win_amount_minor"`
-	BetStatus                string    `gorm:"column:bet_status"`
-	RollbackStatus           string    `gorm:"column:rollback_status"`
-	BetProviderWinTx         string    `gorm:"column:bet_provider_win_tx"`
-	RollbackRecordID         uint64    `gorm:"column:rollback_record_id"`
-	RollbackAmountMinor      int64     `gorm:"column:rollback_amount_minor"`
-	RollbackRecordStatus     string    `gorm:"column:rollback_record_status"`
-	LedgerTransactionID      uint64    `gorm:"column:ledger_transaction_id"`
-	LedgerAmountMinor        int64     `gorm:"column:ledger_amount_minor"`
-	CallbackLogID            uint64    `gorm:"column:callback_log_id"`
-	SuccessfulCallbackCount  int64     `gorm:"column:successful_callback_count"`
+	ProviderTransactionRowID uint64 `gorm:"column:provider_transaction_row_id"`
+
+	SiteID                  uint64    `gorm:"column:site_id"`
+	ProviderID              uint64    `gorm:"column:provider_id"`
+	ProviderCode            string    `gorm:"column:provider_code"`
+	ProviderTransactionID   string    `gorm:"column:provider_transaction_id"`
+	ProviderRoundID         string    `gorm:"column:provider_round_id"`
+	ProviderGameID          string    `gorm:"column:provider_game_id"`
+	UserID                  uint64    `gorm:"column:user_id"`
+	WalletTransactionID     uint64    `gorm:"column:wallet_transaction_id"`
+	Operation               string    `gorm:"column:operation"`
+	ProviderStatus          string    `gorm:"column:provider_status"`
+	ProviderAmountMinor     int64     `gorm:"column:provider_amount_minor"`
+	Currency                string    `gorm:"column:currency"`
+	RelatedTransactionID    string    `gorm:"column:related_transaction_id"`
+	BalanceBeforeMinor      int64     `gorm:"column:balance_before_minor"`
+	BalanceAfterMinor       int64     `gorm:"column:balance_after_minor"`
+	SourceCreatedAt         time.Time `gorm:"column:source_created_at"`
+	WalletExists            uint64    `gorm:"column:wallet_exists"`
+	WalletAmountMinor       int64     `gorm:"column:wallet_amount_minor"`
+	WalletStatus            int       `gorm:"column:wallet_status"`
+	WalletDirection         string    `gorm:"column:wallet_direction"`
+	WalletCurrency          string    `gorm:"column:wallet_currency"`
+	WalletOrderNo           string    `gorm:"column:wallet_order_no"`
+	WalletTxnNo             string    `gorm:"column:wallet_txn_no"`
+	BetRecordID             uint64    `gorm:"column:bet_record_id"`
+	BetAmountMinor          int64     `gorm:"column:bet_amount_minor"`
+	WinAmountMinor          int64     `gorm:"column:win_amount_minor"`
+	BetStatus               string    `gorm:"column:bet_status"`
+	RollbackStatus          string    `gorm:"column:rollback_status"`
+	BetProviderWinTx        string    `gorm:"column:bet_provider_win_tx"`
+	RollbackRecordID        uint64    `gorm:"column:rollback_record_id"`
+	RollbackAmountMinor     int64     `gorm:"column:rollback_amount_minor"`
+	RollbackRecordStatus    string    `gorm:"column:rollback_record_status"`
+	CallbackLogID           uint64    `gorm:"column:callback_log_id"`
+	SuccessfulCallbackCount int64     `gorm:"column:successful_callback_count"`
 }
 
 type unmatchedCallbackRow struct {
-	CallbackLogID           uint64    `gorm:"column:callback_log_id"`
-	TenantID                uint64    `gorm:"column:tenant_id"`
+	CallbackLogID uint64 `gorm:"column:callback_log_id"`
+
 	SiteID                  uint64    `gorm:"column:site_id"`
 	ProviderID              uint64    `gorm:"column:provider_id"`
 	ProviderCode            string    `gorm:"column:provider_code"`
@@ -153,11 +149,9 @@ func (s *Service) GenerateProviderReconciliation(command GenerateReconciliationC
 func (s *Service) ListReconciliationRuns(query ListQuery) (PageResult, error) {
 	rows := []ReconciliationRunRow{}
 	v := query.Values
-	db := s.db.Table("provider_reconciliation_runs r").Select(`r.id,r.run_no,r.tenant_id,r.site_id,r.provider_id,r.provider_code,r.business_date,r.currency,r.source_mode,r.status,
-		r.provider_transaction_count,r.callback_count,r.wallet_transaction_count,r.bet_record_count,r.ledger_transaction_count,
-		r.discrepancy_count,r.open_discrepancy_count,r.started_at,r.completed_at,r.failure_reason,r.created_by_username,r.created_at`).
+	db := s.db.Table("provider_reconciliation_runs r").Select("r.id, r.run_no, r.site_id, r.provider_id, r.provider_code, r.business_date, r.currency, r.source_mode, r.status, r.provider_transaction_count, r.callback_count, r.wallet_transaction_count, r.bet_record_count, r.discrepancy_count, r.open_discrepancy_count, r.started_at, r.completed_at, r.failure_reason, r.created_by_username, r.created_at").
 		Where("r.deleted_at IS NULL")
-	db = tenancy.ApplySite(db, "r", query.Scope)
+	db = content.ApplySite(db, "r", query.Scope)
 	db = equals(db, "r.provider_code", strings.ToLower(v["providerCode"]))
 	db = equals(db, "r.currency", strings.ToUpper(v["currency"]))
 	db = equals(db, "r.status", strings.ToUpper(v["status"]))
@@ -167,7 +161,7 @@ func (s *Service) ListReconciliationRuns(query ListQuery) (PageResult, error) {
 	return paginate(db, query, &rows)
 }
 
-func (s *Service) ReconciliationRunDetail(id uint64, scope tenancy.Scope) (map[string]any, error) {
+func (s *Service) ReconciliationRunDetail(id uint64, scope content.Scope) (map[string]any, error) {
 	run, err := s.reconciliationRunByID(id, scope)
 	if err != nil {
 		return nil, err
@@ -176,7 +170,7 @@ func (s *Service) ReconciliationRunDetail(id uint64, scope tenancy.Scope) (map[s
 	itemDB := s.db.Table("provider_reconciliation_items i").Select(reconciliationItemSelect()).
 		Joins("LEFT JOIN game_users u ON u.id=i.user_id AND u.deleted_at IS NULL").
 		Where("i.run_id=? AND i.deleted_at IS NULL", id)
-	if err := tenancy.ApplySite(itemDB, "i", scope).Order("FIELD(i.status,'OPEN','CONFIRMED','MANUALLY_FIXED','AUTO_FIXED','IGNORED'),i.id DESC").Limit(200).Scan(&items).Error; err != nil {
+	if err := content.ApplySite(itemDB, "i", scope).Order("FIELD(i.status,'OPEN','CONFIRMED','MANUALLY_FIXED','AUTO_FIXED','IGNORED'),i.id DESC").Limit(200).Scan(&items).Error; err != nil {
 		return nil, err
 	}
 	fillReconciliationItemMoney(items)
@@ -189,7 +183,7 @@ func (s *Service) ListReconciliationItems(query ListQuery) (PageResult, error) {
 	db := s.db.Table("provider_reconciliation_items i").Select(reconciliationItemSelect()).
 		Joins("LEFT JOIN game_users u ON u.id=i.user_id AND u.deleted_at IS NULL").
 		Where("i.deleted_at IS NULL")
-	db = tenancy.ApplySite(db, "i", query.Scope)
+	db = content.ApplySite(db, "i", query.Scope)
 	db = equals(db, "i.provider_code", strings.ToLower(v["providerCode"]))
 	db = equals(db, "i.currency", strings.ToUpper(v["currency"]))
 	db = equals(db, "i.discrepancy_type", strings.ToUpper(v["discrepancyType"]))
@@ -220,7 +214,7 @@ func (s *Service) UpdateReconciliationItemStatus(id uint64, command Reconciliati
 	}
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		var item model.ProviderReconciliationItems
-		db := tenancy.ApplySite(tx.Clauses(clause.Locking{Strength: "UPDATE"}).Model(&model.ProviderReconciliationItems{}), "", actor.Scope).
+		db := content.ApplySite(tx.Clauses(clause.Locking{Strength: "UPDATE"}).Model(&model.ProviderReconciliationItems{}), "", actor.Scope).
 			Where("id=? AND deleted_at IS NULL", id)
 		if err := db.First(&item).Error; err != nil {
 			return notFound(err)
@@ -247,17 +241,17 @@ func (s *Service) UpdateReconciliationItemStatus(id uint64, command Reconciliati
 	})
 }
 
-func (s *Service) startReconciliationRun(scope tenancy.Scope, providerID uint64, providerCode string, businessDate time.Time, currency string, actor Actor, startedAt time.Time) (model.ProviderReconciliationRuns, error) {
+func (s *Service) startReconciliationRun(scope content.Scope, providerID uint64, providerCode string, businessDate time.Time, currency string, actor Actor, startedAt time.Time) (model.ProviderReconciliationRuns, error) {
 	var run model.ProviderReconciliationRuns
 	err := s.db.Transaction(func(tx *gorm.DB) error {
-		db := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("tenant_id=? AND site_id=? AND provider_code=? AND business_date=? AND currency=? AND deleted_at IS NULL", scope.TenantID, scope.SiteID, providerCode, businessDate, currency)
+		db := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("site_id = ? AND provider_code = ? AND business_date = ? AND currency = ? AND deleted_at IS NULL", scope.SiteID, providerCode, businessDate, currency)
 		err := db.First(&run).Error
 		if err == nil {
 			updates := map[string]any{
 				"run_no": runNo(), "provider_id": providerID, "source_mode": reconciliationSourceInternal, "status": reconciliationRunRunning,
 				"failure_reason": "", "started_at": startedAt, "completed_at": nil, "created_by": actor.ID, "created_by_username": actor.Username,
 				"provider_transaction_count": 0, "callback_count": 0, "wallet_transaction_count": 0, "bet_record_count": 0,
-				"ledger_transaction_count": 0, "discrepancy_count": 0, "open_discrepancy_count": 0, "updated_at": startedAt,
+				"discrepancy_count": 0, "open_discrepancy_count": 0, "updated_at": startedAt,
 			}
 			if err := tx.Model(&run).Updates(updates).Error; err != nil {
 				return err
@@ -271,7 +265,7 @@ func (s *Service) startReconciliationRun(scope tenancy.Scope, providerID uint64,
 			return err
 		}
 		run = model.ProviderReconciliationRuns{
-			RunNo: runNo(), TenantID: scope.TenantID, SiteID: scope.SiteID, ProviderID: providerID, ProviderCode: providerCode,
+			RunNo: runNo(), SiteID: scope.SiteID, ProviderID: providerID, ProviderCode: providerCode,
 			BusinessDate: businessDate, Currency: currency, SourceMode: reconciliationSourceInternal, Status: reconciliationRunRunning,
 			StartedAt: startedAt, CreatedBy: actor.ID, CreatedByUsername: actor.Username,
 		}
@@ -280,7 +274,7 @@ func (s *Service) startReconciliationRun(scope tenancy.Scope, providerID uint64,
 	return run, err
 }
 
-func (s *Service) buildReconciliation(run model.ProviderReconciliationRuns, scope tenancy.Scope) (reconciliationBuild, error) {
+func (s *Service) buildReconciliation(run model.ProviderReconciliationRuns, scope content.Scope) (reconciliationBuild, error) {
 	start := run.BusinessDate
 	end := start.AddDate(0, 0, 1)
 	rows := []reconcileTransactionRow{}
@@ -298,7 +292,6 @@ func (s *Service) buildReconciliation(run model.ProviderReconciliationRuns, scop
 	stats.Callbacks = s.countScoped("game_provider_callback_logs", scope, run.ProviderCode, run.Currency, start, end)
 	stats.WalletTransactions = s.countScoped("game_wallet_transactions", scope, run.ProviderCode, run.Currency, start, end)
 	stats.BetRecords = s.countScoped("game_bet_records", scope, run.ProviderCode, run.Currency, start, end)
-	stats.LedgerTransactions = s.countLedger(scope, run.Currency, start, end)
 
 	build := reconciliationBuild{Facts: make([]model.GameTransactionFacts, 0, len(rows)), Items: []model.ProviderReconciliationItems{}, Stats: stats}
 	for _, row := range rows {
@@ -315,82 +308,40 @@ func (s *Service) buildReconciliation(run model.ProviderReconciliationRuns, scop
 	return build, nil
 }
 
-func (s *Service) baseReconciliationQuery(scope tenancy.Scope) *gorm.DB {
-	db := s.db.Table("game_provider_transactions pt").Select(`
-		pt.id provider_transaction_row_id,pt.tenant_id,pt.site_id,COALESCE(gp.id,0) provider_id,pt.provider_code,pt.provider_transaction_id,pt.provider_round_id,pt.provider_game_id,
-		pt.user_id,pt.wallet_transaction_id,pt.operation,pt.status provider_status,pt.amount_minor provider_amount_minor,pt.currency,pt.related_transaction_id,
-		pt.balance_before_minor,pt.balance_after_minor,pt.created_at source_created_at,
-		COALESCE(wt.id,0) wallet_exists,CAST(ROUND(COALESCE(wt.amount,0)*100) AS SIGNED) wallet_amount_minor,COALESCE(wt.status,0) wallet_status,
-		COALESCE(wt.direction,'') wallet_direction,COALESCE(wt.currency,'') wallet_currency,COALESCE(wt.order_no,'') wallet_order_no,COALESCE(wt.txn_no,'') wallet_txn_no,
-		COALESCE(br.id,0) bet_record_id,COALESCE(br.bet_amount_minor,0) bet_amount_minor,COALESCE(br.win_amount_minor,0) win_amount_minor,
-		COALESCE(br.bet_status,'') bet_status,COALESCE(br.rollback_status,'') rollback_status,COALESCE(br.provider_win_transaction_id,'') bet_provider_win_tx,
-		COALESCE(rb.id,0) rollback_record_id,COALESCE(rb.rollback_amount_minor,0) rollback_amount_minor,COALESCE(rb.status,'') rollback_record_status,
-		COALESCE(lt.id,0) ledger_transaction_id,CAST(ROUND(COALESCE(lt.debit_amount,0)*100) AS SIGNED) ledger_amount_minor,
-		COALESCE(cb.id,0) callback_log_id,COALESCE(cbc.successful_callback_count,0) successful_callback_count`).
+func (s *Service) baseReconciliationQuery(scope content.Scope) *gorm.DB {
+	db := s.db.Table("game_provider_transactions pt").Select("pt.id AS provider_transaction_row_id, pt.site_id, COALESCE(gp.id, 0) AS provider_id, pt.provider_code, pt.provider_transaction_id, pt.provider_round_id, pt.provider_game_id, pt.user_id, pt.wallet_transaction_id, pt.operation, pt.status AS provider_status, pt.amount_minor AS provider_amount_minor, pt.currency, pt.related_transaction_id, pt.balance_before_minor, pt.balance_after_minor, pt.created_at AS source_created_at, COALESCE(wt.id, 0) AS wallet_exists, CAST(ROUND(COALESCE(wt.amount, 0) * 100) AS SIGNED) AS wallet_amount_minor, COALESCE(wt.status, 0) AS wallet_status, COALESCE(wt.direction, '') AS wallet_direction, COALESCE(wt.currency, '') AS wallet_currency, COALESCE(wt.order_no, '') AS wallet_order_no, COALESCE(wt.txn_no, '') AS wallet_txn_no, COALESCE(br.id, 0) AS bet_record_id, COALESCE(br.bet_amount_minor, 0) AS bet_amount_minor, COALESCE(br.win_amount_minor, 0) AS win_amount_minor, COALESCE(br.bet_status, '') AS bet_status, COALESCE(br.rollback_status, '') AS rollback_status, COALESCE(br.provider_win_transaction_id, '') AS bet_provider_win_tx, COALESCE(rb.id, 0) AS rollback_record_id, COALESCE(rb.rollback_amount_minor, 0) AS rollback_amount_minor, COALESCE(rb.status, '') AS rollback_record_status, COALESCE(cb.id, 0) AS callback_log_id, COALESCE(cbc.successful_callback_count, 0) AS successful_callback_count").
 		Joins("LEFT JOIN game_game_providers gp ON gp.provider_code=pt.provider_code AND gp.deleted_at IS NULL").
 		Joins("LEFT JOIN game_wallet_transactions wt ON wt.id=pt.wallet_transaction_id AND wt.deleted_at IS NULL").
-		Joins(`LEFT JOIN game_bet_records br ON br.id = (
-			SELECT br2.id FROM game_bet_records br2
-			WHERE br2.tenant_id=pt.tenant_id AND (pt.site_id=0 OR br2.site_id IN (0,pt.site_id)) AND br2.provider_code=pt.provider_code AND br2.deleted_at IS NULL
-			  AND (br2.provider_bet_transaction_id=pt.provider_transaction_id OR br2.provider_win_transaction_id=pt.provider_transaction_id OR (pt.provider_round_id<>'' AND br2.provider_round_id=pt.provider_round_id))
-			ORDER BY br2.id DESC LIMIT 1
-		)`).
-		Joins(`LEFT JOIN game_rollbacks rb ON rb.id = (
-			SELECT rb2.id FROM game_rollbacks rb2
-			WHERE rb2.tenant_id=pt.tenant_id AND (pt.site_id=0 OR rb2.site_id IN (0,pt.site_id)) AND rb2.provider_code=pt.provider_code AND rb2.provider_transaction_id=pt.provider_transaction_id AND rb2.deleted_at IS NULL
-			ORDER BY rb2.id DESC LIMIT 1
-		)`).
-		Joins(`LEFT JOIN ledger_transactions lt ON lt.id = (
-			SELECT lt2.id FROM ledger_transactions lt2
-			WHERE lt2.tenant_id=pt.tenant_id AND (pt.site_id=0 OR lt2.site_id IN (0,pt.site_id)) AND lt2.currency=pt.currency AND lt2.deleted_at IS NULL
-			  AND (lt2.business_order_no=pt.provider_transaction_id OR (wt.order_no<>'' AND lt2.business_order_no=wt.order_no) OR (wt.txn_no<>'' AND lt2.business_order_no=wt.txn_no))
-			ORDER BY lt2.id DESC LIMIT 1
-		)`).
-		Joins(`LEFT JOIN game_provider_callback_logs cb ON cb.id = (
-			SELECT cb2.id FROM game_provider_callback_logs cb2
-			WHERE cb2.tenant_id=pt.tenant_id AND (pt.site_id=0 OR cb2.site_id IN (0,pt.site_id)) AND cb2.provider_code=pt.provider_code AND cb2.provider_transaction_id=pt.provider_transaction_id
-			  AND cb2.operation=pt.operation AND cb2.processing_result='SUCCESS' AND cb2.deleted_at IS NULL
-			ORDER BY cb2.id DESC LIMIT 1
-		)`).
-		Joins(`LEFT JOIN (
-			SELECT tenant_id,site_id,provider_code,provider_transaction_id,operation,COUNT(*) successful_callback_count
-			FROM game_provider_callback_logs
-			WHERE processing_result='SUCCESS' AND deleted_at IS NULL
-			GROUP BY tenant_id,site_id,provider_code,provider_transaction_id,operation
-		) cbc ON cbc.tenant_id=pt.tenant_id AND cbc.site_id=pt.site_id AND cbc.provider_code=pt.provider_code AND cbc.provider_transaction_id=pt.provider_transaction_id AND cbc.operation=pt.operation`)
-	return tenancy.ApplySite(db, "pt", scope)
+		Joins("LEFT JOIN game_bet_records AS br ON br.id = (SELECT br2.id FROM game_bet_records AS br2 WHERE (pt.site_id = 0 OR br2.site_id IN (0, pt.site_id)) AND br2.provider_code = pt.provider_code AND br2.deleted_at IS NULL AND (br2.provider_bet_transaction_id = pt.provider_transaction_id OR br2.provider_win_transaction_id = pt.provider_transaction_id OR (pt.provider_round_id <> '' AND br2.provider_round_id = pt.provider_round_id)) ORDER BY br2.id DESC LIMIT 1)").
+		Joins("LEFT JOIN game_rollbacks AS rb ON rb.id = (SELECT rb2.id FROM game_rollbacks AS rb2 WHERE (pt.site_id = 0 OR rb2.site_id IN (0, pt.site_id)) AND rb2.provider_code = pt.provider_code AND rb2.provider_transaction_id = pt.provider_transaction_id AND rb2.deleted_at IS NULL ORDER BY rb2.id DESC LIMIT 1)").
+		Joins("LEFT JOIN game_provider_callback_logs AS cb ON cb.id = (SELECT cb2.id FROM game_provider_callback_logs AS cb2 WHERE (pt.site_id = 0 OR cb2.site_id IN (0, pt.site_id)) AND cb2.provider_code = pt.provider_code AND cb2.provider_transaction_id = pt.provider_transaction_id AND cb2.operation = pt.operation AND cb2.processing_result = 'SUCCESS' AND cb2.deleted_at IS NULL ORDER BY cb2.id DESC LIMIT 1)").
+		Joins("LEFT JOIN (SELECT site_id, provider_code, provider_transaction_id, operation, COUNT(*) AS successful_callback_count FROM game_provider_callback_logs WHERE processing_result = 'SUCCESS' AND deleted_at IS NULL GROUP BY site_id, provider_code, provider_transaction_id, operation) AS cbc ON cbc.site_id = pt.site_id AND cbc.provider_code = pt.provider_code AND cbc.provider_transaction_id = pt.provider_transaction_id AND cbc.operation = pt.operation")
+	return content.ApplySite(db, "pt", scope)
 }
 
-func (s *Service) unmatchedCallbacks(scope tenancy.Scope, providerCode, currency string, start, end time.Time) ([]unmatchedCallbackRow, error) {
+func (s *Service) unmatchedCallbacks(scope content.Scope, providerCode string, currency string, start time.Time, end time.Time) ([]unmatchedCallbackRow, error) {
 	rows := []unmatchedCallbackRow{}
-	db := s.db.Table("game_provider_callback_logs c").Select(`
-		c.id callback_log_id,c.tenant_id,c.site_id,COALESCE(gp.id,0) provider_id,c.provider_code,c.provider_transaction_id,c.provider_round_id,c.provider_game_id,
-		c.user_id,c.operation,c.amount_minor,c.currency,c.created_at,COALESCE(cbc.successful_callback_count,0) successful_callback_count`).
+	db := s.db.Table("game_provider_callback_logs c").Select("c.id AS callback_log_id, c.site_id, COALESCE(gp.id, 0) AS provider_id, c.provider_code, c.provider_transaction_id, c.provider_round_id, c.provider_game_id, c.user_id, c.operation, c.amount_minor, c.currency, c.created_at, COALESCE(cbc.successful_callback_count, 0) AS successful_callback_count").
 		Joins("LEFT JOIN game_game_providers gp ON gp.provider_code=c.provider_code AND gp.deleted_at IS NULL").
-		Joins(`LEFT JOIN game_provider_transactions pt ON pt.tenant_id=c.tenant_id AND pt.site_id=c.site_id AND pt.provider_code=c.provider_code AND pt.provider_transaction_id=c.provider_transaction_id AND pt.operation=c.operation AND pt.deleted_at IS NULL`).
-		Joins(`LEFT JOIN (
-			SELECT tenant_id,site_id,provider_code,provider_transaction_id,operation,COUNT(*) successful_callback_count
-			FROM game_provider_callback_logs
-			WHERE processing_result='SUCCESS' AND deleted_at IS NULL
-			GROUP BY tenant_id,site_id,provider_code,provider_transaction_id,operation
-		) cbc ON cbc.tenant_id=c.tenant_id AND cbc.site_id=c.site_id AND cbc.provider_code=c.provider_code AND cbc.provider_transaction_id=c.provider_transaction_id AND cbc.operation=c.operation`).
+		Joins("LEFT JOIN game_provider_transactions AS pt ON pt.site_id = c.site_id AND pt.provider_code = c.provider_code AND pt.provider_transaction_id = c.provider_transaction_id AND pt.operation = c.operation AND pt.deleted_at IS NULL").
+		Joins("LEFT JOIN (SELECT site_id, provider_code, provider_transaction_id, operation, COUNT(*) AS successful_callback_count FROM game_provider_callback_logs WHERE processing_result = 'SUCCESS' AND deleted_at IS NULL GROUP BY site_id, provider_code, provider_transaction_id, operation) AS cbc ON cbc.site_id = c.site_id AND cbc.provider_code = c.provider_code AND cbc.provider_transaction_id = c.provider_transaction_id AND cbc.operation = c.operation").
 		Where("c.created_at>=? AND c.created_at<? AND c.provider_code=? AND c.currency=? AND c.processing_result='SUCCESS' AND c.operation IN ? AND c.deleted_at IS NULL AND pt.id IS NULL",
 			start, end, providerCode, currency, []string{"DEBIT", "CREDIT", "REFUND", "ROLLBACK"}).
 		Order("c.id ASC")
-	err := tenancy.ApplySite(db, "c", scope).Scan(&rows).Error
+	err := content.ApplySite(db, "c", scope).Scan(&rows).Error
 	return rows, err
 }
 
 func (s *Service) reconcileProviderTransaction(run model.ProviderReconciliationRuns, row reconcileTransactionRow) (model.GameTransactionFacts, []model.ProviderReconciliationItems) {
 	fact := model.GameTransactionFacts{
-		TenantID: row.TenantID, SiteID: row.SiteID, ProviderID: row.ProviderID, ProviderCode: row.ProviderCode,
+		SiteID: row.SiteID, ProviderID: row.ProviderID, ProviderCode: row.ProviderCode,
 		ProviderTransactionRowID: row.ProviderTransactionRowID, ProviderTransactionID: row.ProviderTransactionID,
 		ProviderRoundID: row.ProviderRoundID, ProviderGameID: row.ProviderGameID, UserID: row.UserID,
 		WalletTransactionID: row.WalletTransactionID, BetRecordID: row.BetRecordID, RollbackRecordID: row.RollbackRecordID,
-		LedgerTransactionID: row.LedgerTransactionID, Operation: row.Operation, ProviderStatus: row.ProviderStatus,
+		Operation: row.Operation, ProviderStatus: row.ProviderStatus,
 		BusinessDate: run.BusinessDate, Currency: row.Currency, ProviderAmountMinor: row.ProviderAmountMinor,
 		WalletAmountMinor: row.WalletAmountMinor, BetAmountMinor: row.BetAmountMinor, WinAmountMinor: row.WinAmountMinor,
-		LedgerAmountMinor: row.LedgerAmountMinor, SourceType: "game_provider_transaction", SourceID: row.ProviderTransactionRowID,
+		SourceType: "game_provider_transaction", SourceID: row.ProviderTransactionRowID,
 		SourceCreatedAt: row.SourceCreatedAt, LastReconciliationRunID: run.ID, LastReconciliationStatus: reconciliationRunCompleted,
 		LastReconciliationCheckedAt: time.Now(),
 	}
@@ -433,11 +384,6 @@ func (s *Service) reconcileProviderTransaction(run model.ProviderReconciliationR
 			items = append(items, s.transactionItem(run, row, discrepancyRollbackNotApplied, "CRITICAL", row.ProviderAmountMinor, row.RollbackAmountMinor, map[string]any{"rollbackRecordStatus": row.RollbackRecordStatus, "relatedTransactionID": row.RelatedTransactionID}))
 		}
 	}
-	if row.LedgerTransactionID == 0 {
-		items = append(items, s.transactionItem(run, row, discrepancyMissingLedgerEntry, "MEDIUM", row.ProviderAmountMinor, 0, map[string]any{"reason": "successful provider transaction has no tenant ledger transaction"}))
-	} else if abs64(row.LedgerAmountMinor) != abs64(row.ProviderAmountMinor) {
-		items = append(items, s.transactionItem(run, row, amountDiscrepancyType(row.Operation), "MEDIUM", row.ProviderAmountMinor, row.LedgerAmountMinor, map[string]any{"source": "ledger_transactions"}))
-	}
 	return fact, items
 }
 
@@ -448,10 +394,10 @@ func (s *Service) persistReconciliation(run model.ProviderReconciliationRuns, bu
 			if err := tx.Clauses(clause.OnConflict{
 				Columns: []clause.Column{{Name: "source_type"}, {Name: "source_id"}},
 				DoUpdates: clause.AssignmentColumns([]string{
-					"tenant_id", "site_id", "provider_id", "provider_code", "provider_transaction_id", "provider_round_id", "provider_game_id",
-					"user_id", "wallet_transaction_id", "bet_record_id", "rollback_record_id", "ledger_transaction_id", "operation",
+					"site_id", "provider_id", "provider_code", "provider_transaction_id", "provider_round_id", "provider_game_id",
+					"user_id", "wallet_transaction_id", "bet_record_id", "rollback_record_id", "operation",
 					"provider_status", "business_date", "currency", "provider_amount_minor", "wallet_amount_minor", "bet_amount_minor",
-					"win_amount_minor", "ledger_amount_minor", "source_created_at", "last_reconciliation_run_id",
+					"win_amount_minor", "source_created_at", "last_reconciliation_run_id",
 					"last_reconciliation_status", "last_reconciliation_checked_at", "updated_at",
 				}),
 			}).Create(&fact).Error; err != nil {
@@ -473,7 +419,7 @@ func (s *Service) persistReconciliation(run model.ProviderReconciliationRuns, bu
 			"status": reconciliationRunCompleted, "completed_at": completedAt, "failure_reason": "",
 			"provider_transaction_count": build.Stats.ProviderTransactions, "callback_count": build.Stats.Callbacks,
 			"wallet_transaction_count": build.Stats.WalletTransactions, "bet_record_count": build.Stats.BetRecords,
-			"ledger_transaction_count": build.Stats.LedgerTransactions, "discrepancy_count": int64(len(build.Items)),
+			"discrepancy_count":      int64(len(build.Items)),
 			"open_discrepancy_count": int64(len(build.Items)), "updated_at": completedAt,
 		}
 		if err := tx.Model(&model.ProviderReconciliationRuns{}).Where("id=?", run.ID).Updates(updates).Error; err != nil {
@@ -483,43 +429,39 @@ func (s *Service) persistReconciliation(run model.ProviderReconciliationRuns, bu
 	})
 }
 
-func (s *Service) transactionItem(run model.ProviderReconciliationRuns, row reconcileTransactionRow, discrepancyType, severity string, expected, actual int64, detail map[string]any) model.ProviderReconciliationItems {
+func (s *Service) transactionItem(run model.ProviderReconciliationRuns, row reconcileTransactionRow, discrepancyType string, severity string, expected int64, actual int64, detail map[string]any) model.ProviderReconciliationItems {
 	return model.ProviderReconciliationItems{
-		TenantID: run.TenantID, SiteID: run.SiteID, ProviderID: row.ProviderID, ProviderCode: row.ProviderCode, BusinessDate: run.BusinessDate,
+		SiteID: run.SiteID, ProviderID: row.ProviderID, ProviderCode: row.ProviderCode, BusinessDate: run.BusinessDate,
 		Currency: row.Currency, DiscrepancyType: discrepancyType, Severity: severity, UserID: row.UserID,
 		ProviderTransactionRowID: row.ProviderTransactionRowID, ProviderTransactionID: row.ProviderTransactionID, ProviderRoundID: row.ProviderRoundID,
 		ProviderGameID: row.ProviderGameID, CallbackLogID: row.CallbackLogID, WalletTransactionID: row.WalletTransactionID,
-		BetRecordID: row.BetRecordID, RollbackRecordID: row.RollbackRecordID, LedgerTransactionID: row.LedgerTransactionID,
-		ExpectedAmountMinor: expected, ActualAmountMinor: actual, DifferenceAmountMinor: actual - expected, Detail: jsonText(detail),
+		BetRecordID: row.BetRecordID, RollbackRecordID: row.RollbackRecordID, ExpectedAmountMinor: expected, ActualAmountMinor: actual, DifferenceAmountMinor: actual - expected, Detail: jsonText(detail),
 	}
 }
 
-func (s *Service) callbackOnlyItem(run model.ProviderReconciliationRuns, row unmatchedCallbackRow, discrepancyType, severity string, expected, actual int64, detail map[string]any) model.ProviderReconciliationItems {
+func (s *Service) callbackOnlyItem(run model.ProviderReconciliationRuns, row unmatchedCallbackRow, discrepancyType string, severity string, expected int64, actual int64, detail map[string]any) model.ProviderReconciliationItems {
 	return model.ProviderReconciliationItems{
-		TenantID: run.TenantID, SiteID: run.SiteID, ProviderID: row.ProviderID, ProviderCode: row.ProviderCode, BusinessDate: run.BusinessDate,
+		SiteID: run.SiteID, ProviderID: row.ProviderID, ProviderCode: row.ProviderCode, BusinessDate: run.BusinessDate,
 		Currency: row.Currency, DiscrepancyType: discrepancyType, Severity: severity, UserID: row.UserID, ProviderTransactionID: row.ProviderTransactionID,
 		ProviderRoundID: row.ProviderRoundID, ProviderGameID: row.ProviderGameID, CallbackLogID: row.CallbackLogID,
 		ExpectedAmountMinor: expected, ActualAmountMinor: actual, DifferenceAmountMinor: actual - expected, Detail: jsonText(detail),
 	}
 }
 
-func (s *Service) reconciliationRunByID(id uint64, scope tenancy.Scope) (ReconciliationRunRow, error) {
+func (s *Service) reconciliationRunByID(id uint64, scope content.Scope) (ReconciliationRunRow, error) {
 	var row ReconciliationRunRow
-	db := s.db.Table("provider_reconciliation_runs r").Select(`r.id,r.run_no,r.tenant_id,r.site_id,r.provider_id,r.provider_code,r.business_date,r.currency,r.source_mode,r.status,
-		r.provider_transaction_count,r.callback_count,r.wallet_transaction_count,r.bet_record_count,r.ledger_transaction_count,
-		r.discrepancy_count,r.open_discrepancy_count,r.started_at,r.completed_at,r.failure_reason,r.created_by_username,r.created_at`).
+	db := s.db.Table("provider_reconciliation_runs r").Select("r.id, r.run_no, r.site_id, r.provider_id, r.provider_code, r.business_date, r.currency, r.source_mode, r.status, r.provider_transaction_count, r.callback_count, r.wallet_transaction_count, r.bet_record_count, r.discrepancy_count, r.open_discrepancy_count, r.started_at, r.completed_at, r.failure_reason, r.created_by_username, r.created_at").
 		Where("r.id=? AND r.deleted_at IS NULL", id)
-	if err := tenancy.ApplySite(db, "r", scope).Take(&row).Error; err != nil {
+	if err := content.ApplySite(db, "r", scope).Take(&row).Error; err != nil {
 		return ReconciliationRunRow{}, notFound(err)
 	}
 	return row, nil
 }
 
 func reconciliationItemSelect() string {
-	return fmt.Sprintf(`i.id,i.run_id,i.item_no,i.tenant_id,i.site_id,i.provider_id,i.provider_code,i.business_date,i.currency,i.discrepancy_type,i.severity,i.status,
-		i.user_id,u.user_no,%s username,i.provider_transaction_row_id,i.provider_transaction_id,i.provider_round_id,i.provider_game_id,
-		i.callback_log_id,i.wallet_transaction_id,i.bet_record_id,i.rollback_record_id,i.ledger_transaction_id,
-		i.expected_amount_minor,i.actual_amount_minor,i.difference_amount_minor,i.detail,i.resolved_by_username,i.resolved_at,i.resolution_reason,i.created_at,i.updated_at`, userPhoneDisplay("u"))
+	return fmt.Sprintf(`i.id, i.run_id, i.item_no, i.site_id, i.provider_id, i.provider_code, i.business_date, i.currency, i.discrepancy_type, i.severity, i.status, i.user_id, u.user_no, %s AS username, i.provider_transaction_row_id, i.provider_transaction_id, i.provider_round_id, i.provider_game_id, i.callback_log_id, i.wallet_transaction_id, i.bet_record_id, i.rollback_record_id, i.expected_amount_minor, i.actual_amount_minor, i.difference_amount_minor, i.detail, i.resolved_by_username, i.resolved_at, i.resolution_reason, i.created_at, i.updated_at`,
+
+		userPhoneDisplay("u"))
 }
 
 func fillReconciliationItemMoney(rows []ReconciliationItemRow) {
@@ -530,21 +472,21 @@ func fillReconciliationItemMoney(rows []ReconciliationItemRow) {
 	}
 }
 
-func reconciliationScope(command GenerateReconciliationCommand, actorScope tenancy.Scope) (tenancy.Scope, error) {
+func reconciliationScope(command GenerateReconciliationCommand, actorScope content.Scope) (content.Scope, error) {
 	if actorScope.Platform {
-		if command.TenantID == 0 {
-			return tenancy.Scope{}, newError("TENANT_REQUIRED", "tenantID is required for platform reconciliation")
+		if command.SiteID == 0 {
+			return content.Scope{}, newError("SITE_REQUIRED", "siteID is required for platform reconciliation")
 		}
-		return tenancy.Scope{TenantID: command.TenantID, SiteID: command.SiteID}, nil
+		return content.Scope{SiteID: command.SiteID}, nil
 	}
-	if actorScope.TenantID == 0 {
-		return tenancy.Scope{}, newError("INVALID_SCOPE", "tenant scope is required")
+	if actorScope.SiteID == 0 {
+		return content.Scope{}, newError("INVALID_SCOPE", "H5 content scope is required")
 	}
 	siteID := actorScope.SiteID
 	if siteID == 0 {
 		siteID = command.SiteID
 	}
-	return tenancy.Scope{TenantID: actorScope.TenantID, SiteID: siteID}, nil
+	return content.Scope{SiteID: siteID}, nil
 }
 
 func parseBusinessDate(value string) (time.Time, error) {
@@ -555,24 +497,17 @@ func parseBusinessDate(value string) (time.Time, error) {
 	return parsed, nil
 }
 
-func (s *Service) providerID(providerCode string, scope tenancy.Scope) uint64 {
+func (s *Service) providerID(providerCode string, scope content.Scope) uint64 {
 	var id uint64
 	db := s.db.Table("game_game_providers").Select("id").Where("provider_code=? AND deleted_at IS NULL", providerCode)
-	_ = tenancy.ApplySite(db, "", scope).Order("id DESC").Scan(&id).Error
+	_ = content.ApplySite(db, "", scope).Order("id DESC").Scan(&id).Error
 	return id
 }
 
-func (s *Service) countScoped(table string, scope tenancy.Scope, providerCode, currency string, start, end time.Time) int64 {
+func (s *Service) countScoped(table string, scope content.Scope, providerCode string, currency string, start time.Time, end time.Time) int64 {
 	var count int64
 	db := s.db.Table(table).Where("created_at>=? AND created_at<? AND provider_code=? AND currency=? AND deleted_at IS NULL", start, end, providerCode, currency)
-	_ = tenancy.ApplySite(db, "", scope).Count(&count).Error
-	return count
-}
-
-func (s *Service) countLedger(scope tenancy.Scope, currency string, start, end time.Time) int64 {
-	var count int64
-	db := s.db.Table("ledger_transactions").Where("created_at>=? AND created_at<? AND currency=? AND deleted_at IS NULL", start, end, currency)
-	_ = tenancy.ApplySite(db, "", scope).Count(&count).Error
+	_ = content.ApplySite(db, "", scope).Count(&count).Error
 	return count
 }
 
@@ -593,7 +528,7 @@ func (s *Service) refreshRunOpenCount(tx *gorm.DB, runID uint64) error {
 	return tx.Model(&model.ProviderReconciliationRuns{}).Where("id=?", runID).Updates(map[string]any{"discrepancy_count": total, "open_discrepancy_count": open, "updated_at": time.Now()}).Error
 }
 
-func expectedWalletDirection(operation, direction string) bool {
+func expectedWalletDirection(operation string, direction string) bool {
 	operation = strings.ToUpper(strings.TrimSpace(operation))
 	direction = strings.ToLower(strings.TrimSpace(direction))
 	switch operation {

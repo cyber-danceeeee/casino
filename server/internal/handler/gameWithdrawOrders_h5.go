@@ -34,7 +34,7 @@ func (h *gameWithdrawOrdersHandler) CreateWalletWithdraw(c *gin.Context) {
 		h5Error(c, http.StatusUnauthorized, "authentication required")
 		return
 	}
-	scope := h5UserTenancyScope(db, user.ID, h5TenancyScope(c))
+	scope := h5UserContentScope(db, user.ID, h5ContentScope(c))
 	if blocked, code, message := h5MaintenanceBlocked(c, db, scope); blocked {
 		h5MachineError(c, http.StatusServiceUnavailable, code, message)
 		return

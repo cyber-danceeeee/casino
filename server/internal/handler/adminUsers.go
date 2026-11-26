@@ -11,8 +11,8 @@ import (
 	"gorm.io/gorm"
 
 	"casino/internal/adminauth"
+	"casino/internal/content"
 	"casino/internal/database"
-	"casino/internal/tenancy"
 )
 
 type AdminUsersHandler interface {
@@ -478,11 +478,11 @@ func (h *adminUsersHandler) ListDevices(c *gin.Context) {
 func (h *adminUsersHandler) ListPushDevices(c *gin.Context) {
 	page, pageSize, offset := adminPage(c)
 	db := database.GetDB()
-	scope := adminTenancyScope(c)
-	query := tenancy.ApplySite(db.Table("game_push_device_tokens AS t"), "t", scope).
+	scope := adminContentScope(c)
+	query := content.ApplySite(db.Table("game_push_device_tokens AS t"), "t", scope).
 		Joins("INNER JOIN game_users AS u ON u.id=t.user_id AND u.deleted_at IS NULL").
 		Where("t.deleted_at IS NULL")
-	query = tenancy.ApplySite(query, "u", scope)
+	query = content.ApplySite(query, "u", scope)
 	query = adminApplyAccountFilters(c, query)
 	if value := strings.ToUpper(adminQuery(c, "platform")); value != "" {
 		query = query.Where("t.platform=?", value)

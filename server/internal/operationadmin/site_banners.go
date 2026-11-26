@@ -11,9 +11,9 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"casino/internal/content"
 	"casino/internal/operationdefaults"
 	"casino/internal/storage"
-	"casino/internal/tenancy"
 )
 
 const (
@@ -74,8 +74,8 @@ type SiteBannerSortInput struct {
 }
 
 type siteBannerRecord struct {
-	ID                     uint64              `gorm:"primaryKey" json:"id"`
-	TenantID               uint64              `gorm:"column:tenant_id" json:"tenantID"`
+	ID uint64 `gorm:"primaryKey" json:"id"`
+
 	SiteID                 uint64              `gorm:"column:site_id" json:"siteID"`
 	Name                   string              `gorm:"column:name" json:"name"`
 	Title                  string              `gorm:"column:title" json:"title"`
@@ -137,10 +137,10 @@ type PublicBanner struct {
 
 func (s *Service) ListSiteBanners(q ListQuery) (PageResult, error) {
 	var rows []siteBannerRecord
-	db := tenancy.ApplySiteStrict(s.db.Model(&siteBannerRecord{}), "", q.Scope).Where("deleted_at IS NULL")
+	db := content.ApplySiteStrict(s.db.Model(&siteBannerRecord{}), "", q.Scope).Where("deleted_at IS NULL")
 	db = contains(db, "name", q.Values["keyword"])
 	db = equal(db, "publish_status", strings.ToUpper(q.Values["publishStatus"]))
-	if !q.Scope.TenantScoped() {
+	if !q.Scope.SiteScoped() {
 		result, err := page(db.Order("sort_order ASC,id ASC"), q, &rows)
 		if err != nil {
 			return result, err
@@ -165,7 +165,7 @@ func (s *Service) ListSiteBanners(q ListQuery) (PageResult, error) {
 	return PageResult{List: list, Total: total, Page: p, PageSize: ps}, nil
 }
 
-func (s *Service) GetSiteBanner(id uint64, scope tenancy.Scope) (map[string]any, error) {
+func (s *Service) GetSiteBanner(id uint64, scope content.Scope) (map[string]any, error) {
 	row, err := s.siteBannerByID(s.db, id, scope, false)
 	if err != nil {
 		return nil, err
@@ -181,9 +181,9 @@ func (s *Service) SaveSiteBanner(id uint64, in SiteBannerInput, actor Actor) (ui
 		return 0, err
 	}
 	if !actor.Scope.SiteScoped() {
-		return 0, newError("BANNER_SCOPE_REQUIRED", "tenant site scope is required")
+		return 0, newError("BANNER_SCOPE_REQUIRED", "H5 scope is required")
 	}
-	dimensions, err := loadTenantSiteDimensions(s.db, actor.Scope)
+	dimensions, err := loadSiteDimensions(s.db, actor.Scope)
 	if err != nil {
 		return 0, err
 	}
@@ -215,7 +215,7 @@ func (s *Service) SaveSiteBanner(id uint64, in SiteBannerInput, actor Actor) (ui
 			"updated_by": actor.ID, "updated_at": nowValue,
 		}
 		if id == 0 {
-			row := siteBannerRecord{TenantID: actor.Scope.TenantID, SiteID: actor.Scope.SiteID, Name: draft.Name,
+			row := siteBannerRecord{SiteID: actor.Scope.SiteID, Name: draft.Name,
 				DesktopAssetIDDraft: draft.DesktopAssetID, MobileAssetIDDraft: draft.MobileAssetID, DraftPayload: string(payload),
 				PublishedPayload: "{}",
 				PublishStatus:    BannerPublishDraft, CreatedBy: actor.ID, UpdatedBy: actor.ID, DraftUpdatedAt: &nowValue,
@@ -224,7 +224,7 @@ func (s *Service) SaveSiteBanner(id uint64, in SiteBannerInput, actor Actor) (ui
 				return err
 			}
 			id = row.ID
-		} else if err := tenancy.ApplySiteStrict(tx.Model(&siteBannerRecord{}), "", actor.Scope).Where("id=?", id).Updates(updates).Error; err != nil {
+		} else if err := content.ApplySiteStrict(tx.Model(&siteBannerRecord{}), "", actor.Scope).Where("id=?", id).Updates(updates).Error; err != nil {
 			return err
 		}
 		if err := markBannerSiteDraft(tx, actor); err != nil {
@@ -266,7 +266,7 @@ func (s *Service) DeleteSiteBanner(id uint64, actor Actor) error {
 	payload, _ := json.Marshal(draft)
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		nowValue := time.Now()
-		if err := tenancy.ApplySiteStrict(tx.Model(&siteBannerRecord{}), "", actor.Scope).Where("id=?", id).Updates(map[string]any{
+		if err := content.ApplySiteStrict(tx.Model(&siteBannerRecord{}), "", actor.Scope).Where("id=?", id).Updates(map[string]any{
 			"draft_payload": string(payload), "publish_status": BannerPublishDraft, "draft_updated_at": nowValue,
 			"updated_by": actor.ID, "updated_at": nowValue,
 		}).Error; err != nil {
@@ -281,7 +281,7 @@ func (s *Service) DeleteSiteBanner(id uint64, actor Actor) error {
 
 func (s *Service) SortSiteBanners(in SiteBannerSortInput, actor Actor) error {
 	if !actor.Scope.SiteScoped() {
-		return newError("BANNER_SCOPE_REQUIRED", "tenant site scope is required")
+		return newError("BANNER_SCOPE_REQUIRED", "H5 scope is required")
 	}
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		for index, id := range in.IDs {
@@ -295,7 +295,7 @@ func (s *Service) SortSiteBanners(in SiteBannerSortInput, actor Actor) error {
 			}
 			draft.SortOrder = index
 			payload, _ := json.Marshal(draft)
-			if err := tx.Model(&siteBannerRecord{}).Where("id=? AND tenant_id=? AND site_id=?", id, actor.Scope.TenantID, actor.Scope.SiteID).
+			if err := tx.Model(&siteBannerRecord{}).Where("id = ? AND site_id = ?", id, actor.Scope.SiteID).
 				Updates(map[string]any{"draft_payload": string(payload), "publish_status": BannerPublishDraft, "draft_updated_at": time.Now(), "updated_by": actor.ID, "updated_at": time.Now()}).Error; err != nil {
 				return err
 			}
@@ -307,8 +307,8 @@ func (s *Service) SortSiteBanners(in SiteBannerSortInput, actor Actor) error {
 	})
 }
 
-func (s *Service) PublicSiteBanners(scope tenancy.Scope, language, country string, loggedIn bool, at time.Time) ([]PublicBanner, error) {
-	if scope.TenantID == 0 || scope.SiteID == 0 {
+func (s *Service) PublicSiteBanners(scope content.Scope, language string, country string, loggedIn bool, at time.Time) ([]PublicBanner, error) {
+	if scope.SiteID == 0 {
 		return []PublicBanner{}, nil
 	}
 	visibility := []string{"ALL"}
@@ -336,7 +336,7 @@ func (s *Service) PublicSiteBanners(scope tenancy.Scope, language, country strin
 	err := s.db.Table("game_site_banners b").Select("b.*,da.object_key desktop_object_key,ma.object_key mobile_object_key").
 		Joins("LEFT JOIN game_asset_library da ON da.id=b.desktop_asset_id AND da.status=? AND da.deleted_at IS NULL", AssetStatusActive).
 		Joins("LEFT JOIN game_asset_library ma ON ma.id=b.mobile_asset_id AND ma.status=? AND ma.deleted_at IS NULL", AssetStatusActive).
-		Where("b.tenant_id=? AND b.site_id=? AND b.config_version>0 AND b.enabled=1 AND b.deleted_at IS NULL", scope.TenantID, scope.SiteID).
+		Where("b.site_id = ? AND b.config_version > 0 AND b.enabled = 1 AND b.deleted_at IS NULL", scope.SiteID).
 		Where("b.visibility_scope IN ?", visibility).
 		Where("(b.language_code='' OR b.language_code='ALL' OR LOWER(b.language_code) IN ?)", languages).
 		Where("(b.country_code='' OR b.country_code='ALL' OR UPPER(b.country_code)=?)", strings.ToUpper(strings.TrimSpace(country))).
@@ -447,9 +447,9 @@ func normalizeBannerDimension(value string) string {
 	return strings.ToUpper(value)
 }
 
-func (s *Service) siteBannerByID(db *gorm.DB, id uint64, scope tenancy.Scope, lock bool) (siteBannerRecord, error) {
+func (s *Service) siteBannerByID(db *gorm.DB, id uint64, scope content.Scope, lock bool) (siteBannerRecord, error) {
 	var row siteBannerRecord
-	query := tenancy.ApplySiteStrict(db.Model(&siteBannerRecord{}), "", scope).Where("id=? AND deleted_at IS NULL", id)
+	query := content.ApplySiteStrict(db.Model(&siteBannerRecord{}), "", scope).Where("id=? AND deleted_at IS NULL", id)
 	if lock {
 		query = query.Clauses(clause.Locking{Strength: "UPDATE"})
 	}
@@ -459,7 +459,7 @@ func (s *Service) siteBannerByID(db *gorm.DB, id uint64, scope tenancy.Scope, lo
 	return row, nil
 }
 
-func (s *Service) validateBannerAssets(db *gorm.DB, scope tenancy.Scope, ids ...uint64) error {
+func (s *Service) validateBannerAssets(db *gorm.DB, scope content.Scope, ids ...uint64) error {
 	for _, id := range ids {
 		if id == 0 {
 			continue
@@ -472,7 +472,7 @@ func (s *Service) validateBannerAssets(db *gorm.DB, scope tenancy.Scope, ids ...
 	return nil
 }
 
-func (s *Service) hydrateSiteBanner(row *siteBannerRecord, scope tenancy.Scope) {
+func (s *Service) hydrateSiteBanner(row *siteBannerRecord, scope content.Scope) {
 	row.DraftConfiguration = decodeBannerDraft(row.DraftPayload)
 	row.PublishedConfiguration = decodeBannerDraft(row.PublishedPayload)
 	s.hydrateLegacyBannerImages(row)
@@ -484,7 +484,7 @@ func (s *Service) hydrateSiteBanner(row *siteBannerRecord, scope tenancy.Scope) 
 	}
 }
 
-// Older tenant banner rows were created before image URLs were kept in the
+// Older site banner rows were created before image URLs were kept in the
 // site-banner payload. Resolve those rows from the platform catalog so the
 // admin can preview and edit them without inventing a zero asset selection.
 func (s *Service) hydrateLegacyBannerImages(row *siteBannerRecord) {
@@ -493,7 +493,7 @@ func (s *Service) hydrateLegacyBannerImages(row *siteBannerRecord) {
 	}
 	var legacy bannerRecord
 	query := s.db.Table("game_banners").
-		Where("tenant_id=0 AND site_id=0 AND deleted_at IS NULL").
+		Where("site_id = 0 AND deleted_at IS NULL").
 		Where("banner_code=? OR title_en=? OR title_zh=? OR title=?", row.Name, row.Name, row.Name, row.Name).
 		Order("id ASC")
 	if query.First(&legacy).Error != nil {
@@ -513,7 +513,7 @@ func (s *Service) hydrateLegacyBannerImages(row *siteBannerRecord) {
 	}
 }
 
-func (s *Service) bannerAsset(id uint64, scope tenancy.Scope) *assetLibraryRecord {
+func (s *Service) bannerAsset(id uint64, scope content.Scope) *assetLibraryRecord {
 	var row assetLibraryRecord
 	if s.assetVisibleQuery(s.db.Model(&assetLibraryRecord{}), scope).Where("id=? AND deleted_at IS NULL", id).First(&row).Error != nil {
 		return nil
@@ -540,6 +540,6 @@ func publicAssetURL(objectKey string) string {
 }
 
 func markBannerSiteDraft(tx *gorm.DB, actor Actor) error {
-	return tx.Table("game_saas_sites").Where("id=? AND tenant_id=? AND deleted_at IS NULL", actor.Scope.SiteID, actor.Scope.TenantID).
+	return tx.Table("game_site_config").Where("id = ? AND deleted_at IS NULL", actor.Scope.SiteID).
 		Updates(map[string]any{"config_status": BannerPublishDraft, "config_draft_updated_at": time.Now(), "updated_by": actor.ID, "updated_at": time.Now()}).Error
 }

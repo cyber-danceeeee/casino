@@ -7,7 +7,7 @@ import (
 // gameRedPacketClaims business-level http error codes.
 // the gameRedPacketClaimsNO value range is 1~999, if the same error code is used, it will cause panic.
 var (
-	gameRedPacketClaimsNO = 34
+	gameRedPacketClaimsNO       = 34
 	gameRedPacketClaimsName     = "gameRedPacketClaims"
 	gameRedPacketClaimsBaseCode = errcode.HCode(gameRedPacketClaimsNO)
 

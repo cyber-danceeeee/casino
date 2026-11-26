@@ -1,16 +1,16 @@
 package model
 
 import (
+	"time"
+
 	"github.com/go-dev-frame/sponge/pkg/sgorm"
 	"github.com/shopspring/decimal"
-	"time"
 )
 
 // GameWithdrawOrders Withdraw orders
 type GameWithdrawOrders struct {
 	sgorm.Model `gorm:"embedded"` // embed id and time
 
-	TenantID                uint64           `gorm:"column:tenant_id;type:bigint(20) unsigned;default:0;not null" json:"tenantID"`
 	SiteID                  uint64           `gorm:"column:site_id;type:bigint(20) unsigned;default:0;not null" json:"siteID"`
 	OrderNo                 string           `gorm:"column:order_no;type:varchar(64);not null" json:"orderNo"`
 	ChannelOrderNo          string           `gorm:"column:channel_order_no;type:varchar(128);not null" json:"channelOrderNo"`
@@ -41,11 +41,11 @@ type GameWithdrawOrders struct {
 
 // GameWithdrawOrdersColumnNames Whitelist for custom query fields to prevent sql injection attacks
 var GameWithdrawOrdersColumnNames = map[string]bool{
-	"id":                         true,
-	"created_at":                 true,
-	"updated_at":                 true,
-	"deleted_at":                 true,
-	"tenant_id":                  true,
+	"id":         true,
+	"created_at": true,
+	"updated_at": true,
+	"deleted_at": true,
+
 	"site_id":                    true,
 	"order_no":                   true,
 	"channel_order_no":           true,

@@ -103,7 +103,7 @@ func Test_gameUserSettingsHandler_Create(t *testing.T) {
 	}
 
 	t.Logf("%+v", result)
-	
+
 }
 
 func Test_gameUserSettingsHandler_DeleteByID(t *testing.T) {

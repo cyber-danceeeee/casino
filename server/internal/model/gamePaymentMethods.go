@@ -9,7 +9,6 @@ import (
 type GamePaymentMethods struct {
 	sgorm.Model `gorm:"embedded"` // embed id and time
 
-	TenantID   uint64           `gorm:"column:tenant_id;type:bigint(20) unsigned;default:0;not null" json:"tenantID"`
 	SiteID     uint64           `gorm:"column:site_id;type:bigint(20) unsigned;default:0;not null" json:"siteID"`
 	MethodCode string           `gorm:"column:method_code;type:varchar(64);not null" json:"methodCode"`
 	Name       string           `gorm:"column:name;type:varchar(128);not null" json:"name"`
@@ -23,11 +22,11 @@ type GamePaymentMethods struct {
 
 // GamePaymentMethodsColumnNames Whitelist for custom query fields to prevent sql injection attacks
 var GamePaymentMethodsColumnNames = map[string]bool{
-	"id":          true,
-	"created_at":  true,
-	"updated_at":  true,
-	"deleted_at":  true,
-	"tenant_id":   true,
+	"id":         true,
+	"created_at": true,
+	"updated_at": true,
+	"deleted_at": true,
+
 	"site_id":     true,
 	"method_code": true,
 	"name":        true,

@@ -1,15 +1,15 @@
 package model
 
 import (
-	"github.com/go-dev-frame/sponge/pkg/sgorm"
 	"time"
+
+	"github.com/go-dev-frame/sponge/pkg/sgorm"
 )
 
 // GameCmsPages Static pages such as about and agreement
 type GameCmsPages struct {
 	sgorm.Model `gorm:"embedded"` // embed id and time
 
-	TenantID    uint64     `gorm:"column:tenant_id;type:bigint(20) unsigned;default:0;not null" json:"tenantID"`
 	SiteID      uint64     `gorm:"column:site_id;type:bigint(20) unsigned;default:0;not null" json:"siteID"`
 	PageCode    string     `gorm:"column:page_code;type:varchar(64);not null" json:"pageCode"`
 	Title       string     `gorm:"column:title;type:varchar(128);not null" json:"title"`
@@ -21,11 +21,11 @@ type GameCmsPages struct {
 
 // GameCmsPagesColumnNames Whitelist for custom query fields to prevent sql injection attacks
 var GameCmsPagesColumnNames = map[string]bool{
-	"id":           true,
-	"created_at":   true,
-	"updated_at":   true,
-	"deleted_at":   true,
-	"tenant_id":    true,
+	"id":         true,
+	"created_at": true,
+	"updated_at": true,
+	"deleted_at": true,
+
 	"site_id":      true,
 	"page_code":    true,
 	"title":        true,

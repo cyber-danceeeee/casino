@@ -103,7 +103,7 @@ func Test_gameUserDevicesHandler_Create(t *testing.T) {
 	}
 
 	t.Logf("%+v", result)
-	
+
 }
 
 func Test_gameUserDevicesHandler_DeleteByID(t *testing.T) {

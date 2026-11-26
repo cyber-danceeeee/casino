@@ -40,5 +40,3 @@ var GameActivityRewardRulesColumnNames = map[string]bool{
 	"sort":                   true,
 	"status":                 true,
 }
-
-

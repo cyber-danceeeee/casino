@@ -11,9 +11,9 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"casino/internal/content"
 	"casino/internal/game/domain"
 	"casino/internal/model"
-	"casino/internal/tenancy"
 )
 
 func syncBettingProjection(tx *gorm.DB, command domain.WalletCommand, userID uint64, walletID uint64, walletTransactionID uint64, providerStatus string, now time.Time) error {
@@ -21,7 +21,7 @@ func syncBettingProjection(tx *gorm.DB, command domain.WalletCommand, userID uin
 		return nil
 	}
 
-	scope := tenancy.Scope{TenantID: command.TenantID, SiteID: command.SiteID}
+	scope := content.Scope{SiteID: command.SiteID}
 	gameID, providerID, gameType := resolveGameProjection(tx, scope, command.ProviderCode, command.ProviderGameID)
 	if command.ProviderRoundID != "" {
 		if err := upsertRoundProjection(tx, command, userID, walletID, gameID, now); err != nil {
@@ -43,14 +43,14 @@ func syncBettingProjection(tx *gorm.DB, command domain.WalletCommand, userID uin
 	}
 }
 
-func resolveGameProjection(tx *gorm.DB, scope tenancy.Scope, providerCode string, providerGameID string) (uint64, uint64, string) {
+func resolveGameProjection(tx *gorm.DB, scope content.Scope, providerCode string, providerGameID string) (uint64, uint64, string) {
 	row := struct {
 		GameID     uint64 `gorm:"column:game_id"`
 		ProviderID uint64 `gorm:"column:provider_id"`
 		GameType   string `gorm:"column:game_type"`
 	}{}
-	db := tenancy.ApplySite(tx.Table("game_games AS g"), "g", scope)
-	db = tenancy.ApplySite(db, "p", scope)
+	db := content.ApplySite(tx.Table("game_games AS g"), "g", scope)
+	db = content.ApplySite(db, "p", scope)
 	_ = db.Select("g.id AS game_id, g.provider_id, g.game_type").
 		Joins("INNER JOIN game_game_providers AS p ON p.id = g.provider_id AND p.deleted_at IS NULL").
 		Where("p.provider_code = ? AND g.provider_game_code = ? AND g.deleted_at IS NULL", providerCode, providerGameID).
@@ -59,14 +59,14 @@ func resolveGameProjection(tx *gorm.DB, scope tenancy.Scope, providerCode string
 }
 
 func upsertRoundProjection(tx *gorm.DB, command domain.WalletCommand, userID uint64, walletID uint64, gameID uint64, now time.Time) error {
-	scope := tenancy.Scope{TenantID: command.TenantID, SiteID: command.SiteID}
+	scope := content.Scope{SiteID: command.SiteID}
 	var round model.GameRounds
-	err := tenancy.ApplySite(tx.Clauses(clause.Locking{Strength: "UPDATE"}).Model(&model.GameRounds{}), "", scope).
+	err := content.ApplySite(tx.Clauses(clause.Locking{Strength: "UPDATE"}).Model(&model.GameRounds{}), "", scope).
 		Where("provider_code = ? AND user_id = ? AND provider_round_id = ?", command.ProviderCode, userID, command.ProviderRoundID).
 		First(&round).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		round = model.GameRounds{
-			TenantID:     scope.TenantID,
+
 			SiteID:       scope.SiteID,
 			ProviderCode: command.ProviderCode, ProviderRoundID: command.ProviderRoundID,
 			ProviderGameID: command.ProviderGameID, GameID: gameID, UserID: userID, WalletID: walletID,
@@ -128,7 +128,7 @@ func upsertRoundProjection(tx *gorm.DB, command domain.WalletCommand, userID uin
 }
 
 func createBetProjection(tx *gorm.DB, command domain.WalletCommand, userID uint64, walletID uint64, gameID uint64, providerID uint64, gameType string, now time.Time) error {
-	scope := tenancy.Scope{TenantID: command.TenantID, SiteID: command.SiteID}
+	scope := content.Scope{SiteID: command.SiteID}
 	platformID := projectionID("BET", command.ProviderCode, command.ProviderTransactionID)
 	amount := minorToDecimal(command.AmountMinor)
 	row := &model.GameBetOrders{
@@ -141,8 +141,8 @@ func createBetProjection(tx *gorm.DB, command domain.WalletCommand, userID uint6
 		BetStatus: "BET_ACCEPTED", RollbackStatus: "NONE", BetAt: &now,
 	}
 	return tx.Table(row.TableName()).Create(map[string]any{
-		"tenant_id": scope.TenantID, "site_id": scope.SiteID,
-		"bet_no": row.BetNo, "platform_bet_id": row.PlatformBetID, "user_id": row.UserID, "wallet_id": row.WalletID,
+		"site_id": scope.SiteID,
+		"bet_no":  row.BetNo, "platform_bet_id": row.PlatformBetID, "user_id": row.UserID, "wallet_id": row.WalletID,
 		"game_id": row.GameID, "provider_id": row.ProviderID, "provider_code": row.ProviderCode,
 		"provider_game_id": row.ProviderGameID, "provider_round_id": row.ProviderRoundID,
 		"provider_bet_transaction_id": row.ProviderBetTransactionID, "provider_win_transaction_id": "",
@@ -155,9 +155,9 @@ func createBetProjection(tx *gorm.DB, command domain.WalletCommand, userID uint6
 }
 
 func settleBetProjection(tx *gorm.DB, command domain.WalletCommand, userID uint64, walletID uint64, gameID uint64, providerID uint64, gameType string, refunded bool, now time.Time) error {
-	scope := tenancy.Scope{TenantID: command.TenantID, SiteID: command.SiteID}
+	scope := content.Scope{SiteID: command.SiteID}
 	var bet model.GameBetOrders
-	query := tenancy.ApplySite(tx.Clauses(clause.Locking{Strength: "UPDATE"}).Model(&model.GameBetOrders{}), "", scope).Where("provider_code = ? AND user_id = ?", command.ProviderCode, userID)
+	query := content.ApplySite(tx.Clauses(clause.Locking{Strength: "UPDATE"}).Model(&model.GameBetOrders{}), "", scope).Where("provider_code = ? AND user_id = ?", command.ProviderCode, userID)
 	if command.ProviderRoundID != "" {
 		query = query.Where("provider_round_id = ?", command.ProviderRoundID)
 	}
@@ -171,8 +171,8 @@ func settleBetProjection(tx *gorm.DB, command domain.WalletCommand, userID uint6
 		}
 		platformID := projectionID("BET", command.ProviderCode, "credit-only:"+command.ProviderTransactionID)
 		return tx.Table("game_bet_records").Create(map[string]any{
-			"tenant_id": scope.TenantID, "site_id": scope.SiteID,
-			"bet_no": platformID, "platform_bet_id": platformID, "user_id": userID, "wallet_id": walletID,
+			"site_id": scope.SiteID,
+			"bet_no":  platformID, "platform_bet_id": platformID, "user_id": userID, "wallet_id": walletID,
 			"game_id": gameID, "provider_id": providerID, "provider_code": command.ProviderCode,
 			"provider_game_id": command.ProviderGameID, "provider_round_id": command.ProviderRoundID,
 			"provider_bet_transaction_id": "CREDIT_ONLY:" + command.ProviderTransactionID,
@@ -200,16 +200,16 @@ func settleBetProjection(tx *gorm.DB, command domain.WalletCommand, userID uint6
 }
 
 func createRollbackProjection(tx *gorm.DB, command domain.WalletCommand, userID uint64, gameID uint64, walletTransactionID uint64, now time.Time) error {
-	scope := tenancy.Scope{TenantID: command.TenantID, SiteID: command.SiteID}
+	scope := content.Scope{SiteID: command.SiteID}
 	var original model.GameProviderTransactions
-	if err := tenancy.ApplySite(tx.Model(&model.GameProviderTransactions{}), "", scope).Where("provider_code = ? AND provider_transaction_id = ?", command.ProviderCode, command.RelatedTransactionID).First(&original).Error; err != nil {
+	if err := content.ApplySite(tx.Model(&model.GameProviderTransactions{}), "", scope).Where("provider_code = ? AND provider_transaction_id = ?", command.ProviderCode, command.RelatedTransactionID).First(&original).Error; err != nil {
 		return err
 	}
 	var bet model.GameBetOrders
-	_ = tenancy.ApplySite(tx.Model(&model.GameBetOrders{}), "", scope).Where("provider_code = ? AND user_id = ? AND (provider_bet_transaction_id = ? OR provider_win_transaction_id = ?)", command.ProviderCode, userID, command.RelatedTransactionID, command.RelatedTransactionID).First(&bet).Error
+	_ = content.ApplySite(tx.Model(&model.GameBetOrders{}), "", scope).Where("provider_code = ? AND user_id = ? AND (provider_bet_transaction_id = ? OR provider_win_transaction_id = ?)", command.ProviderCode, userID, command.RelatedTransactionID, command.RelatedTransactionID).First(&bet).Error
 	rollbackID := projectionID("RB", command.ProviderCode, command.ProviderTransactionID)
 	row := &model.GameRollbacks{
-		TenantID:   scope.TenantID,
+
 		SiteID:     scope.SiteID,
 		RollbackID: rollbackID, ProviderCode: command.ProviderCode, ProviderTransactionID: command.ProviderTransactionID,
 		ProviderRoundID: command.ProviderRoundID, OriginalProviderTransactionID: command.RelatedTransactionID,

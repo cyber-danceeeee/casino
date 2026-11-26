@@ -12,13 +12,13 @@ import (
 	"casino/internal/systemadmin"
 )
 
-var maintenanceQueryKeys = []string{"tenantID", "siteID", "scopeType", "providerCode", "enabled", "page", "pageSize"}
-var supportQueryKeys = []string{"tenantID", "siteID", "query", "searchType", "playerID", "playerNo", "status", "category", "priority", "from", "to", "eventTypes", "providerCode", "minAmount", "maxAmount", "page", "pageSize"}
-var supportExportQueryKeys = []string{"tenantID", "siteID", "status", "exportType", "page", "pageSize"}
-var monitorQueryKeys = []string{"tenantID", "siteID", "country", "currency", "providerCode", "channelCode", "methodCode", "status", "from", "to", "page", "pageSize"}
+var maintenanceQueryKeys = []string{"siteID", "scopeType", "providerCode", "enabled", "page", "pageSize"}
+var supportQueryKeys = []string{"siteID", "query", "searchType", "playerID", "playerNo", "status", "category", "priority", "from", "to", "eventTypes", "providerCode", "minAmount", "maxAmount", "page", "pageSize"}
+var supportExportQueryKeys = []string{"siteID", "status", "exportType", "page", "pageSize"}
+var monitorQueryKeys = []string{"siteID", "country", "currency", "providerCode", "channelCode", "methodCode", "status", "from", "to", "page", "pageSize"}
 var alertQueryKeys = []string{"severity", "status", "alertType", "source", "page", "pageSize"}
-var releaseQueryKeys = []string{"tenantID", "siteID", "environment", "status", "page", "pageSize"}
-var backupQueryKeys = []string{"tenantID", "siteID", "scopeType", "status", "page", "pageSize"}
+var releaseQueryKeys = []string{"siteID", "environment", "status", "page", "pageSize"}
+var backupQueryKeys = []string{"siteID", "scopeType", "status", "page", "pageSize"}
 
 type adminRateBucket struct {
 	count   int
@@ -73,17 +73,17 @@ func OperationsReadiness(c *gin.Context) {
 	c.JSON(status, gin.H{"status": map[bool]string{true: "READY", false: "NOT_READY"}[ready], "checks": checks})
 }
 
-func (h *AdminSystemHandler) ListTenantMaintenance(c *gin.Context) {
-	data, err := h.service.ListTenantMaintenance(systemQuery(c, maintenanceQueryKeys), systemActor(c))
+func (h *AdminSystemHandler) ListSiteMaintenance(c *gin.Context) {
+	data, err := h.service.ListSiteMaintenance(systemQuery(c, maintenanceQueryKeys), systemActor(c))
 	systemWrite(c, data, err)
 }
 
-func (h *AdminSystemHandler) SaveTenantMaintenance(c *gin.Context) {
-	var input systemadmin.TenantMaintenanceInput
+func (h *AdminSystemHandler) SaveSiteMaintenance(c *gin.Context) {
+	var input systemadmin.SiteMaintenanceInput
 	if !systemBind(c, &input) {
 		return
 	}
-	id, err := h.service.SaveTenantMaintenance(input, systemActor(c))
+	id, err := h.service.SaveSiteMaintenance(input, systemActor(c))
 	systemWrite(c, map[string]any{"id": id}, err)
 }
 

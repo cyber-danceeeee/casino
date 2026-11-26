@@ -7,7 +7,7 @@ import (
 // gameActivityRewardRules business-level http error codes.
 // the gameActivityRewardRulesNO value range is 1~999, if the same error code is used, it will cause panic.
 var (
-	gameActivityRewardRulesNO = 3
+	gameActivityRewardRulesNO       = 3
 	gameActivityRewardRulesName     = "gameActivityRewardRules"
 	gameActivityRewardRulesBaseCode = errcode.HCode(gameActivityRewardRulesNO)
 

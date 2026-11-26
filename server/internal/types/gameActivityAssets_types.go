@@ -10,37 +10,35 @@ var _ time.Time
 
 // Tip: suggested filling in the binding rules https://github.com/go-playground/validator in request struct fields tag.
 
-
 // CreateGameActivityAssetsRequest request params
 type CreateGameActivityAssetsRequest struct {
-	ActivityID  uint64 `json:"activityID" binding:""`
-	AssetKey  string `json:"assetKey" binding:""`
-	AssetURL  string `json:"assetURL" binding:""`
-	Sort  int `json:"sort" binding:""`
+	ActivityID uint64 `json:"activityID" binding:""`
+	AssetKey   string `json:"assetKey" binding:""`
+	AssetURL   string `json:"assetURL" binding:""`
+	Sort       int    `json:"sort" binding:""`
 }
 
 // UpdateGameActivityAssetsByIDRequest request params
 type UpdateGameActivityAssetsByIDRequest struct {
 	ID uint64 `json:"id" binding:""` // uint64 id
 
-	ActivityID  uint64 `json:"activityID" binding:""`
-	AssetKey  string `json:"assetKey" binding:""`
-	AssetURL  string `json:"assetURL" binding:""`
-	Sort  int `json:"sort" binding:""`
+	ActivityID uint64 `json:"activityID" binding:""`
+	AssetKey   string `json:"assetKey" binding:""`
+	AssetURL   string `json:"assetURL" binding:""`
+	Sort       int    `json:"sort" binding:""`
 }
 
 // GameActivityAssetsObjDetail detail
 type GameActivityAssetsObjDetail struct {
 	ID uint64 `json:"id"` // convert to uint64 id
 
-	ActivityID  uint64 `json:"activityID"`
-	AssetKey  string `json:"assetKey"`
-	AssetURL  string `json:"assetURL"`
-	Sort  int `json:"sort"`
+	ActivityID uint64     `json:"activityID"`
+	AssetKey   string     `json:"assetKey"`
+	AssetURL   string     `json:"assetURL"`
+	Sort       int        `json:"sort"`
 	CreatedAt  *time.Time `json:"createdAt"`
 	UpdatedAt  *time.Time `json:"updatedAt"`
 }
-
 
 // CreateGameActivityAssetsReply only for api docs
 type CreateGameActivityAssetsReply struct {

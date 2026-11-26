@@ -232,7 +232,7 @@ func (h *gameRedPacketRoundsHandler) List(c *gin.Context) {
 
 	response.Success(c, gin.H{
 		"gameRedPacketRoundss": data,
-		"total":        total,
+		"total":                total,
 	})
 }
 

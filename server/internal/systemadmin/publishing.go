@@ -11,10 +11,10 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"casino/internal/content"
 	"casino/internal/eventbus"
 	"casino/internal/operationadmin"
 	"casino/internal/storage"
-	"casino/internal/tenancy"
 )
 
 func sitePublishedConfig(row SiteRow) map[string]any {
@@ -61,12 +61,12 @@ func siteConfigMeta(row SiteRow) map[string]any {
 		"configVersion":  version,
 		"publishedAt":    row.ConfigPublishedAt,
 		"draftUpdatedAt": row.ConfigDraftUpdatedAt,
-		"tenantId":       row.TenantID,
-		"siteId":         row.ID,
+
+		"siteId": row.ID,
 	}
 }
 
-func firstDraft(draft, published string) string {
+func firstDraft(draft string, published string) string {
 	if strings.TrimSpace(draft) != "" {
 		return draft
 	}
@@ -78,19 +78,19 @@ func (s *Service) PreviewSiteConfig(id uint64, actor Actor) (map[string]any, err
 	if err != nil {
 		return nil, err
 	}
-	bannerDrafts, err := previewBannerDrafts(s.db, row.TenantID, row.ID)
+	bannerDrafts, err := previewBannerDrafts(s.db, row.ID)
 	if err != nil {
 		return nil, err
 	}
-	announcementDrafts, err := previewAnnouncementDrafts(s.db, row.TenantID, row.ID)
+	announcementDrafts, err := previewAnnouncementDrafts(s.db, row.ID)
 	if err != nil {
 		return nil, err
 	}
-	popupDrafts, err := previewPopupDrafts(s.db, row.TenantID, row.ID)
+	popupDrafts, err := previewPopupDrafts(s.db, row.ID)
 	if err != nil {
 		return nil, err
 	}
-	navigationDrafts, err := operationadmin.PreviewH5NavigationDrafts(s.db, row.TenantID, row.ID)
+	navigationDrafts, err := operationadmin.PreviewH5NavigationDrafts(s.db, row.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +111,7 @@ func (s *Service) PublishSiteConfig(id uint64, reason string, actor Actor) (map[
 	return s.PublishSiteConfigWithKey(id, reason, "", actor)
 }
 
-func (s *Service) PublishSiteConfigWithKey(id uint64, reason, idempotencyKey string, actor Actor) (map[string]any, error) {
+func (s *Service) PublishSiteConfigWithKey(id uint64, reason string, idempotencyKey string, actor Actor) (map[string]any, error) {
 	if err := requireReason(reason); err != nil {
 		return nil, err
 	}
@@ -128,8 +128,8 @@ func (s *Service) PublishSiteConfigWithKey(id uint64, reason, idempotencyKey str
 				return err
 			}
 		}
-		key := releaseIdempotencyKey(row.TenantID, row.ID, idempotencyKey)
-		if existing, ok, err := existingReleaseByKey(tx, row.TenantID, row.ID, key); err != nil {
+		key := releaseIdempotencyKey(row.ID, idempotencyKey)
+		if existing, ok, err := existingReleaseByKey(tx, row.ID, key); err != nil {
 			return err
 		} else if ok {
 			result = releaseResult(existing, true)
@@ -140,19 +140,19 @@ func (s *Service) PublishSiteConfigWithKey(id uint64, reason, idempotencyKey str
 			return err
 		}
 		if !pending {
-			result = map[string]any{"tenantId": row.TenantID, "siteId": row.ID, "configVersion": row.ConfigVersion, "publishedAt": row.ConfigPublishedAt, "idempotent": true, "modules": []string{}}
+			result = map[string]any{"siteId": row.ID, "configVersion": row.ConfigVersion, "publishedAt": row.ConfigPublishedAt, "idempotent": true, "modules": []string{}}
 			return nil
 		}
-		nextVersion, err := nextReleaseVersion(tx, row.TenantID, row.ID, row.ConfigVersion)
+		nextVersion, err := nextReleaseVersion(tx, row.ID, row.ConfigVersion)
 		if err != nil {
 			return err
 		}
 		nowValue := now()
-		releaseID, err := createPublishingRelease(tx, row.TenantID, row.ID, nextVersion, modules, key, 0, actor.ID)
+		releaseID, err := createPublishingRelease(tx, row.ID, nextVersion, modules, key, 0, actor.ID)
 		if err != nil {
 			return err
 		}
-		failedRelease = failedReleaseAttempt{TenantID: row.TenantID, SiteID: row.ID, Version: nextVersion, Key: key, Modules: strings.Join(modules, ","), CreatedBy: actor.ID}
+		failedRelease = failedReleaseAttempt{SiteID: row.ID, Version: nextVersion, Key: key, Modules: strings.Join(modules, ","), CreatedBy: actor.ID}
 		published := siteDraftConfig(row)
 		updates := map[string]any{
 			"site_name":                published["siteName"],
@@ -184,9 +184,9 @@ func (s *Service) PublishSiteConfigWithKey(id uint64, reason, idempotencyKey str
 			"version":                  gorm.Expr("version+1"),
 			"updated_at":               nowValue,
 		}
-		updateDB := tx.Table("game_saas_sites").Where("id=? AND deleted_at IS NULL", id)
+		updateDB := tx.Table("game_site_config").Where("id=? AND deleted_at IS NULL", id)
 		if !actor.Platform {
-			updateDB = updateDB.Where("tenant_id=?", actor.TenantID)
+			updateDB = updateDB
 			if actor.SiteID > 0 {
 				updateDB = updateDB.Where("id=?", actor.SiteID)
 			}
@@ -194,42 +194,39 @@ func (s *Service) PublishSiteConfigWithKey(id uint64, reason, idempotencyKey str
 		if err := updateDB.Updates(updates).Error; err != nil {
 			return err
 		}
-		if err := publishLobbySectionDrafts(tx, row.TenantID, row.ID, actor.ID, nextVersion); err != nil {
+		if err := publishLobbySectionDrafts(tx, row.ID, actor.ID, nextVersion); err != nil {
 			return err
 		}
-		if err := validatePublishedGameLimit(tx, row.TenantID, row.ID); err != nil {
-			return err
-		}
-		gameDraftsPublished, err := publishGameDrafts(tx, row.TenantID, row.ID, actor.ID, nextVersion)
+		gameDraftsPublished, err := publishGameDrafts(tx, row.ID, actor.ID, nextVersion)
 		if err != nil {
 			return err
 		}
-		bannerDraftsPublished, err := publishBannerDrafts(tx, row.TenantID, row.ID, actor.ID, nextVersion)
+		bannerDraftsPublished, err := publishBannerDrafts(tx, row.ID, actor.ID, nextVersion)
 		if err != nil {
 			return err
 		}
-		announcementDraftsPublished, err := publishAnnouncementDrafts(tx, row.TenantID, row.ID, actor.ID, nextVersion)
+		announcementDraftsPublished, err := publishAnnouncementDrafts(tx, row.ID, actor.ID, nextVersion)
 		if err != nil {
 			return err
 		}
-		popupDraftsPublished, err := publishPopupDrafts(tx, row.TenantID, row.ID, actor.ID, nextVersion)
+		popupDraftsPublished, err := publishPopupDrafts(tx, row.ID, actor.ID, nextVersion)
 		if err != nil {
 			return err
 		}
-		navigationDraftsPublished, err := operationadmin.PublishH5NavigationDrafts(tx, row.TenantID, row.ID, actor.ID, nextVersion)
+		navigationDraftsPublished, err := operationadmin.PublishH5NavigationDrafts(tx, row.ID, actor.ID, nextVersion)
 		if err != nil {
 			return NewError("H5_NAVIGATION_PUBLISH_INVALID", err.Error())
 		}
-		if err := clearWhiteLabelConfigCache(tx, row.TenantID, row.ID); err != nil {
+		if err := clearWhiteLabelConfigCache(tx, row.ID); err != nil {
 			return err
 		}
-		targetActor := targetAuditActor(actor, row.TenantID, row.ID)
+		targetActor := targetAuditActor(actor, row.ID)
 		if err := audit(tx, targetActor, "release:publish", "system.site.config.publish", "site", id, sitePublishedConfig(row), published, reason); err != nil {
 			return err
 		}
 		if _, err := eventbus.New(tx).PublishTx(tx, eventbus.Event{
-			Scope:          tenancy.Scope{TenantID: row.TenantID, SiteID: row.ID, Platform: actor.Platform},
-			TenantID:       row.TenantID,
+			Scope: content.Scope{SiteID: row.ID, Platform: actor.Platform},
+
 			SiteID:         row.ID,
 			EventType:      eventbus.EventWhiteLabelConfigPublished,
 			AggregateType:  "white_label_config",
@@ -239,7 +236,7 @@ func (s *Service) PublishSiteConfigWithKey(id uint64, reason, idempotencyKey str
 			TraceID:        actor.CorrelationID,
 			CorrelationID:  actor.CorrelationID,
 			Payload: map[string]any{
-				"tenantId":      row.TenantID,
+
 				"siteId":        row.ID,
 				"configVersion": nextVersion,
 				"publishedAt":   nowValue,
@@ -247,7 +244,7 @@ func (s *Service) PublishSiteConfigWithKey(id uint64, reason, idempotencyKey str
 		}); err != nil {
 			return err
 		}
-		snapshot, err := captureReleaseSnapshot(tx, row.TenantID, row.ID)
+		snapshot, err := captureReleaseSnapshot(tx, row.ID)
 		if err != nil {
 			return err
 		}
@@ -255,8 +252,8 @@ func (s *Service) PublishSiteConfigWithKey(id uint64, reason, idempotencyKey str
 			return err
 		}
 		result = map[string]any{
-			"releaseID":                   releaseID,
-			"tenantId":                    row.TenantID,
+			"releaseID": releaseID,
+
 			"siteId":                      row.ID,
 			"configVersion":               nextVersion,
 			"publishedAt":                 nowValue,
@@ -276,45 +273,6 @@ func (s *Service) PublishSiteConfigWithKey(id uint64, reason, idempotencyKey str
 		s.recordFailedRelease(failedRelease, err)
 	}
 	return result, err
-}
-
-func validatePublishedGameLimit(tx *gorm.DB, tenantID, siteID uint64) error {
-	if !tx.Migrator().HasTable("game_saas_tenant_packages") {
-		return nil
-	}
-	var limits []struct {
-		GameLimit int `gorm:"column:game_limit"`
-	}
-	err := tx.Table("game_saas_tenants t").
-		Select("p.game_limit").
-		Joins("JOIN game_saas_tenant_packages p ON p.package_code=t.package_code AND p.deleted_at IS NULL").
-		Where("t.id=? AND t.deleted_at IS NULL", tenantID).
-		Limit(1).Find(&limits).Error
-	if err != nil || len(limits) == 0 || limits[0].GameLimit < 0 {
-		return err
-	}
-	gameLimit := limits[0].GameLimit
-	var enabledCount int64
-	if err := tx.Table("game_games").
-		Where("tenant_id=? AND site_id=? AND deleted_at IS NULL", tenantID, siteID).
-		Where("COALESCE(platform_enabled_draft,platform_enabled)=1").
-		Count(&enabledCount).Error; err != nil {
-		return err
-	}
-	var publishedEnabled int64
-	if err := tx.Table("game_games").
-		Where("tenant_id=? AND site_id=? AND deleted_at IS NULL AND platform_enabled=1", tenantID, siteID).
-		Count(&publishedEnabled).Error; err != nil {
-		return err
-	}
-	allowed := int64(gameLimit)
-	if publishedEnabled > allowed {
-		allowed = publishedEnabled
-	}
-	if enabledCount > allowed {
-		return NewError("TENANT_GAME_LIMIT_EXCEEDED", "tenant package game limit exceeded")
-	}
-	return nil
 }
 
 type siteBannerPublishRow struct {
@@ -345,10 +303,10 @@ type siteBannerPublishPayload struct {
 	Deleted         bool       `json:"deleted"`
 }
 
-func previewBannerDrafts(db *gorm.DB, tenantID, siteID uint64) ([]map[string]any, error) {
+func previewBannerDrafts(db *gorm.DB, siteID uint64) ([]map[string]any, error) {
 	var rows []siteBannerPublishRow
 	if err := db.Table("game_site_banners").Select("id,COALESCE(CAST(draft_payload AS CHAR),'') draft_payload,desktop_asset_id_draft,mobile_asset_id_draft").
-		Where("tenant_id=? AND site_id=? AND deleted_at IS NULL", tenantID, siteID).Order("id ASC").Find(&rows).Error; err != nil {
+		Where("site_id = ? AND deleted_at IS NULL", siteID).Order("id ASC").Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	out := make([]map[string]any, 0, len(rows))
@@ -363,10 +321,10 @@ func previewBannerDrafts(db *gorm.DB, tenantID, siteID uint64) ([]map[string]any
 	return out, nil
 }
 
-func publishBannerDrafts(tx *gorm.DB, tenantID, siteID, actorID, configVersion uint64) (int, error) {
+func publishBannerDrafts(tx *gorm.DB, siteID uint64, actorID uint64, configVersion uint64) (int, error) {
 	var rows []siteBannerPublishRow
 	if err := tx.Table("game_site_banners").Select("id,COALESCE(CAST(draft_payload AS CHAR),'') draft_payload,desktop_asset_id_draft,mobile_asset_id_draft").
-		Where("tenant_id=? AND site_id=? AND publish_status=? AND deleted_at IS NULL", tenantID, siteID, "DRAFT").Order("id ASC").Find(&rows).Error; err != nil {
+		Where("site_id = ? AND publish_status = ? AND deleted_at IS NULL", siteID, "DRAFT").Order("id ASC").Find(&rows).Error; err != nil {
 		return 0, err
 	}
 	nowValue := now()
@@ -376,17 +334,17 @@ func publishBannerDrafts(tx *gorm.DB, tenantID, siteID, actorID, configVersion u
 			return 0, NewError("INVALID_BANNER_DRAFT", "invalid banner draft")
 		}
 		if payload.Deleted {
-			if err := tx.Table("game_site_banners").Where("id=? AND tenant_id=? AND site_id=?", row.ID, tenantID, siteID).
+			if err := tx.Table("game_site_banners").Where("id = ? AND site_id = ?", row.ID, siteID).
 				Updates(map[string]any{"deleted_at": nowValue, "updated_at": nowValue, "updated_by": actorID}).Error; err != nil {
 				return 0, err
 			}
 			continue
 		}
-		if err := validatePublishBannerAsset(tx, tenantID, siteID, payload.DesktopAssetID, payload.DesktopImageURL, true); err != nil {
+		if err := validatePublishBannerAsset(tx, siteID, payload.DesktopAssetID, payload.DesktopImageURL, true); err != nil {
 			return 0, err
 		}
 		if payload.MobileAssetID > 0 {
-			if err := validatePublishBannerAsset(tx, tenantID, siteID, payload.MobileAssetID, payload.MobileImageURL, false); err != nil {
+			if err := validatePublishBannerAsset(tx, siteID, payload.MobileAssetID, payload.MobileImageURL, false); err != nil {
 				return 0, err
 			}
 		}
@@ -400,14 +358,14 @@ func publishBannerDrafts(tx *gorm.DB, tenantID, siteID, actorID, configVersion u
 			"published_payload": row.DraftPayload, "publish_status": "PUBLISHED", "config_version": configVersion,
 			"published_at": nowValue, "published_by": actorID, "updated_by": actorID, "updated_at": nowValue,
 		}
-		if err := tx.Table("game_site_banners").Where("id=? AND tenant_id=? AND site_id=? AND deleted_at IS NULL", row.ID, tenantID, siteID).Updates(updates).Error; err != nil {
+		if err := tx.Table("game_site_banners").Where("id = ? AND site_id = ? AND deleted_at IS NULL", row.ID, siteID).Updates(updates).Error; err != nil {
 			return 0, err
 		}
 	}
 	return len(rows), nil
 }
 
-func validatePublishBannerAsset(tx *gorm.DB, tenantID, siteID, assetID uint64, imageURL string, required bool) error {
+func validatePublishBannerAsset(tx *gorm.DB, siteID uint64, assetID uint64, imageURL string, required bool) error {
 	if assetID == 0 {
 		if storage.IsAssetURL(imageURL) {
 			return nil
@@ -419,7 +377,7 @@ func validatePublishBannerAsset(tx *gorm.DB, tenantID, siteID, assetID uint64, i
 	}
 	var count int64
 	err := tx.Table("game_asset_library").Where("id=? AND asset_type='IMAGE' AND status='ACTIVE' AND deleted_at IS NULL", assetID).
-		Where("(asset_scope='PLATFORM' AND is_public=1) OR (tenant_id=? AND site_id IN (0,?))", tenantID, siteID).Count(&count).Error
+		Where("(asset_scope = 'PLATFORM' AND is_public = 1) OR (site_id IN (0, ?))", siteID).Count(&count).Error
 	if err != nil {
 		return err
 	}
@@ -454,13 +412,13 @@ type gameCategoryDraftItem struct {
 	Sort       int    `json:"sort"`
 }
 
-func publishGameDrafts(tx *gorm.DB, tenantID, siteID, actorID, configVersion uint64) (int, error) {
+func publishGameDrafts(tx *gorm.DB, siteID uint64, actorID uint64, configVersion uint64) (int, error) {
 	var rows []gameDraftPublishRow
 	if err := tx.Table("game_games").
 		Select(`id,provider_enabled,platform_enabled,platform_enabled_draft,is_hot,is_hot_draft,is_featured,is_featured_draft,
 			is_new,is_new_draft,sort,sort_draft,status,status_draft,maintenance_message,maintenance_message_draft,
 			CAST(category_ids_draft AS CHAR) category_ids_draft`).
-		Where("tenant_id=? AND site_id=? AND config_status=? AND deleted_at IS NULL", tenantID, siteID, "DRAFT").
+		Where("site_id = ? AND config_status = ? AND deleted_at IS NULL", siteID, "DRAFT").
 		Order("id ASC").
 		Find(&rows).Error; err != nil {
 		return 0, err
@@ -504,7 +462,7 @@ func publishGameDrafts(tx *gorm.DB, tenantID, siteID, actorID, configVersion uin
 			if err != nil {
 				return 0, err
 			}
-			if err := publishGameCategoryDraft(tx, tenantID, siteID, row.ID, items); err != nil {
+			if err := publishGameCategoryDraft(tx, siteID, row.ID, items); err != nil {
 				return 0, err
 			}
 		}
@@ -530,7 +488,7 @@ func publishGameDrafts(tx *gorm.DB, tenantID, siteID, actorID, configVersion uin
 			"updated_at":                nowValue,
 		}
 		if err := tx.Table("game_games").
-			Where("id=? AND tenant_id=? AND site_id=? AND deleted_at IS NULL", row.ID, tenantID, siteID).
+			Where("id = ? AND site_id = ? AND deleted_at IS NULL", row.ID, siteID).
 			Updates(updates).Error; err != nil {
 			return 0, err
 		}
@@ -550,10 +508,10 @@ func parseGameCategoryDraft(raw string) ([]gameCategoryDraftItem, error) {
 	return items, nil
 }
 
-func publishGameCategoryDraft(tx *gorm.DB, tenantID, siteID, gameID uint64, items []gameCategoryDraftItem) error {
+func publishGameCategoryDraft(tx *gorm.DB, siteID uint64, gameID uint64, items []gameCategoryDraftItem) error {
 	nowValue := now()
 	if err := tx.Table("game_game_category_relations").
-		Where("tenant_id=? AND site_id=? AND game_id=? AND deleted_at IS NULL", tenantID, siteID, gameID).
+		Where("site_id = ? AND game_id = ? AND deleted_at IS NULL", siteID, gameID).
 		Updates(map[string]any{"deleted_at": nowValue, "updated_at": nowValue}).Error; err != nil {
 		return err
 	}
@@ -565,7 +523,7 @@ func publishGameCategoryDraft(tx *gorm.DB, tenantID, siteID, gameID uint64, item
 		seen[item.CategoryID] = true
 		var count int64
 		if err := tx.Table("game_game_categories").
-			Where("tenant_id=? AND site_id=? AND id=? AND deleted_at IS NULL", tenantID, siteID, item.CategoryID).
+			Where("site_id = ? AND id = ? AND deleted_at IS NULL", siteID, item.CategoryID).
 			Count(&count).Error; err != nil {
 			return err
 		}
@@ -573,7 +531,7 @@ func publishGameCategoryDraft(tx *gorm.DB, tenantID, siteID, gameID uint64, item
 			return NewError("INVALID_GAME_CATEGORY_DRAFT", "invalid game category draft")
 		}
 		row := map[string]any{
-			"tenant_id": tenantID, "site_id": siteID, "game_id": gameID, "category_id": item.CategoryID,
+			"site_id": siteID, "game_id": gameID, "category_id": item.CategoryID,
 			"sort": index, "created_at": nowValue, "updated_at": nowValue, "deleted_at": nil,
 		}
 		if err := tx.Table("game_game_category_relations").Clauses(clause.OnConflict{
@@ -583,10 +541,10 @@ func publishGameCategoryDraft(tx *gorm.DB, tenantID, siteID, gameID uint64, item
 			return err
 		}
 	}
-	return syncPublishedGamePrimaryCategory(tx, tenantID, siteID, gameID)
+	return syncPublishedGamePrimaryCategory(tx, siteID, gameID)
 }
 
-func syncPublishedGamePrimaryCategory(tx *gorm.DB, tenantID, siteID, gameID uint64) error {
+func syncPublishedGamePrimaryCategory(tx *gorm.DB, siteID uint64, gameID uint64) error {
 	var primary struct {
 		ID   uint64 `gorm:"column:id"`
 		Code string `gorm:"column:code"`
@@ -594,27 +552,26 @@ func syncPublishedGamePrimaryCategory(tx *gorm.DB, tenantID, siteID, gameID uint
 	result := tx.Table("game_game_category_relations r").
 		Select("c.id,c.category_key code").
 		Joins("JOIN game_game_categories c ON c.id=r.category_id AND c.deleted_at IS NULL").
-		Where("r.tenant_id=? AND r.site_id=? AND r.game_id=? AND r.deleted_at IS NULL", tenantID, siteID, gameID).
+		Where("r.site_id = ? AND r.game_id = ? AND r.deleted_at IS NULL", siteID, gameID).
 		Order("r.sort ASC,r.id ASC").Limit(1).Find(&primary)
 	if result.Error != nil {
 		return result.Error
 	}
 	return tx.Table("game_games").
-		Where("id=? AND tenant_id=? AND site_id=? AND deleted_at IS NULL", gameID, tenantID, siteID).
+		Where("id = ? AND site_id = ? AND deleted_at IS NULL", gameID, siteID).
 		Updates(map[string]any{"platform_category_id": primary.ID, "platform_category_code": primary.Code, "updated_at": now()}).Error
 }
 
 func (s *Service) siteRowForActor(db *gorm.DB, id uint64, actor Actor, forUpdate bool) (SiteRow, error) {
 	var row SiteRow
-	query := db.Table("game_saas_sites s").
+	query := db.Table("game_site_config s").
 		Select(siteSelect()).
-		Joins("LEFT JOIN game_saas_tenants t ON t.id=s.tenant_id AND t.deleted_at IS NULL").
 		Where("s.id=? AND s.deleted_at IS NULL", id)
 	if forUpdate {
 		query = query.Clauses(clause.Locking{Strength: "UPDATE"})
 	}
 	if !actor.Platform {
-		query = query.Where("s.tenant_id=?", actor.TenantID)
+		query = query
 		if actor.SiteID > 0 {
 			query = query.Where("s.id=?", actor.SiteID)
 		}
@@ -625,7 +582,7 @@ func (s *Service) siteRowForActor(db *gorm.DB, id uint64, actor Actor, forUpdate
 	return row, nil
 }
 
-func clearWhiteLabelConfigCache(tx *gorm.DB, tenantID, siteID uint64) error {
+func clearWhiteLabelConfigCache(tx *gorm.DB, siteID uint64) error {
 	return nil
 }
 
@@ -650,11 +607,11 @@ type lobbyDraftPayload struct {
 	Config              map[string]any `json:"config"`
 }
 
-func publishLobbySectionDrafts(tx *gorm.DB, tenantID, siteID, actorID, configVersion uint64) error {
+func publishLobbySectionDrafts(tx *gorm.DB, siteID uint64, actorID uint64, configVersion uint64) error {
 	var rows []lobbyDraftRow
 	if err := tx.Table("game_lobby_sections").
 		Select("id,COALESCE(CAST(draft_payload AS CHAR),'') draft_payload").
-		Where("tenant_id=? AND site_id=? AND publish_status=? AND deleted_at IS NULL", tenantID, siteID, "DRAFT").
+		Where("site_id = ? AND publish_status = ? AND deleted_at IS NULL", siteID, "DRAFT").
 		Order("id ASC").
 		Find(&rows).Error; err != nil {
 		return err
@@ -675,7 +632,7 @@ func publishLobbySectionDrafts(tx *gorm.DB, tenantID, siteID, actorID, configVer
 			configJSON = marshal(payload.Config)
 		}
 		updates := map[string]any{
-			"section_code":         normalizeSaaSCode(payload.SectionCode),
+			"section_code":         normalizeContentCode(payload.SectionCode),
 			"section_type":         strings.TrimSpace(payload.SectionType),
 			"title_zh":             strings.TrimSpace(payload.TitleZh),
 			"title_en":             strings.TrimSpace(payload.TitleEn),
@@ -696,10 +653,12 @@ func publishLobbySectionDrafts(tx *gorm.DB, tenantID, siteID, actorID, configVer
 			"updated_at":           nowValue,
 		}
 		if err := tx.Table("game_lobby_sections").
-			Where("id=? AND tenant_id=? AND site_id=? AND deleted_at IS NULL", row.ID, tenantID, siteID).
+			Where("id = ? AND site_id = ? AND deleted_at IS NULL", row.ID, siteID).
 			Updates(updates).Error; err != nil {
 			return err
 		}
 	}
 	return nil
 }
+
+func normalizeContentCode(value string) string { return strings.ToLower(strings.TrimSpace(value)) }

@@ -6,8 +6,6 @@ export type AccountProfile = {
   displayName: string;
   email: string;
   mobile: string;
-  tenantID: number;
-  tenantName: string;
   defaultSiteID: number;
   defaultSiteName: string;
   preferredLanguage: "zh-CN" | "en-US";
@@ -20,7 +18,7 @@ export type AccountProfile = {
 
 export type AccountProfileResponse = {
   profile: AccountProfile;
-  adminType: "PLATFORM" | "TENANT" | "SITE";
+  adminType: "SITE";
   roles: string[];
 };
 

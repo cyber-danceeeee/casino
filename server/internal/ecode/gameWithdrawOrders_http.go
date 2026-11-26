@@ -7,7 +7,7 @@ import (
 // gameWithdrawOrders business-level http error codes.
 // the gameWithdrawOrdersNO value range is 1~999, if the same error code is used, it will cause panic.
 var (
-	gameWithdrawOrdersNO = 58
+	gameWithdrawOrdersNO       = 58
 	gameWithdrawOrdersName     = "gameWithdrawOrders"
 	gameWithdrawOrdersBaseCode = errcode.HCode(gameWithdrawOrdersNO)
 

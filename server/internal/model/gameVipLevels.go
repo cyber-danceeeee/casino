@@ -9,7 +9,6 @@ import (
 type GameVipLevels struct {
 	sgorm.Model `gorm:"embedded"` // embed id and time
 
-	TenantID           uint64           `gorm:"column:tenant_id;type:bigint(20) unsigned;default:0;not null" json:"tenantID"`
 	SiteID             uint64           `gorm:"column:site_id;type:bigint(20) unsigned;default:0;not null" json:"siteID"`
 	LevelNo            uint             `gorm:"column:level_no;type:int(11) unsigned;not null" json:"levelNo"`
 	Name               string           `gorm:"column:name;type:varchar(64);not null" json:"name"`
@@ -23,11 +22,11 @@ type GameVipLevels struct {
 
 // GameVipLevelsColumnNames Whitelist for custom query fields to prevent sql injection attacks
 var GameVipLevelsColumnNames = map[string]bool{
-	"id":                   true,
-	"created_at":           true,
-	"updated_at":           true,
-	"deleted_at":           true,
-	"tenant_id":            true,
+	"id":         true,
+	"created_at": true,
+	"updated_at": true,
+	"deleted_at": true,
+
 	"site_id":              true,
 	"level_no":             true,
 	"name":                 true,

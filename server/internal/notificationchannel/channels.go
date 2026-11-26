@@ -45,7 +45,7 @@ func Valid(value string) bool {
 	return true
 }
 
-func Contains(value, channel string) bool {
+func Contains(value string, channel string) bool {
 	target := strings.ToUpper(strings.TrimSpace(channel))
 	for _, item := range Parse(value) {
 		if item == target {

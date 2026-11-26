@@ -10,40 +10,38 @@ var _ time.Time
 
 // Tip: suggested filling in the binding rules https://github.com/go-playground/validator in request struct fields tag.
 
-
 // CreateGameUserInvitationChestsRequest request params
 type CreateGameUserInvitationChestsRequest struct {
-	UserID  uint64 `json:"userID" binding:""`
-	ChestConfigID  uint64 `json:"chestConfigID" binding:""`
-	ProgressInvites  uint `json:"progressInvites" binding:""`
-	Status  int `json:"status" binding:""` // 1 locked, 2 available, 3 opened, 4 expired
-	OpenedAt  *time.Time `json:"openedAt" binding:""`
+	UserID          uint64     `json:"userID" binding:""`
+	ChestConfigID   uint64     `json:"chestConfigID" binding:""`
+	ProgressInvites uint       `json:"progressInvites" binding:""`
+	Status          int        `json:"status" binding:""` // 1 locked, 2 available, 3 opened, 4 expired
+	OpenedAt        *time.Time `json:"openedAt" binding:""`
 }
 
 // UpdateGameUserInvitationChestsByIDRequest request params
 type UpdateGameUserInvitationChestsByIDRequest struct {
 	ID uint64 `json:"id" binding:""` // uint64 id
 
-	UserID  uint64 `json:"userID" binding:""`
-	ChestConfigID  uint64 `json:"chestConfigID" binding:""`
-	ProgressInvites  uint `json:"progressInvites" binding:""`
-	Status  int `json:"status" binding:""` // 1 locked, 2 available, 3 opened, 4 expired
-	OpenedAt  *time.Time `json:"openedAt" binding:""`
+	UserID          uint64     `json:"userID" binding:""`
+	ChestConfigID   uint64     `json:"chestConfigID" binding:""`
+	ProgressInvites uint       `json:"progressInvites" binding:""`
+	Status          int        `json:"status" binding:""` // 1 locked, 2 available, 3 opened, 4 expired
+	OpenedAt        *time.Time `json:"openedAt" binding:""`
 }
 
 // GameUserInvitationChestsObjDetail detail
 type GameUserInvitationChestsObjDetail struct {
 	ID uint64 `json:"id"` // convert to uint64 id
 
-	UserID  uint64 `json:"userID"`
-	ChestConfigID  uint64 `json:"chestConfigID"`
-	ProgressInvites  uint `json:"progressInvites"`
-	Status  int `json:"status"` // 1 locked, 2 available, 3 opened, 4 expired
-	OpenedAt  *time.Time `json:"openedAt"`
-	CreatedAt  *time.Time `json:"createdAt"`
-	UpdatedAt  *time.Time `json:"updatedAt"`
+	UserID          uint64     `json:"userID"`
+	ChestConfigID   uint64     `json:"chestConfigID"`
+	ProgressInvites uint       `json:"progressInvites"`
+	Status          int        `json:"status"` // 1 locked, 2 available, 3 opened, 4 expired
+	OpenedAt        *time.Time `json:"openedAt"`
+	CreatedAt       *time.Time `json:"createdAt"`
+	UpdatedAt       *time.Time `json:"updatedAt"`
 }
-
 
 // CreateGameUserInvitationChestsReply only for api docs
 type CreateGameUserInvitationChestsReply struct {

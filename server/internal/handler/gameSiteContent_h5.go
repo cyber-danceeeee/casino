@@ -10,9 +10,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-dev-frame/sponge/pkg/gin/response"
 
+	"casino/internal/content"
 	"casino/internal/database"
 	"casino/internal/systemadmin"
-	"casino/internal/tenancy"
 )
 
 func PublicAnnouncements(c *gin.Context) {
@@ -77,9 +77,9 @@ func trackPopupEvent(c *gin.Context, eventType string) {
 	response.Success(c, gin.H{"recorded": recorded})
 }
 
-func h5SiteContentContext(c *gin.Context) (tenancy.Scope, string, string, string, bool, systemadmin.PopupViewer) {
+func h5SiteContentContext(c *gin.Context) (content.Scope, string, string, string, bool, systemadmin.PopupViewer) {
 	db := database.GetDB()
-	scope := h5TenancyScope(c)
+	scope := h5ContentScope(c)
 	user, _, loggedIn := h5AuthenticatedUser(db, c)
 	language := strings.TrimSpace(c.Query("language"))
 	if language == "" {

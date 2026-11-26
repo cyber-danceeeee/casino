@@ -232,7 +232,7 @@ func (h *gameHomeFeatureCardsHandler) List(c *gin.Context) {
 
 	response.Success(c, gin.H{
 		"gameHomeFeatureCardss": data,
-		"total":        total,
+		"total":                 total,
 	})
 }
 

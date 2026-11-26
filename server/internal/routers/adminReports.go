@@ -3,6 +3,7 @@ package routers
 import (
 	"casino/internal/adminauth"
 	"casino/internal/handler"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -16,8 +17,8 @@ func adminReportsRouter(group *gin.RouterGroup, h *handler.AdminReportsHandler) 
 	g.GET("/reports/financial/detail", adminauth.Require(adminauth.PermissionReportFinancialView), h.FinancialDetail)
 	g.GET("/reports/games", adminauth.Require(adminauth.PermissionReportGameView), h.Games)
 	g.GET("/reports/games/:id", adminauth.Require(adminauth.PermissionReportGameView), h.GameDetail)
-	g.GET("/reports/providers", adminauth.RequirePlatform(), adminauth.Require(adminauth.PermissionReportProviderView), h.Providers)
-	g.GET("/reports/providers/:providerCode", adminauth.RequirePlatform(), adminauth.Require(adminauth.PermissionReportProviderView), h.ProviderDetail)
+	g.GET("/reports/providers", adminauth.Require(adminauth.PermissionReportProviderView), h.Providers)
+	g.GET("/reports/providers/:providerCode", adminauth.Require(adminauth.PermissionReportProviderView), h.ProviderDetail)
 	g.GET("/reports/users", adminauth.Require(adminauth.PermissionReportUserView), h.Users)
 	g.GET("/reports/users/:id", adminauth.Require(adminauth.PermissionReportUserView), h.UserDetail)
 	g.GET("/reports/channels", adminauth.Require(adminauth.PermissionReportChannelView), h.Channels)

@@ -33,7 +33,7 @@ func NewAdminOperationsHandler() *AdminOperationsHandler {
 
 func (h *AdminOperationsHandler) H5Navigation(c *gin.Context) {
 	db := database.GetDB()
-	scope := h5TenancyScope(c)
+	scope := h5ContentScope(c)
 	_, _, loggedIn := h5AuthenticatedUser(db, c)
 	language := strings.TrimSpace(c.Query("language"))
 	if language == "" {
@@ -67,7 +67,7 @@ func (h *AdminOperationsHandler) ListH5Navigation(c *gin.Context) {
 
 func (h *AdminOperationsHandler) GetH5Navigation(c *gin.Context) {
 	h.detail(c, func(id uint64) (map[string]any, error) {
-		return h.service.GetH5Navigation(id, adminTenancyScope(c))
+		return h.service.GetH5Navigation(id, adminContentScope(c))
 	})
 }
 
@@ -120,7 +120,7 @@ func (h *AdminOperationsHandler) ListBanners(c *gin.Context) {
 }
 func (h *AdminOperationsHandler) GetBanner(c *gin.Context) {
 	h.detail(c, func(id uint64) (map[string]any, error) {
-		return h.service.GetSiteBanner(id, adminTenancyScope(c))
+		return h.service.GetSiteBanner(id, adminContentScope(c))
 	})
 }
 func (h *AdminOperationsHandler) CreateBanner(c *gin.Context) {
@@ -169,7 +169,7 @@ func (h *AdminOperationsHandler) ListAnnouncements(c *gin.Context) {
 }
 func (h *AdminOperationsHandler) GetAnnouncement(c *gin.Context) {
 	h.detail(c, func(id uint64) (map[string]any, error) {
-		return h.service.GetAnnouncement(id, adminTenancyScope(c))
+		return h.service.GetAnnouncement(id, adminContentScope(c))
 	})
 }
 func (h *AdminOperationsHandler) CreateAnnouncement(c *gin.Context) {
@@ -202,7 +202,7 @@ func (h *AdminOperationsHandler) ListPromotions(c *gin.Context) {
 }
 func (h *AdminOperationsHandler) GetPromotion(c *gin.Context) {
 	h.detail(c, func(id uint64) (map[string]any, error) {
-		return h.service.GetPromotion(id, adminTenancyScope(c))
+		return h.service.GetPromotion(id, adminContentScope(c))
 	})
 }
 func (h *AdminOperationsHandler) ListPromotionClaims(c *gin.Context) {
@@ -269,7 +269,7 @@ func (h *AdminOperationsHandler) CancelBonus(c *gin.Context) {
 func (h *AdminOperationsHandler) ForfeitBonus(c *gin.Context) {
 	h.bonusTransition(c, "FORFEITED", adminauth.PermissionOperationBonusForfeit)
 }
-func (h *AdminOperationsHandler) bonusTransition(c *gin.Context, target, permission string) {
+func (h *AdminOperationsHandler) bonusTransition(c *gin.Context, target string, permission string) {
 	id, ok := operationID(c)
 	if !ok {
 		return
@@ -291,7 +291,7 @@ func (h *AdminOperationsHandler) ListVIPUsers(c *gin.Context) {
 }
 func (h *AdminOperationsHandler) GetVIPLevel(c *gin.Context) {
 	h.detail(c, func(id uint64) (map[string]any, error) {
-		return h.service.GetVIPLevel(id, adminTenancyScope(c))
+		return h.service.GetVIPLevel(id, adminContentScope(c))
 	})
 }
 func (h *AdminOperationsHandler) CreateVIPLevel(c *gin.Context) {
@@ -340,7 +340,7 @@ func (h *AdminOperationsHandler) ListPromoCodes(c *gin.Context) {
 }
 func (h *AdminOperationsHandler) GetPromoCode(c *gin.Context) {
 	h.detail(c, func(id uint64) (map[string]any, error) {
-		return h.service.GetPromoCode(id, adminTenancyScope(c))
+		return h.service.GetPromoCode(id, adminContentScope(c))
 	})
 }
 func (h *AdminOperationsHandler) ListPromoCodeUsage(c *gin.Context) {
@@ -394,12 +394,12 @@ func (h *AdminOperationsHandler) ListNotifications(c *gin.Context) {
 	h.write(c, data, err)
 }
 func (h *AdminOperationsHandler) NotificationAudienceOptions(c *gin.Context) {
-	data, err := h.service.NotificationAudienceOptions(c.Query("audienceType"), c.Query("keyword"), c.Query("selected"), adminTenancyScope(c))
+	data, err := h.service.NotificationAudienceOptions(c.Query("audienceType"), c.Query("keyword"), c.Query("selected"), adminContentScope(c))
 	h.write(c, data, err)
 }
 func (h *AdminOperationsHandler) GetNotification(c *gin.Context) {
 	h.detail(c, func(id uint64) (map[string]any, error) {
-		return h.service.GetNotification(id, adminTenancyScope(c))
+		return h.service.GetNotification(id, adminContentScope(c))
 	})
 }
 func (h *AdminOperationsHandler) CreateNotification(c *gin.Context) {
@@ -466,11 +466,11 @@ func (h *AdminOperationsHandler) ListMusic(c *gin.Context) {
 }
 func (h *AdminOperationsHandler) H5MusicConfig(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")
-	data, err := h.service.H5MusicConfig(adminTenancyScope(c))
+	data, err := h.service.H5MusicConfig(adminContentScope(c))
 	h.write(c, data, err)
 }
 func (h *AdminOperationsHandler) GetMusicPlaybackConfig(c *gin.Context) {
-	data, err := h.service.GetMusicPlaybackConfig(adminTenancyScope(c))
+	data, err := h.service.GetMusicPlaybackConfig(adminContentScope(c))
 	h.write(c, data, err)
 }
 func (h *AdminOperationsHandler) UpdateMusicPlaybackConfig(c *gin.Context) {
@@ -482,7 +482,7 @@ func (h *AdminOperationsHandler) UpdateMusicPlaybackConfig(c *gin.Context) {
 }
 func (h *AdminOperationsHandler) GetMusic(c *gin.Context) {
 	h.detail(c, func(id uint64) (map[string]any, error) {
-		return h.service.GetMusic(id, adminTenancyScope(c))
+		return h.service.GetMusic(id, adminContentScope(c))
 	})
 }
 func (h *AdminOperationsHandler) CreateMusic(c *gin.Context) {
@@ -541,7 +541,7 @@ func (h *AdminOperationsHandler) ListSocialLinks(c *gin.Context) {
 }
 func (h *AdminOperationsHandler) GetSocialLink(c *gin.Context) {
 	h.detail(c, func(id uint64) (map[string]any, error) {
-		return h.service.GetSocialLink(id, adminTenancyScope(c))
+		return h.service.GetSocialLink(id, adminContentScope(c))
 	})
 }
 func (h *AdminOperationsHandler) CreateSocialLink(c *gin.Context) {
@@ -578,7 +578,7 @@ func (h *AdminOperationsHandler) GetVoucher(c *gin.Context) {
 	if !ok {
 		return
 	}
-	data, err := h.depositConfig.GetVoucher(id, adminTenancyScope(c))
+	data, err := h.depositConfig.GetVoucher(id, adminContentScope(c))
 	h.write(c, data, err)
 }
 func (h *AdminOperationsHandler) ListVoucherUsage(c *gin.Context) {
@@ -623,7 +623,7 @@ func (h *AdminOperationsHandler) DeleteVoucher(c *gin.Context) {
 }
 
 func (h *AdminOperationsHandler) GetRegisterRewardConfig(c *gin.Context) {
-	data, err := h.service.GetRegisterRewardConfig(adminTenancyScope(c))
+	data, err := h.service.GetRegisterRewardConfig(adminContentScope(c))
 	h.write(c, data, err)
 }
 
@@ -642,7 +642,7 @@ func (h *AdminOperationsHandler) ListAssets(c *gin.Context) {
 
 func (h *AdminOperationsHandler) GetAsset(c *gin.Context) {
 	h.detail(c, func(id uint64) (map[string]any, error) {
-		return h.service.GetAsset(id, adminTenancyScope(c))
+		return h.service.GetAsset(id, adminContentScope(c))
 	})
 }
 
@@ -693,7 +693,7 @@ func (h *AdminOperationsHandler) AssetReferences(c *gin.Context) {
 	if !ok {
 		return
 	}
-	data, err := h.service.GetAssetReferences(id, adminTenancyScope(c))
+	data, err := h.service.GetAssetReferences(id, adminContentScope(c))
 	h.write(c, data, err)
 }
 
@@ -840,7 +840,7 @@ func operationActor(c *gin.Context) operationadmin.Actor {
 	if correlation == "" {
 		correlation = c.GetString("request_id")
 	}
-	return operationadmin.Actor{ID: actor.ID, Username: actor.Username, Scope: adminTenancyScope(c), IP: c.ClientIP(), UserAgent: c.GetHeader("User-Agent"), CorrelationID: correlation}
+	return operationadmin.Actor{ID: actor.ID, Username: actor.Username, Scope: adminContentScope(c), IP: c.ClientIP(), UserAgent: c.GetHeader("User-Agent"), CorrelationID: correlation}
 }
 func operationList(c *gin.Context, keys []string) operationadmin.ListQuery {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
@@ -851,7 +851,7 @@ func operationList(c *gin.Context, keys []string) operationadmin.ListQuery {
 			values[key] = value
 		}
 	}
-	return operationadmin.ListQuery{Page: page, PageSize: pageSize, Values: values, Scope: adminTenancyScope(c)}
+	return operationadmin.ListQuery{Page: page, PageSize: pageSize, Values: values, Scope: adminContentScope(c)}
 }
 func operationError(c *gin.Context, err error) {
 	var configError *depositconfig.DomainError

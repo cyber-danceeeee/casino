@@ -21,5 +21,3 @@ var GameUserFavoriteGamesColumnNames = map[string]bool{
 	"user_id":    true,
 	"game_id":    true,
 }
-
-

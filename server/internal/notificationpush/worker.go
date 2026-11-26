@@ -19,11 +19,11 @@ import (
 	"gorm.io/gorm/clause"
 
 	"casino/internal/config"
+	"casino/internal/content"
 	"casino/internal/eventbus"
 	"casino/internal/model"
 	"casino/internal/notificationaudience"
 	"casino/internal/notificationchannel"
-	"casino/internal/tenancy"
 )
 
 const maxFCMBatchSize = 500
@@ -122,7 +122,7 @@ func (w *Worker) enqueueAvailable(ctx context.Context) {
 				return result.Error
 			}
 			_, err := eventbus.New(tx).PublishTx(tx, eventbus.Event{
-				Scope: tenancy.Scope{TenantID: job.TenantID, SiteID: job.SiteID}, TenantID: job.TenantID, SiteID: job.SiteID,
+				Scope: content.Scope{SiteID: job.SiteID}, SiteID: job.SiteID,
 				EventType: eventbus.EventNotificationSendRequested, AggregateType: "notification_job", AggregateID: fmt.Sprint(job.ID),
 				Source: "notificationpush", Producer: "notificationpush", IdempotencyKey: fmt.Sprintf("notification-send:%d", job.ID),
 				TargetConsumers: []string{eventbus.ConsumerNotificationPush}, Payload: map[string]any{"jobID": job.ID},
@@ -153,7 +153,7 @@ func (w *Worker) HandleEvent(ctx eventbus.Context) error {
 		return errors.New("notification job is required")
 	}
 	var job model.GameNotificationJob
-	if err := w.db.Where("id=? AND tenant_id=? AND site_id=? AND deleted_at IS NULL", jobID, ctx.Event.TenantID, ctx.Event.SiteID).Take(&job).Error; err != nil {
+	if err := w.db.Where("id = ? AND site_id = ? AND deleted_at IS NULL", jobID, ctx.Event.SiteID).Take(&job).Error; err != nil {
 		return err
 	}
 	if job.Status == "SUCCESS" || job.Status == "PARTIAL_FAILED" || job.Status == "CANCELLED" {
@@ -340,7 +340,7 @@ func (w *Worker) processJob(ctx context.Context, job model.GameNotificationJob) 
 }
 
 func (w *Worker) audienceUsers(ctx context.Context, notification model.GameNotification) ([]audienceUser, error) {
-	scope := tenancy.Scope{TenantID: notification.TenantID, SiteID: notification.SiteID}
+	scope := content.Scope{SiteID: notification.SiteID}
 	query, err := notificationaudience.UsersScoped(w.db.WithContext(ctx), scope, notification.AudienceType, notification.AudienceValue)
 	if err != nil {
 		return nil, err
@@ -348,10 +348,6 @@ func (w *Worker) audienceUsers(ctx context.Context, notification model.GameNotif
 	var users []audienceUser
 	settingsJoin := "LEFT JOIN game_user_settings AS us ON us.user_id=u.id AND us.deleted_at IS NULL"
 	settingsArgs := []any{}
-	if scope.TenantScoped() {
-		settingsJoin += " AND us.tenant_id = ?"
-		settingsArgs = append(settingsArgs, scope.TenantID)
-	}
 	if scope.SiteScoped() {
 		settingsJoin += " AND us.site_id IN (0, ?)"
 		settingsArgs = append(settingsArgs, scope.SiteID)
@@ -367,7 +363,7 @@ func (w *Worker) pushTargets(ctx context.Context, notification model.GameNotific
 	if len(users) == 0 {
 		return nil, nil
 	}
-	scope := tenancy.Scope{TenantID: notification.TenantID, SiteID: notification.SiteID}
+	scope := content.Scope{SiteID: notification.SiteID}
 	languageByUser := make(map[uint64]string, len(users))
 	ids := make([]uint64, 0, len(users))
 	for _, user := range users {
@@ -382,11 +378,11 @@ func (w *Worker) pushTargets(ctx context.Context, notification model.GameNotific
 			end = len(ids)
 		}
 		var tokens []model.GamePushDeviceToken
-		subquery := tenancy.ApplySite(w.db.WithContext(ctx).Model(&model.GamePushDeviceToken{}), "", scope).
+		subquery := content.ApplySite(w.db.WithContext(ctx).Model(&model.GamePushDeviceToken{}), "", scope).
 			Select("user_id,MAX(id) AS id").
 			Where("user_id IN ? AND enabled=1 AND invalidated_at IS NULL AND deleted_at IS NULL", ids[start:end]).
 			Group("user_id")
-		if err := tenancy.ApplySite(w.db.WithContext(ctx).Table("game_push_device_tokens AS t"), "t", scope).
+		if err := content.ApplySite(w.db.WithContext(ctx).Table("game_push_device_tokens AS t"), "t", scope).
 			Joins("JOIN (?) AS latest ON latest.id=t.id", subquery).
 			Where("t.deleted_at IS NULL").Scan(&tokens).Error; err != nil {
 			return nil, err
@@ -400,8 +396,8 @@ func (w *Worker) pushTargets(ctx context.Context, notification model.GameNotific
 
 func (w *Worker) successfulUserIDs(ctx context.Context, notification model.GameNotification) (map[uint64]bool, error) {
 	var rows []model.GameNotificationDelivery
-	scope := tenancy.Scope{TenantID: notification.TenantID, SiteID: notification.SiteID}
-	err := tenancy.ApplySite(w.db.WithContext(ctx).Model(&model.GameNotificationDelivery{}), "", scope).
+	scope := content.Scope{SiteID: notification.SiteID}
+	err := content.ApplySite(w.db.WithContext(ctx).Model(&model.GameNotificationDelivery{}), "", scope).
 		Select("user_id").
 		Where("notification_id=? AND status='SUCCESS' AND deleted_at IS NULL", notification.ID).
 		Find(&rows).Error
@@ -473,15 +469,15 @@ func (w *Worker) sendBatch(ctx context.Context, notification model.GameNotificat
 		_ = w.saveDelivery(ctx, notification, job.ID, target.UserID, target.DeviceTokenID, "FAILED", "", code, result.Error.Error(), &now)
 		if messaging.IsUnregistered(result.Error) || messaging.IsInvalidArgument(result.Error) {
 			invalidatedAt := time.Now()
-			_ = tenancy.ApplySite(w.db.WithContext(ctx).Model(&model.GamePushDeviceToken{}), "", tenancy.Scope{TenantID: notification.TenantID, SiteID: notification.SiteID}).Where("id=?", target.DeviceTokenID).
+			_ = content.ApplySite(w.db.WithContext(ctx).Model(&model.GamePushDeviceToken{}), "", content.Scope{SiteID: notification.SiteID}).Where("id=?", target.DeviceTokenID).
 				Updates(map[string]any{"enabled": false, "invalidated_at": &invalidatedAt, "last_error": truncateText(result.Error.Error(), 500)}).Error
 		}
 	}
 	return succeeded, failed, lastError
 }
 
-func (w *Worker) saveDelivery(ctx context.Context, notification model.GameNotification, jobID, userID, deviceTokenID uint64, status, messageID, errorCode, errorMessage string, at *time.Time) error {
-	delivery := model.GameNotificationDelivery{TenantID: notification.TenantID, SiteID: notification.SiteID, NotificationID: notification.ID, JobID: jobID, UserID: userID, DeviceTokenID: deviceTokenID, Status: status, ProviderMessageID: messageID, ErrorCode: errorCode, ErrorMessage: truncateText(errorMessage, 500), AttemptedAt: at}
+func (w *Worker) saveDelivery(ctx context.Context, notification model.GameNotification, jobID uint64, userID uint64, deviceTokenID uint64, status string, messageID string, errorCode string, errorMessage string, at *time.Time) error {
+	delivery := model.GameNotificationDelivery{SiteID: notification.SiteID, NotificationID: notification.ID, JobID: jobID, UserID: userID, DeviceTokenID: deviceTokenID, Status: status, ProviderMessageID: messageID, ErrorCode: errorCode, ErrorMessage: truncateText(errorMessage, 500), AttemptedAt: at}
 	if status == "SUCCESS" {
 		delivery.SentAt = at
 	}
@@ -504,7 +500,7 @@ func (w *Worker) finishWithError(ctx context.Context, job model.GameNotification
 	return err
 }
 
-func (w *Worker) finish(ctx context.Context, job model.GameNotificationJob, notification model.GameNotification, successCount, failureCount int, lastError, jobStatus, notificationStatus string) error {
+func (w *Worker) finish(ctx context.Context, job model.GameNotificationJob, notification model.GameNotification, successCount int, failureCount int, lastError string, jobStatus string, notificationStatus string) error {
 	now := time.Now()
 	return w.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&model.GameNotificationJob{}).Where("id=?", job.ID).
@@ -540,7 +536,7 @@ func truncateText(value string, maxRunes int) string {
 	return string(runes[:maxRunes])
 }
 
-func defaultString(value, fallback string) string {
+func defaultString(value string, fallback string) string {
 	if strings.TrimSpace(value) == "" {
 		return fallback
 	}

@@ -4,7 +4,7 @@ import "strings"
 
 type currencyMapper struct{}
 
-func (currencyMapper) ToProviderCurrency(country, currency string) string {
+func (currencyMapper) ToProviderCurrency(country string, currency string) string {
 	currency = strings.ToUpper(strings.TrimSpace(currency))
 	if currency == "" || strings.Contains(currency, "_") {
 		return currency

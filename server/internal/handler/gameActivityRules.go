@@ -232,7 +232,7 @@ func (h *gameActivityRulesHandler) List(c *gin.Context) {
 
 	response.Success(c, gin.H{
 		"gameActivityRuless": data,
-		"total":        total,
+		"total":              total,
 	})
 }
 

@@ -69,7 +69,7 @@ func (s *Service) SaveAgent(id uint64, in AgentInput, actor Actor) (uint64, erro
 			return 0, NewError("COMMISSION_PLAN_NOT_FOUND", "enabled commission plan not found")
 		}
 	}
-	row := map[string]any{"tenant_id": actor.Scope.TenantID, "site_id": actor.Scope.SiteID, "agent_code": in.AgentCode, "name": strings.TrimSpace(in.Name), "user_id": in.UserID, "parent_agent_id": in.ParentAgentID, "level": level, "country": strings.ToUpper(in.Country), "currency": strings.ToUpper(in.Currency), "commission_plan_id": in.CommissionPlanID, "updated_at": time.Now()}
+	row := map[string]any{"site_id": actor.Scope.SiteID, "agent_code": in.AgentCode, "name": strings.TrimSpace(in.Name), "user_id": in.UserID, "parent_agent_id": in.ParentAgentID, "level": level, "country": strings.ToUpper(in.Country), "currency": strings.ToUpper(in.Currency), "commission_plan_id": in.CommissionPlanID, "updated_at": time.Now()}
 	e := s.db.Transaction(func(tx *gorm.DB) error {
 		var before map[string]any
 		if id == 0 {
@@ -84,7 +84,7 @@ func (s *Service) SaveAgent(id uint64, in AgentInput, actor Actor) (uint64, erro
 				return e
 			}
 			id = insertedID
-			wallet := map[string]any{"tenant_id": actor.Scope.TenantID, "site_id": actor.Scope.SiteID, "wallet_no": nowNo("AW"), "agent_id": id, "currency": strings.ToUpper(in.Currency), "status": "ACTIVE", "created_at": time.Now(), "updated_at": time.Now()}
+			wallet := map[string]any{"site_id": actor.Scope.SiteID, "wallet_no": nowNo("AW"), "agent_id": id, "currency": strings.ToUpper(in.Currency), "status": "ACTIVE", "created_at": time.Now(), "updated_at": time.Now()}
 			if e := tx.Table("game_agent_wallets").Create(&wallet).Error; e != nil {
 				return e
 			}
@@ -93,7 +93,7 @@ func (s *Service) SaveAgent(id uint64, in AgentInput, actor Actor) (uint64, erro
 				return e
 			}
 			delete(row, "agent_code")
-			delete(row, "tenant_id")
+			delete(row, "")
 			delete(row, "site_id")
 			if e := actorScoped(tx.Table("game_agents"), "", actor).Where("id=?", id).Updates(row).Error; e != nil {
 				return e
@@ -106,7 +106,7 @@ func (s *Service) SaveAgent(id uint64, in AgentInput, actor Actor) (uint64, erro
 	}
 	return id, e
 }
-func permission(ok bool, a, b string) string {
+func permission(ok bool, a string, b string) string {
 	if ok {
 		return a
 	}
@@ -207,7 +207,7 @@ func (s *Service) ChangeParent(id uint64, in ChangeParentInput, actor Actor) err
 				return e
 			}
 		}
-		history := map[string]any{"tenant_id": actor.Scope.TenantID, "site_id": actor.Scope.SiteID, "agent_id": id, "before_parent_id": row.ParentAgentID, "after_parent_id": in.ParentAgentID, "before_level": row.Level, "after_level": newLevel, "operator_id": actor.ID, "operator_username": actor.Username, "reason": in.Reason, "created_at": time.Now(), "updated_at": time.Now()}
+		history := map[string]any{"site_id": actor.Scope.SiteID, "agent_id": id, "before_parent_id": row.ParentAgentID, "after_parent_id": in.ParentAgentID, "before_level": row.Level, "after_level": newLevel, "operator_id": actor.ID, "operator_username": actor.Username, "reason": in.Reason, "created_at": time.Now(), "updated_at": time.Now()}
 		if e := tx.Table("game_agent_hierarchy_history").Create(&history).Error; e != nil {
 			return e
 		}
@@ -240,7 +240,7 @@ func (s *Service) SaveChannel(id uint64, in ChannelInput, actor Actor) (uint64, 
 		return 0, e
 	}
 	payload, _ := json.Marshal(in.TrackingParameters)
-	row := map[string]any{"tenant_id": actor.Scope.TenantID, "site_id": actor.Scope.SiteID, "code": strings.ToUpper(strings.TrimSpace(in.Code)), "name_zh": in.NameZh, "name_en": in.NameEn, "agent_id": in.AgentID, "country": strings.ToUpper(in.Country), "platform": strings.ToUpper(in.Platform), "registration_url": in.RegistrationURL, "tracking_parameters": string(payload), "enabled": in.Enabled, "updated_at": time.Now()}
+	row := map[string]any{"site_id": actor.Scope.SiteID, "code": strings.ToUpper(strings.TrimSpace(in.Code)), "name_zh": in.NameZh, "name_en": in.NameEn, "agent_id": in.AgentID, "country": strings.ToUpper(in.Country), "platform": strings.ToUpper(in.Platform), "registration_url": in.RegistrationURL, "tracking_parameters": string(payload), "enabled": in.Enabled, "updated_at": time.Now()}
 	e := s.db.Transaction(func(tx *gorm.DB) error {
 		var before map[string]any
 		var agentCount int64
@@ -262,7 +262,7 @@ func (s *Service) SaveChannel(id uint64, in ChannelInput, actor Actor) (uint64, 
 				return notFound(e, "CHANNEL_NOT_FOUND")
 			}
 			delete(row, "code")
-			delete(row, "tenant_id")
+			delete(row, "")
 			delete(row, "site_id")
 			if e := actorScoped(tx.Table("game_agent_channels"), "", actor).Where("id=?", id).Updates(row).Error; e != nil {
 				return e
@@ -295,7 +295,7 @@ func (s *Service) SavePlan(id uint64, in CommissionPlanInput, actor Actor) (uint
 	if e != nil {
 		return 0, e
 	}
-	row := map[string]any{"tenant_id": actor.Scope.TenantID, "site_id": actor.Scope.SiteID, "code": strings.ToUpper(strings.TrimSpace(in.Code)), "name_zh": in.NameZh, "name_en": in.NameEn, "model": in.Model, "currency": strings.ToUpper(in.Currency), "cpa_amount": cpa, "revenue_share_rate": rate, "negative_carryover": in.NegativeCarryover, "minimum_settlement_amount": minimum, "settlement_cycle": in.SettlementCycle, "deduction_rules": jsonString(in.DeductionRules), "tier_rules": jsonString(in.TierRules), "eligible_products": jsonString(in.EligibleProducts), "enabled": in.Enabled, "updated_at": time.Now()}
+	row := map[string]any{"site_id": actor.Scope.SiteID, "code": strings.ToUpper(strings.TrimSpace(in.Code)), "name_zh": in.NameZh, "name_en": in.NameEn, "model": in.Model, "currency": strings.ToUpper(in.Currency), "cpa_amount": cpa, "revenue_share_rate": rate, "negative_carryover": in.NegativeCarryover, "minimum_settlement_amount": minimum, "settlement_cycle": in.SettlementCycle, "deduction_rules": jsonString(in.DeductionRules), "tier_rules": jsonString(in.TierRules), "eligible_products": jsonString(in.EligibleProducts), "enabled": in.Enabled, "updated_at": time.Now()}
 	e = s.db.Transaction(func(tx *gorm.DB) error {
 		var before map[string]any
 		if id == 0 {
@@ -313,7 +313,7 @@ func (s *Service) SavePlan(id uint64, in CommissionPlanInput, actor Actor) (uint
 				return notFound(e, "PLAN_NOT_FOUND")
 			}
 			delete(row, "code")
-			delete(row, "tenant_id")
+			delete(row, "")
 			delete(row, "site_id")
 			if e := actorScoped(tx.Table("game_commission_plans"), "", actor).Where("id=?", id).Updates(row).Error; e != nil {
 				return e
@@ -347,7 +347,7 @@ func (s *Service) DeletePlan(id uint64, reason string, actor Actor) error {
 		return audit(tx, actor, "agent:commission-plan:delete", "delete", "commission_plan", id, nil, map[string]any{"deleted": true}, reason, nil, "")
 	})
 }
-func (s *Service) simpleStatus(table, target string, id uint64, column string, value bool, reason, perm string, actor Actor) error {
+func (s *Service) simpleStatus(table string, target string, id uint64, column string, value bool, reason string, perm string, actor Actor) error {
 	if e := requireReason(reason); e != nil {
 		return e
 	}
@@ -404,7 +404,7 @@ func (s *Service) GenerateSettlement(in GenerateSettlementInput, actor Actor) (u
 		for _, r := range records {
 			gross = gross.Add(r.CommissionAmount)
 		}
-		row := map[string]any{"tenant_id": actor.Scope.TenantID, "site_id": actor.Scope.SiteID, "settlement_no": nowNo("ST"), "agent_id": in.AgentID, "period_start": in.PeriodStart, "period_end": in.PeriodEnd, "gross_commission": gross, "adjustments": decimal.Zero, "final_amount": gross, "currency": strings.ToUpper(in.Currency), "status": "DRAFT", "creator_id": actor.ID, "creator_username": actor.Username, "idempotency_key": in.IdempotencyKey, "created_at": time.Now(), "updated_at": time.Now()}
+		row := map[string]any{"site_id": actor.Scope.SiteID, "settlement_no": nowNo("ST"), "agent_id": in.AgentID, "period_start": in.PeriodStart, "period_end": in.PeriodEnd, "gross_commission": gross, "adjustments": decimal.Zero, "final_amount": gross, "currency": strings.ToUpper(in.Currency), "status": "DRAFT", "creator_id": actor.ID, "creator_username": actor.Username, "idempotency_key": in.IdempotencyKey, "created_at": time.Now(), "updated_at": time.Now()}
 		if e := tx.Table("game_agent_settlements").Create(&row).Error; e != nil {
 			return e
 		}
@@ -414,7 +414,7 @@ func (s *Service) GenerateSettlement(in GenerateSettlementInput, actor Actor) (u
 		}
 		id = insertedID
 		for _, r := range records {
-			item := map[string]any{"tenant_id": actor.Scope.TenantID, "site_id": actor.Scope.SiteID, "settlement_id": id, "commission_record_id": r.ID, "amount": r.CommissionAmount, "created_at": time.Now(), "updated_at": time.Now()}
+			item := map[string]any{"site_id": actor.Scope.SiteID, "settlement_id": id, "commission_record_id": r.ID, "amount": r.CommissionAmount, "created_at": time.Now(), "updated_at": time.Now()}
 			if e := tx.Table("game_agent_settlement_items").Create(&item).Error; e != nil {
 				return e
 			}
@@ -530,7 +530,7 @@ func (s *Service) creditSettlement(tx *gorm.DB, agentID uint64, currency string,
 	if e := actorScoped(tx.Table("game_agent_wallets"), "", actor).Where("id=? AND version=?", w.ID, w.Version).Updates(map[string]any{"available_balance": after, "settled_amount": w.SettledAmount.Add(amount), "version": w.Version + 1}).Error; e != nil {
 		return e
 	}
-	tr := map[string]any{"tenant_id": actor.Scope.TenantID, "site_id": actor.Scope.SiteID, "transaction_no": nowNo("AT"), "wallet_id": w.ID, "agent_id": agentID, "transaction_type": "SETTLEMENT_CREDIT", "amount": amount, "balance_before": w.AvailableBalance, "balance_after": after, "currency": currency, "reference_type": "SETTLEMENT", "reference_id": settlementID, "idempotency_key": fmt.Sprintf("settlement:%d", settlementID), "operator_id": actor.ID, "operator_username": actor.Username, "reason": reason, "created_at": time.Now(), "updated_at": time.Now()}
+	tr := map[string]any{"site_id": actor.Scope.SiteID, "transaction_no": nowNo("AT"), "wallet_id": w.ID, "agent_id": agentID, "transaction_type": "SETTLEMENT_CREDIT", "amount": amount, "balance_before": w.AvailableBalance, "balance_after": after, "currency": currency, "reference_type": "SETTLEMENT", "reference_id": settlementID, "idempotency_key": fmt.Sprintf("settlement:%d", settlementID), "operator_id": actor.ID, "operator_username": actor.Username, "reason": reason, "created_at": time.Now(), "updated_at": time.Now()}
 	return tx.Table("game_agent_wallet_transactions").Create(&tr).Error
 }
 
@@ -560,7 +560,7 @@ func (s *Service) SetWalletFrozen(id uint64, frozen bool, reason string, actor A
 			return e
 		}
 		zero := decimal.Zero
-		tr := map[string]any{"tenant_id": actor.Scope.TenantID, "site_id": actor.Scope.SiteID, "transaction_no": nowNo("AT"), "wallet_id": id, "agent_id": w.AgentID, "transaction_type": typ, "amount": zero, "balance_before": w.AvailableBalance, "balance_after": w.AvailableBalance, "currency": w.Currency, "idempotency_key": nowNo("freeze:"), "operator_id": actor.ID, "operator_username": actor.Username, "reason": reason, "created_at": time.Now(), "updated_at": time.Now()}
+		tr := map[string]any{"site_id": actor.Scope.SiteID, "transaction_no": nowNo("AT"), "wallet_id": id, "agent_id": w.AgentID, "transaction_type": typ, "amount": zero, "balance_before": w.AvailableBalance, "balance_after": w.AvailableBalance, "currency": w.Currency, "idempotency_key": nowNo("freeze:"), "operator_id": actor.ID, "operator_username": actor.Username, "reason": reason, "created_at": time.Now(), "updated_at": time.Now()}
 		if e := tx.Table("game_agent_wallet_transactions").Create(&tr).Error; e != nil {
 			return e
 		}
@@ -607,7 +607,7 @@ func (s *Service) AdjustWallet(id uint64, in WalletAdjustmentInput, actor Actor)
 		if e := actorScoped(tx.Table("game_agent_wallets"), "", actor).Where("id=? AND version=?", id, w.Version).Updates(map[string]any{"available_balance": after, "version": w.Version + 1}).Error; e != nil {
 			return e
 		}
-		tr := map[string]any{"tenant_id": actor.Scope.TenantID, "site_id": actor.Scope.SiteID, "transaction_no": nowNo("AT"), "wallet_id": id, "agent_id": w.AgentID, "transaction_type": in.Type, "amount": amount, "balance_before": w.AvailableBalance, "balance_after": after, "currency": w.Currency, "reference_type": "ADMIN_ADJUSTMENT", "idempotency_key": in.IdempotencyKey, "operator_id": actor.ID, "operator_username": actor.Username, "reason": in.Reason, "created_at": time.Now(), "updated_at": time.Now()}
+		tr := map[string]any{"site_id": actor.Scope.SiteID, "transaction_no": nowNo("AT"), "wallet_id": id, "agent_id": w.AgentID, "transaction_type": in.Type, "amount": amount, "balance_before": w.AvailableBalance, "balance_after": after, "currency": w.Currency, "reference_type": "ADMIN_ADJUSTMENT", "idempotency_key": in.IdempotencyKey, "operator_id": actor.ID, "operator_username": actor.Username, "reason": in.Reason, "created_at": time.Now(), "updated_at": time.Now()}
 		if e := tx.Table("game_agent_wallet_transactions").Create(&tr).Error; e != nil {
 			return e
 		}
@@ -644,12 +644,12 @@ func (s *Service) ChangeAttribution(in AttributionInput, actor Actor) error {
 				return e
 			}
 		} else {
-			row := map[string]any{"tenant_id": actor.Scope.TenantID, "site_id": actor.Scope.SiteID, "user_id": in.UserID, "agent_id": in.AgentID, "channel_id": in.ChannelID, "attribution_source": in.Source, "active": true, "attributed_at": time.Now(), "created_at": time.Now(), "updated_at": time.Now()}
+			row := map[string]any{"site_id": actor.Scope.SiteID, "user_id": in.UserID, "agent_id": in.AgentID, "channel_id": in.ChannelID, "attribution_source": in.Source, "active": true, "attributed_at": time.Now(), "created_at": time.Now(), "updated_at": time.Now()}
 			if e := tx.Table("game_user_agent_attributions").Create(&row).Error; e != nil {
 				return e
 			}
 		}
-		history := map[string]any{"tenant_id": actor.Scope.TenantID, "site_id": actor.Scope.SiteID, "user_id": in.UserID, "before_agent_id": current.AgentID, "after_agent_id": in.AgentID, "before_channel_id": current.ChannelID, "after_channel_id": in.ChannelID, "attribution_source": in.Source, "operator_id": actor.ID, "operator_username": actor.Username, "reason": in.Reason, "created_at": time.Now(), "updated_at": time.Now()}
+		history := map[string]any{"site_id": actor.Scope.SiteID, "user_id": in.UserID, "before_agent_id": current.AgentID, "after_agent_id": in.AgentID, "before_channel_id": current.ChannelID, "after_channel_id": in.ChannelID, "attribution_source": in.Source, "operator_id": actor.ID, "operator_username": actor.Username, "reason": in.Reason, "created_at": time.Now(), "updated_at": time.Now()}
 		if e := tx.Table("game_user_agent_attribution_history").Create(&history).Error; e != nil {
 			return e
 		}

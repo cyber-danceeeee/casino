@@ -10,9 +10,9 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"casino/internal/content"
 	"casino/internal/database"
 	"casino/internal/model"
-	"casino/internal/tenancy"
 )
 
 type h5NoticeItem struct {
@@ -154,8 +154,8 @@ func h5SupportNotices(db *gorm.DB, c *gin.Context, user model.GameUsers, hasUser
 
 	var announcements []h5AnnouncementNotice
 	now := time.Now()
-	scope := h5TenancyScope(c)
-	noticeQuery := tenancy.ApplySite(db.Table("game_notices"), "", scope).
+	scope := h5ContentScope(c)
+	noticeQuery := content.ApplySite(db.Table("game_notices"), "", scope).
 		Select("id, notice_type, title, title_zh, title_en, content_html, content_zh, content_en, created_at").
 		Where("status = ? AND deleted_at IS NULL", 1).
 		Where("(start_at IS NULL OR start_at <= ?) AND (end_at IS NULL OR end_at >= ?)", now, now)

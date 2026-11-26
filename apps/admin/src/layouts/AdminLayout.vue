@@ -27,7 +27,7 @@ const { profile, logout } = useAdminAuth();
 const { actor, navigationReady, hasNavigation, navigationIcon, loadPermissions } = useAdminPermissions();
 const iconComponents = ElementPlusIcons as unknown as Record<string, Component>;
 const accountPreferences = ref<AccountProfile>();
-const platformBranding = ref<PlatformBranding>({ platformName: "Casino Admin", platformLogoUrl: "", platformContact: "", platformUSDTAddress: "" });
+const platformBranding = ref<PlatformBranding>({ platformName: "Casino Admin", platformLogoUrl: "", platformContact: "" });
 const platformName = computed(() => platformBranding.value.platformName || t("app.brand"));
 const platformLogo = computed(() => platformBranding.value.platformLogoUrl || logoIcon);
 const platformFooter = computed(() => `© ${new Date().getFullYear()} ${platformName.value}${platformBranding.value.platformContact ? ` · ${platformBranding.value.platformContact}` : ""}`);

@@ -8,7 +8,6 @@ import (
 type GameProviderCategoryMappings struct {
 	sgorm.Model `gorm:"embedded"`
 
-	TenantID             uint64 `gorm:"column:tenant_id;type:bigint(20) unsigned;default:0;not null" json:"tenantID"`
 	SiteID               uint64 `gorm:"column:site_id;type:bigint(20) unsigned;default:0;not null" json:"siteID"`
 	ProviderCode         string `gorm:"column:provider_code;type:varchar(64);not null;uniqueIndex:uk_game_provider_category_mappings_provider_category" json:"providerCode"`
 	ProviderCategoryCode string `gorm:"column:provider_category_code;type:varchar(128);not null;uniqueIndex:uk_game_provider_category_mappings_provider_category" json:"providerCategoryCode"`
@@ -22,11 +21,11 @@ func (GameProviderCategoryMappings) TableName() string {
 
 // GameProviderCategoryMappingsColumnNames Whitelist for custom query fields to prevent sql injection attacks
 var GameProviderCategoryMappingsColumnNames = map[string]bool{
-	"id":                     true,
-	"created_at":             true,
-	"updated_at":             true,
-	"deleted_at":             true,
-	"tenant_id":              true,
+	"id":         true,
+	"created_at": true,
+	"updated_at": true,
+	"deleted_at": true,
+
 	"site_id":                true,
 	"provider_code":          true,
 	"provider_category_code": true,

@@ -3,6 +3,7 @@ package routers
 import (
 	"casino/internal/adminauth"
 	"casino/internal/handler"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -12,21 +13,21 @@ func init() {
 func adminGamesRouter(group *gin.RouterGroup, h handler.AdminGamesHandler) {
 	g := group.Group("/admin")
 	g.Use(adminauth.Middleware())
-	g.GET("/game-providers", adminauth.RequirePlatform(), adminauth.Require(adminauth.PermissionGameProviderList), h.ListProviders)
-	g.GET("/game-providers/:code", adminauth.RequirePlatform(), adminauth.Require(adminauth.PermissionGameProviderView), h.GetProvider)
-	g.PATCH("/game-providers/:code/status", adminauth.RequirePlatform(), adminauth.Require(adminauth.PermissionGameProviderUpdate), h.SetProviderStatus)
-	g.PATCH("/game-providers/:code/maintenance", adminauth.RequirePlatform(), adminauth.Require(adminauth.PermissionGameProviderUpdate), h.SetProviderMaintenance)
-	g.POST("/game-providers/:code/test", adminauth.RequirePlatform(), adminauth.Require(adminauth.PermissionGameProviderTest), h.TestProvider)
-	g.POST("/game-providers/:code/sync", adminauth.RequirePlatform(), adminauth.Require(adminauth.PermissionGameProviderSync), h.SyncProvider)
-	g.POST("/game-providers/:code/sync/cancel", adminauth.RequirePlatform(), adminauth.Require(adminauth.PermissionGameProviderSync), h.CancelProviderSync)
-	g.DELETE("/game-providers/:code", adminauth.RequirePlatform(), adminauth.Require(adminauth.PermissionGameProviderUpdate), h.DeleteProvider)
+	g.GET("/game-providers", adminauth.Require(adminauth.PermissionGameProviderList), h.ListProviders)
+	g.GET("/game-providers/:code", adminauth.Require(adminauth.PermissionGameProviderView), h.GetProvider)
+	g.PATCH("/game-providers/:code/status", adminauth.Require(adminauth.PermissionGameProviderUpdate), h.SetProviderStatus)
+	g.PATCH("/game-providers/:code/maintenance", adminauth.Require(adminauth.PermissionGameProviderUpdate), h.SetProviderMaintenance)
+	g.POST("/game-providers/:code/test", adminauth.Require(adminauth.PermissionGameProviderTest), h.TestProvider)
+	g.POST("/game-providers/:code/sync", adminauth.Require(adminauth.PermissionGameProviderSync), h.SyncProvider)
+	g.POST("/game-providers/:code/sync/cancel", adminauth.Require(adminauth.PermissionGameProviderSync), h.CancelProviderSync)
+	g.DELETE("/game-providers/:code", adminauth.Require(adminauth.PermissionGameProviderUpdate), h.DeleteProvider)
 	// Temporary compatibility route for admin clients deployed before provider deletion was renamed.
-	g.DELETE("/game-providers/:code/games", adminauth.RequirePlatform(), adminauth.Require(adminauth.PermissionGameProviderUpdate), h.DeleteProvider)
-	g.GET("/game-providers/:code/game-types", adminauth.RequirePlatform(), adminauth.Require(adminauth.PermissionGameList), h.ListProviderGameTypes)
-	// Tenant game operations only need scoped type options. Keep the provider
+	g.DELETE("/game-providers/:code/games", adminauth.Require(adminauth.PermissionGameProviderUpdate), h.DeleteProvider)
+	g.GET("/game-providers/:code/game-types", adminauth.Require(adminauth.PermissionGameList), h.ListProviderGameTypes)
+	// Site game operations only need scoped type options. Keep the provider
 	// management endpoint platform-only so API and callback configuration stays private.
 	g.GET("/game-provider-options/:code/game-types", adminauth.Require(adminauth.PermissionGameList), h.ListProviderGameTypes)
-	g.POST("/game-sync", adminauth.RequirePlatform(), adminauth.Require(adminauth.PermissionGameProviderSync), h.SyncAll)
+	g.POST("/game-sync", adminauth.Require(adminauth.PermissionGameProviderSync), h.SyncAll)
 	g.GET("/games", adminauth.Require(adminauth.PermissionGameList), h.ListGames)
 	g.GET("/games/catalog", adminauth.Require(adminauth.PermissionGameList), h.ListImportableGames)
 	g.GET("/games/catalog/provider-options/:code/game-types", adminauth.Require(adminauth.PermissionGameList), h.ListImportableProviderGameTypes)
@@ -38,7 +39,7 @@ func adminGamesRouter(group *gin.RouterGroup, h handler.AdminGamesHandler) {
 	g.PUT("/games/:id/categories", adminauth.Require(adminauth.PermissionGameCategoryAssign), h.SetGameCategories)
 	g.PUT("/games/:id/tags", adminauth.Require(adminauth.PermissionGameTagAssign), h.SetGameTags)
 	g.PUT("/games/:id/collections", adminauth.Require(adminauth.PermissionGameCollectionAssign), h.SetGameCollections)
-	g.POST("/game-category-mapping", adminauth.RequirePlatform(), adminauth.Require(adminauth.PermissionGameCategoryAssign), h.ApplyProviderCategoryMapping)
+	g.POST("/game-category-mapping", adminauth.Require(adminauth.PermissionGameCategoryAssign), h.ApplyProviderCategoryMapping)
 	g.POST("/games/:id/demo", adminauth.Require(adminauth.PermissionGameDemoLaunch), h.LaunchDemo)
 	g.GET("/game-categories", adminauth.Require(adminauth.PermissionGameCategoryList), h.ListCategories)
 	g.GET("/game-categories/:id", adminauth.Require(adminauth.PermissionGameCategoryList), h.GetCategory)
@@ -63,11 +64,11 @@ func adminGamesRouter(group *gin.RouterGroup, h handler.AdminGamesHandler) {
 	g.POST("/game-collections", adminauth.Require(adminauth.PermissionGameCollectionCreate), h.CreateCollection)
 	g.PATCH("/game-collections/:id", adminauth.Require(adminauth.PermissionGameCollectionUpdate), h.UpdateCollection)
 	g.DELETE("/game-collections/:id", adminauth.Require(adminauth.PermissionGameCollectionDelete), h.DeleteCollection)
-	g.GET("/game-sync-logs", adminauth.RequirePlatform(), adminauth.Require(adminauth.PermissionGameSyncLogView), h.ListSyncLogs)
-	g.GET("/game-sync-logs/:id/items", adminauth.RequirePlatform(), adminauth.Require(adminauth.PermissionGameSyncLogView), h.ListSyncLogItems)
-	g.GET("/game-sync-logs/:id/raw-response", adminauth.RequirePlatform(), adminauth.Require(adminauth.PermissionGameSyncLogView), h.GetSyncLogRawResponse)
-	g.GET("/game-sync-logs/:id/operation-logs", adminauth.RequirePlatform(), adminauth.Require(adminauth.PermissionGameSyncLogView), h.ListSyncLogOperationLogs)
-	g.GET("/game-sync-logs/:id", adminauth.RequirePlatform(), adminauth.Require(adminauth.PermissionGameSyncLogView), h.GetSyncLog)
+	g.GET("/game-sync-logs", adminauth.Require(adminauth.PermissionGameSyncLogView), h.ListSyncLogs)
+	g.GET("/game-sync-logs/:id/items", adminauth.Require(adminauth.PermissionGameSyncLogView), h.ListSyncLogItems)
+	g.GET("/game-sync-logs/:id/raw-response", adminauth.Require(adminauth.PermissionGameSyncLogView), h.GetSyncLogRawResponse)
+	g.GET("/game-sync-logs/:id/operation-logs", adminauth.Require(adminauth.PermissionGameSyncLogView), h.ListSyncLogOperationLogs)
+	g.GET("/game-sync-logs/:id", adminauth.Require(adminauth.PermissionGameSyncLogView), h.GetSyncLog)
 	g.GET("/game-launch-logs", adminauth.Require(adminauth.PermissionGameLaunchLogView), h.ListLaunchLogs)
 	g.GET("/game-launch-logs/:id", adminauth.Require(adminauth.PermissionGameLaunchLogView), h.GetLaunchLog)
 	g.POST("/game-assets/upload", adminauth.Require(adminauth.PermissionGameAssetUpload), h.UploadGameAsset)

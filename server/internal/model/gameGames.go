@@ -10,7 +10,6 @@ import (
 type GameGames struct {
 	sgorm.Model `gorm:"embedded"` // embed id and time
 
-	TenantID                uint64     `gorm:"column:tenant_id;type:bigint(20) unsigned;default:0;not null;uniqueIndex:uk_game_games_scope_code,priority:1" json:"tenantID"`
 	SiteID                  uint64     `gorm:"column:site_id;type:bigint(20) unsigned;default:0;not null;uniqueIndex:uk_game_games_scope_code,priority:2" json:"siteID"`
 	GameCode                string     `gorm:"column:game_code;type:varchar(64);not null;uniqueIndex:uk_game_games_scope_code,priority:3" json:"gameCode"`
 	ProviderID              uint64     `gorm:"column:provider_id;type:bigint(20) unsigned;default:0;not null" json:"providerID"`
@@ -66,11 +65,11 @@ type GameGames struct {
 
 // GameGamesColumnNames Whitelist for custom query fields to prevent sql injection attacks
 var GameGamesColumnNames = map[string]bool{
-	"id":                        true,
-	"created_at":                true,
-	"updated_at":                true,
-	"deleted_at":                true,
-	"tenant_id":                 true,
+	"id":         true,
+	"created_at": true,
+	"updated_at": true,
+	"deleted_at": true,
+
 	"site_id":                   true,
 	"game_code":                 true,
 	"provider_id":               true,

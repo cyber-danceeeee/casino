@@ -59,13 +59,11 @@ docker compose down
 docker compose exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_PASSWORD" mysqldump -u casino --single-transaction --no-tablespaces game_casino' > casino-backup.sql
 ```
 
-迁移按 `deploy/migrations.txt` 的依赖顺序执行，成功后记录文件 SHA-256。重复启动跳过已完成迁移；中途失败或文件被修改会阻止 API 启动，避免忽略错误。MySQL DDL 不支持整份文件回滚：出现 dirty 记录时先备份并人工检查失败语句，恢复数据库或修复后再处理迁移记录。新增迁移应追加清单，不要修改已执行文件。
+新部署直接使用 `server/database/schema.sql` 和 `seed.sql` 创建单站点数据库，不再执行历史多租户迁移链。`game_site_config` 只允许唯一配置（ID 为 1），业务表没有 `tenant_id`，租户、套餐、域名分发、开站交付和租户账本表均已删除。`site_id=0` 仅表示导入资源目录，`site_id=1` 表示当前 H5 的内容关联。
 
-从本仓库上一版本升级时，保留原数据卷和 `.env`，新增迁移会创建单站点绑定表。只有一个已有站点的数据库会沿用其 ID、配置和业务数据，重启不会再创建站点。旧 SaaS 的租户管理、套餐和开站接口在此版本关闭，管理员权限控制与 MFA 保留。
+从上一版本升级时保留原数据卷与 `.env`。安装容器会先完整备份旧库到 `migration_backups` 数据卷，再执行 `server/database/upgrade_legacy.sql`，保留玩家、钱包、订单和管理员记录，删除旧租户结构。包含多个独立站点或租户的数据会拒绝升级，需要先整理为独立数据库。升级不允许把不同品牌的玩家和资金自动合并。
 
-包含多个未删除站点/租户、重复管理员用户名或没有站点归属的旧玩家数据时，初始化会停止并输出原因，不会自动混合独立品牌、玩家和资金记录。请先备份并将需要运行的唯一站点整理到独立数据库，再升级。历史 `tenant_id` / `site_id` 仅作为内部存储关联字段保留，客户端无法选择站点，旧表和已有迁移不会删除。
-
-**直接接入外部旧库**若没有迁移记录，不能重跑历史 SQL；请先在备份库核对表结构和迁移基线。旧工程的明文生产凭据没有纳入本仓库历史，需要迁移原数据或外部资源时另行配置。
+迁移记录包含文件 SHA-256；重复启动跳过已完成安装。MySQL DDL 无法整份事务回滚，失败会留下 dirty 标记并阻止 API 启动。修复或恢复前请保留完整备份；不要通过删数据卷重试。可以用 `docker compose run --rm --entrypoint bash migrate` 检查 `/backups/` 中的备份。
 
 ## 外部服务配置
 
@@ -74,8 +72,6 @@ docker compose exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_PASSWORD" mysqldump -u cas
 | 功能 | 环境变量 |
 | --- | --- |
 | OSS | `CASINO_STORAGE_DRIVER=oss`、`CASINO_OSS_REGION`、`CASINO_OSS_ENDPOINT`、`CASINO_OSS_BUCKET`、`CASINO_OSS_ACCESS_KEY_ID`、`CASINO_OSS_ACCESS_KEY_SECRET` |
-| AWS SES | `CASINO_EMAIL_ENABLED=true`、`CASINO_EMAIL_PROVIDER=AWS_SES`、`CASINO_EMAIL_FROM`、`CASINO_EMAIL_REGION`、`CASINO_EMAIL_ACCESS_KEY_ID`、`CASINO_EMAIL_SECRET_ACCESS_KEY` |
-| Resend | `CASINO_EMAIL_ENABLED=true`、`CASINO_EMAIL_PROVIDER=RESEND`、`CASINO_EMAIL_FROM`、`CASINO_RESEND_API_KEY` |
 | FCM | `CASINO_FCM_ENABLED=true`、`CASINO_FCM_PROJECT_ID`、`CASINO_FCM_CREDENTIALS_FILE`，并将服务账号 JSON 只读挂载到对应容器路径 |
 | SoftAggregator | `GAME_SOFTAGGREGATOR_ENABLED`、`GAME_SOFTAGGREGATOR_API_LOGIN`、`GAME_SOFTAGGREGATOR_API_PASSWORD`、`GAME_SOFTAGGREGATOR_SALT_KEY`，其他参数见 `server/.env.example` |
 | AG | `GAME_AG_ENABLED=true`、`GAME_AG_MERCHANT_CODE`、`GAME_AG_SECRET_KEY`、`GAME_AG_API_BASE_URL` |

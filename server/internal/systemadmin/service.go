@@ -30,19 +30,19 @@ func paginate(db *gorm.DB, q Query, out any) (Result, error) {
 	return Result{List: out, Total: total, Page: p, PageSize: size}, nil
 }
 
-func exact(db *gorm.DB, column, v string) *gorm.DB {
+func exact(db *gorm.DB, column string, v string) *gorm.DB {
 	if v != "" {
 		return db.Where(column+" = ?", v)
 	}
 	return db
 }
-func like(db *gorm.DB, column, v string) *gorm.DB {
+func like(db *gorm.DB, column string, v string) *gorm.DB {
 	if v != "" {
 		return db.Where(column+" LIKE ?", "%"+v+"%")
 	}
 	return db
 }
-func timeRange(db *gorm.DB, column, from, to string) *gorm.DB {
+func timeRange(db *gorm.DB, column string, from string, to string) *gorm.DB {
 	if from != "" {
 		db = db.Where(column+" >= ?", from)
 	}
@@ -52,9 +52,9 @@ func timeRange(db *gorm.DB, column, from, to string) *gorm.DB {
 	return db
 }
 
-func audit(tx *gorm.DB, actor Actor, permission, action, target string, targetID uint64, before, after any, reason string) error {
+func audit(tx *gorm.DB, actor Actor, permission string, action string, target string, targetID uint64, before any, after any, reason string) error {
 	return tx.Table("game_admin_operation_logs").Create(map[string]any{
-		"operator_id": actor.ID, "tenant_id": actor.TenantID, "site_id": actor.SiteID, "operator_username": actor.Username, "permission": permission, "module": "system",
+		"operator_id": actor.ID, "site_id": actor.SiteID, "operator_username": actor.Username, "permission": permission, "module": "system",
 		"action": action, "result": "SUCCESS", "target_type": target, "target_id": targetID,
 		"before_state": marshal(redact(before)), "after_state": marshal(redact(after)), "reason": strings.TrimSpace(reason),
 		"ip_address": actor.IP, "user_agent": actor.UserAgent, "correlation_id": actor.CorrelationID,

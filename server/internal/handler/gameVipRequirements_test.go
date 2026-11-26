@@ -103,7 +103,7 @@ func Test_gameVipRequirementsHandler_Create(t *testing.T) {
 	}
 
 	t.Logf("%+v", result)
-	
+
 }
 
 func Test_gameVipRequirementsHandler_DeleteByID(t *testing.T) {

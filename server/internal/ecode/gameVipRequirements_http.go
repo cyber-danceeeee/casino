@@ -7,7 +7,7 @@ import (
 // gameVipRequirements business-level http error codes.
 // the gameVipRequirementsNO value range is 1~999, if the same error code is used, it will cause panic.
 var (
-	gameVipRequirementsNO = 54
+	gameVipRequirementsNO       = 54
 	gameVipRequirementsName     = "gameVipRequirements"
 	gameVipRequirementsBaseCode = errcode.HCode(gameVipRequirementsNO)
 

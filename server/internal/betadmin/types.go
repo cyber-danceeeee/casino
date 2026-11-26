@@ -3,14 +3,14 @@ package betadmin
 import (
 	"time"
 
-	"casino/internal/tenancy"
+	"casino/internal/content"
 )
 
 type ListQuery struct {
 	Page     int
 	PageSize int
 	Values   map[string]string
-	Scope    tenancy.Scope
+	Scope    content.Scope
 }
 
 type PageResult struct {
@@ -23,7 +23,7 @@ type PageResult struct {
 type Actor struct {
 	ID            uint64
 	Username      string
-	Scope         tenancy.Scope
+	Scope         content.Scope
 	IP            string
 	UserAgent     string
 	CorrelationID string
@@ -49,7 +49,6 @@ type NoteCommand struct {
 }
 
 type GenerateReconciliationCommand struct {
-	TenantID     uint64 `json:"tenantID"`
 	SiteID       uint64 `json:"siteID"`
 	ProviderCode string `json:"providerCode" binding:"required,max=64"`
 	BusinessDate string `json:"businessDate" binding:"required"`
@@ -197,9 +196,9 @@ type CallbackRow struct {
 }
 
 type ReconciliationRunRow struct {
-	ID                       uint64     `json:"id"`
-	RunNo                    string     `json:"runNo"`
-	TenantID                 uint64     `json:"tenantID"`
+	ID    uint64 `json:"id"`
+	RunNo string `json:"runNo"`
+
 	SiteID                   uint64     `json:"siteID"`
 	ProviderID               uint64     `json:"providerID"`
 	ProviderCode             string     `json:"providerCode"`
@@ -211,7 +210,6 @@ type ReconciliationRunRow struct {
 	CallbackCount            int64      `json:"callbackCount"`
 	WalletTransactionCount   int64      `json:"walletTransactionCount"`
 	BetRecordCount           int64      `json:"betRecordCount"`
-	LedgerTransactionCount   int64      `json:"ledgerTransactionCount"`
 	DiscrepancyCount         int64      `json:"discrepancyCount"`
 	OpenDiscrepancyCount     int64      `json:"openDiscrepancyCount"`
 	StartedAt                time.Time  `json:"startedAt"`
@@ -222,10 +220,10 @@ type ReconciliationRunRow struct {
 }
 
 type ReconciliationItemRow struct {
-	ID                       uint64     `json:"id"`
-	RunID                    uint64     `json:"runID"`
-	ItemNo                   string     `json:"itemNo"`
-	TenantID                 uint64     `json:"tenantID"`
+	ID     uint64 `json:"id"`
+	RunID  uint64 `json:"runID"`
+	ItemNo string `json:"itemNo"`
+
 	SiteID                   uint64     `json:"siteID"`
 	ProviderID               uint64     `json:"providerID"`
 	ProviderCode             string     `json:"providerCode"`
@@ -245,7 +243,6 @@ type ReconciliationItemRow struct {
 	WalletTransactionID      uint64     `json:"walletTransactionID"`
 	BetRecordID              uint64     `json:"betRecordID"`
 	RollbackRecordID         uint64     `json:"rollbackRecordID"`
-	LedgerTransactionID      uint64     `json:"ledgerTransactionID"`
 	ExpectedAmountMinor      int64      `json:"expectedAmountMinor"`
 	ActualAmountMinor        int64      `json:"actualAmountMinor"`
 	DifferenceAmountMinor    int64      `json:"differenceAmountMinor"`
@@ -267,4 +264,4 @@ type Error struct {
 
 func (e *Error) Error() string { return e.Message }
 
-func newError(code, message string) error { return &Error{Code: code, Message: message} }
+func newError(code string, message string) error { return &Error{Code: code, Message: message} }

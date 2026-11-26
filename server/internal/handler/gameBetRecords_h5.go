@@ -8,9 +8,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-dev-frame/sponge/pkg/gin/response"
 
+	"casino/internal/content"
 	"casino/internal/database"
 	"casino/internal/model"
-	"casino/internal/tenancy"
 )
 
 func (h *gameBetRecordsHandler) PlayerRecords(c *gin.Context) {
@@ -20,11 +20,11 @@ func (h *gameBetRecordsHandler) PlayerRecords(c *gin.Context) {
 		h5Error(c, http.StatusUnauthorized, "authentication required")
 		return
 	}
-	scope := h5UserTenancyScope(db, user.ID, h5TenancyScope(c))
+	scope := h5UserContentScope(db, user.ID, h5ContentScope(c))
 	tab := strings.TrimSpace(c.Query("tab"))
 	if tab == "report" {
 		var reports []model.GameBetReports
-		q := tenancy.ApplySite(db.Model(&model.GameBetReports{}), "", scope).Where("user_id = ?", user.ID)
+		q := content.ApplySite(db.Model(&model.GameBetReports{}), "", scope).Where("user_id = ?", user.ID)
 		if gameType := strings.TrimSpace(c.Query("gameType")); gameType != "" && gameType != "all" {
 			q = q.Where("game_type = ?", gameType)
 		}
@@ -34,7 +34,7 @@ func (h *gameBetRecordsHandler) PlayerRecords(c *gin.Context) {
 	}
 
 	var records []model.GameBetRecords
-	q := tenancy.ApplySite(db.Model(&model.GameBetRecords{}), "", scope).Where("user_id = ?", user.ID)
+	q := content.ApplySite(db.Model(&model.GameBetRecords{}), "", scope).Where("user_id = ?", user.ID)
 	if status := strings.TrimSpace(c.Query("status")); status != "" && status != "all" {
 		if v, err := strconv.Atoi(status); err == nil {
 			q = q.Where("status = ?", v)

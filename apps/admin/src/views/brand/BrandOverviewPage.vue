@@ -17,7 +17,7 @@ async function load() {
     ElMessage.error(
       error instanceof Error
         ? error.message
-        : t("tenantExperience.common.loadFailed"),
+        : t("siteExperience.common.loadFailed"),
     );
   } finally {
     loading.value = false;
@@ -29,29 +29,29 @@ onMounted(load);
   <div v-loading="loading" class="brand-overview-page">
     <header class="page-header">
       <div>
-        <p>{{ t("tenantExperience.brand.eyebrow") }}</p>
-        <h1>{{ t("tenantExperience.brand.title") }}</h1>
-        <span>{{ t("tenantExperience.brand.description") }}</span>
+        <p>{{ t("siteExperience.brand.eyebrow") }}</p>
+        <h1>{{ t("siteExperience.brand.title") }}</h1>
+        <span>{{ t("siteExperience.brand.description") }}</span>
       </div>
     </header>
     <BrandSetupProgress v-if="overview" :overview="overview" />
     <section v-if="overview" class="business-details">
       <h2>{{ overview.brandName }}</h2>
       <dl>
-        <dt>{{ t("tenantExperience.fields.site") }}</dt>
+        <dt>{{ t("siteExperience.fields.site") }}</dt>
         <dd>{{ overview.currentSite }} · {{ overview.siteCode }}</dd>
-        <dt>{{ t("tenantExperience.fields.market") }}</dt>
+        <dt>{{ t("siteExperience.fields.market") }}</dt>
         <dd>
           {{ overview.countryCode }} · {{ overview.currencyCode }} ·
           {{ overview.defaultLanguage }}
         </dd>
-        <dt>{{ t("tenantExperience.fields.timezone") }}</dt>
+        <dt>{{ t("siteExperience.fields.timezone") }}</dt>
         <dd>{{ overview.timezone }}</dd>
-        <dt>{{ t("tenantExperience.fields.h5Domain") }}</dt>
+        <dt>{{ t("siteExperience.fields.h5Domain") }}</dt>
         <dd>{{ overview.h5Domain || "-" }}</dd>
-        <dt>{{ t("tenantExperience.fields.publishVersion") }}</dt>
+        <dt>{{ t("siteExperience.fields.publishVersion") }}</dt>
         <dd>v{{ overview.publishedVersion || 1 }}</dd>
-        <dt>{{ t("tenantExperience.fields.lastPublished") }}</dt>
+        <dt>{{ t("siteExperience.fields.lastPublished") }}</dt>
         <dd>{{ formatBackendTime(overview.publishedAt || "") }}</dd>
       </dl>
     </section>

@@ -3,14 +3,14 @@ package gameadmin
 import (
 	"time"
 
-	"casino/internal/tenancy"
+	"casino/internal/content"
 )
 
 type ListQuery struct {
 	Page     int
 	PageSize int
 	Values   map[string]string
-	Scope    tenancy.Scope
+	Scope    content.Scope
 }
 
 type PageResult struct {
@@ -23,7 +23,7 @@ type PageResult struct {
 type Actor struct {
 	ID            uint64
 	Username      string
-	Scope         tenancy.Scope
+	Scope         content.Scope
 	IP            string
 	UserAgent     string
 	CorrelationID string
@@ -175,5 +175,5 @@ type SyncCommand struct {
 
 type Error struct{ Code, Message string }
 
-func (e *Error) Error() string            { return e.Message }
-func newError(code, message string) error { return &Error{Code: code, Message: message} }
+func (e *Error) Error() string                   { return e.Message }
+func newError(code string, message string) error { return &Error{Code: code, Message: message} }

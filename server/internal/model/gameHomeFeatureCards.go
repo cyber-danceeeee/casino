@@ -1,15 +1,15 @@
 package model
 
 import (
-	"github.com/go-dev-frame/sponge/pkg/sgorm"
 	"time"
+
+	"github.com/go-dev-frame/sponge/pkg/sgorm"
 )
 
 // GameHomeFeatureCards Home feature cards
 type GameHomeFeatureCards struct {
 	sgorm.Model `gorm:"embedded"` // embed id and time
 
-	TenantID        uint64     `gorm:"column:tenant_id;type:bigint(20) unsigned;default:0;not null" json:"tenantID"`
 	SiteID          uint64     `gorm:"column:site_id;type:bigint(20) unsigned;default:0;not null" json:"siteID"`
 	FeatureCode     string     `gorm:"column:feature_code;type:varchar(64);not null" json:"featureCode"`
 	Title           string     `gorm:"column:title;type:varchar(128);not null" json:"title"`
@@ -24,11 +24,11 @@ type GameHomeFeatureCards struct {
 
 // GameHomeFeatureCardsColumnNames Whitelist for custom query fields to prevent sql injection attacks
 var GameHomeFeatureCardsColumnNames = map[string]bool{
-	"id":               true,
-	"created_at":       true,
-	"updated_at":       true,
-	"deleted_at":       true,
-	"tenant_id":        true,
+	"id":         true,
+	"created_at": true,
+	"updated_at": true,
+	"deleted_at": true,
+
 	"site_id":          true,
 	"feature_code":     true,
 	"title":            true,

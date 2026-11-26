@@ -30,5 +30,3 @@ var GameAgentCommissionRulesColumnNames = map[string]bool{
 	"bonus_rate":      true,
 	"status":          true,
 }
-
-

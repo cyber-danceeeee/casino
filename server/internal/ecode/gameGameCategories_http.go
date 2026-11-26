@@ -7,7 +7,7 @@ import (
 // gameGameCategories business-level http error codes.
 // the gameGameCategoriesNO value range is 1~999, if the same error code is used, it will cause panic.
 var (
-	gameGameCategoriesNO = 16
+	gameGameCategoriesNO       = 16
 	gameGameCategoriesName     = "gameGameCategories"
 	gameGameCategoriesBaseCode = errcode.HCode(gameGameCategoriesNO)
 

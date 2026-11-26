@@ -10,46 +10,44 @@ var _ time.Time
 
 // Tip: suggested filling in the binding rules https://github.com/go-playground/validator in request struct fields tag.
 
-
 // CreateGameUserSessionsRequest request params
 type CreateGameUserSessionsRequest struct {
-	UserID  uint64 `json:"userID" binding:""`
-	TokenHash  string `json:"tokenHash" binding:""`
-	DeviceID  string `json:"deviceID" binding:""`
-	ClientIP  string `json:"clientIP" binding:""`
-	UserAgent  string `json:"userAgent" binding:""`
-	ExpiredAt  *time.Time `json:"expiredAt" binding:""`
-	RevokedAt  *time.Time `json:"revokedAt" binding:""`
+	UserID    uint64     `json:"userID" binding:""`
+	TokenHash string     `json:"tokenHash" binding:""`
+	DeviceID  string     `json:"deviceID" binding:""`
+	ClientIP  string     `json:"clientIP" binding:""`
+	UserAgent string     `json:"userAgent" binding:""`
+	ExpiredAt *time.Time `json:"expiredAt" binding:""`
+	RevokedAt *time.Time `json:"revokedAt" binding:""`
 }
 
 // UpdateGameUserSessionsByIDRequest request params
 type UpdateGameUserSessionsByIDRequest struct {
 	ID uint64 `json:"id" binding:""` // uint64 id
 
-	UserID  uint64 `json:"userID" binding:""`
-	TokenHash  string `json:"tokenHash" binding:""`
-	DeviceID  string `json:"deviceID" binding:""`
-	ClientIP  string `json:"clientIP" binding:""`
-	UserAgent  string `json:"userAgent" binding:""`
-	ExpiredAt  *time.Time `json:"expiredAt" binding:""`
-	RevokedAt  *time.Time `json:"revokedAt" binding:""`
+	UserID    uint64     `json:"userID" binding:""`
+	TokenHash string     `json:"tokenHash" binding:""`
+	DeviceID  string     `json:"deviceID" binding:""`
+	ClientIP  string     `json:"clientIP" binding:""`
+	UserAgent string     `json:"userAgent" binding:""`
+	ExpiredAt *time.Time `json:"expiredAt" binding:""`
+	RevokedAt *time.Time `json:"revokedAt" binding:""`
 }
 
 // GameUserSessionsObjDetail detail
 type GameUserSessionsObjDetail struct {
 	ID uint64 `json:"id"` // convert to uint64 id
 
-	UserID  uint64 `json:"userID"`
-	TokenHash  string `json:"tokenHash"`
-	DeviceID  string `json:"deviceID"`
-	ClientIP  string `json:"clientIP"`
-	UserAgent  string `json:"userAgent"`
-	ExpiredAt  *time.Time `json:"expiredAt"`
-	RevokedAt  *time.Time `json:"revokedAt"`
-	CreatedAt  *time.Time `json:"createdAt"`
-	UpdatedAt  *time.Time `json:"updatedAt"`
+	UserID    uint64     `json:"userID"`
+	TokenHash string     `json:"tokenHash"`
+	DeviceID  string     `json:"deviceID"`
+	ClientIP  string     `json:"clientIP"`
+	UserAgent string     `json:"userAgent"`
+	ExpiredAt *time.Time `json:"expiredAt"`
+	RevokedAt *time.Time `json:"revokedAt"`
+	CreatedAt *time.Time `json:"createdAt"`
+	UpdatedAt *time.Time `json:"updatedAt"`
 }
-
 
 // CreateGameUserSessionsReply only for api docs
 type CreateGameUserSessionsReply struct {

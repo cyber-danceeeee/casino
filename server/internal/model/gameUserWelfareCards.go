@@ -1,8 +1,9 @@
 package model
 
 import (
-	"github.com/go-dev-frame/sponge/pkg/sgorm"
 	"time"
+
+	"github.com/go-dev-frame/sponge/pkg/sgorm"
 )
 
 // GameUserWelfareCards Member welfare cards
@@ -28,5 +29,3 @@ var GameUserWelfareCardsColumnNames = map[string]bool{
 	"activated_at":    true,
 	"expired_at":      true,
 }
-
-

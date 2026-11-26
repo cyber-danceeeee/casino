@@ -7,7 +7,7 @@ import (
 // gameAppVersions business-level http error codes.
 // the gameAppVersionsNO value range is 1~999, if the same error code is used, it will cause panic.
 var (
-	gameAppVersionsNO = 8
+	gameAppVersionsNO       = 8
 	gameAppVersionsName     = "gameAppVersions"
 	gameAppVersionsBaseCode = errcode.HCode(gameAppVersionsNO)
 

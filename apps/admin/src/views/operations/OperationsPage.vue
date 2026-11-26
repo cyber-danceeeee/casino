@@ -1588,7 +1588,7 @@ onMounted(async () => {
 						@change="changeFallbackVisibility(scope.row, Boolean($event))"
 					/>
 				</div>
-				<span v-else>{{ t("operations.values.tenantCustom") }}</span>
+				<span v-else>{{ t("operations.values.siteCustom") }}</span>
 			</template>
 		</el-table-column>
         <el-table-column fixed="right" :label="t('common.action')" width="250">

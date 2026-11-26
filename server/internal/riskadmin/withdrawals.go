@@ -5,8 +5,8 @@ import (
 
 	"gorm.io/gorm"
 
+	"casino/internal/content"
 	"casino/internal/fundadmin"
-	"casino/internal/tenancy"
 )
 
 type WithdrawalRiskService struct {
@@ -17,9 +17,9 @@ type WithdrawalRiskService struct {
 func (s *WithdrawalRiskService) List(q ListQuery) (PageResult, error) {
 	var rows []map[string]any
 	db := s.db.Table("game_withdraw_orders w").Select("w.id,w.order_no withdrawal_order_id,w.user_id,u.user_no,u.username,w.amount,w.currency,w.kyc_status,w.risk_status,COALESCE(p.risk_level,'LOW') risk_level,COALESCE(p.risk_status,'OBSERVED') review_status,w.status,w.created_at,w.updated_at,(SELECT COUNT(*) FROM game_withdraw_accounts wa WHERE wa.user_id=w.user_id AND wa.deleted_at IS NULL) associated_account_count").Joins("JOIN game_users u ON u.id=w.user_id AND u.deleted_at IS NULL").Joins("LEFT JOIN game_user_risk_profiles p ON p.user_id=w.user_id AND p.deleted_at IS NULL").Where("w.deleted_at IS NULL")
-	db = tenancy.ApplySite(db, "w", q.Scope)
-	db = tenancy.ApplySite(db, "u", q.Scope)
-	db = tenancy.ApplySite(db, "p", q.Scope)
+	db = content.ApplySite(db, "w", q.Scope)
+	db = content.ApplySite(db, "u", q.Scope)
+	db = content.ApplySite(db, "p", q.Scope)
 	db = contains(db, "w.order_no", q.Values["withdrawalOrderID"])
 	db = equal(db, "w.user_id", q.Values["userID"])
 	db = contains(db, "u.username", q.Values["username"])
@@ -37,7 +37,7 @@ func (s *WithdrawalRiskService) List(q ListQuery) (PageResult, error) {
 	db = timeRange(db, "w.created_at", q.Values["createdFrom"], q.Values["createdTo"])
 	return paginate(db.Order("FIELD(p.risk_level,'CRITICAL','HIGH','MEDIUM','LOW'),w.id DESC"), q, &rows)
 }
-func (s *WithdrawalRiskService) Detail(id uint64, scope tenancy.Scope) (map[string]any, error) {
+func (s *WithdrawalRiskService) Detail(id uint64, scope content.Scope) (map[string]any, error) {
 	detail, err := s.funds.GetWithdrawal(id, scope)
 	if err != nil {
 		return nil, err
@@ -45,13 +45,13 @@ func (s *WithdrawalRiskService) Detail(id uint64, scope tenancy.Scope) (map[stri
 	order, _ := detail["order"].(fundadmin.WithdrawalRow)
 	userID := order.UserID
 	var profile map[string]any
-	tenancy.ApplySite(s.db.Table("game_user_risk_profiles"), "", scope).Where("user_id=? AND deleted_at IS NULL", userID).Take(&profile)
+	content.ApplySite(s.db.Table("game_user_risk_profiles"), "", scope).Where("user_id=? AND deleted_at IS NULL", userID).Take(&profile)
 	var history, bets, bonuses, devices, accounts []map[string]any
-	tenancy.ApplySite(s.db.Table("game_withdrawal_approvals"), "", scope).Where("withdrawal_order_id=? AND deleted_at IS NULL", id).Order("id DESC").Find(&history)
-	tenancy.ApplySite(s.db.Table("game_bet_records"), "", scope).Select("COUNT(*) bet_count,SUM(bet_amount_minor) total_bet_minor,SUM(win_amount_minor) total_win_minor").Where("user_id=? AND deleted_at IS NULL", userID).Find(&bets)
+	content.ApplySite(s.db.Table("game_withdrawal_approvals"), "", scope).Where("withdrawal_order_id=? AND deleted_at IS NULL", id).Order("id DESC").Find(&history)
+	content.ApplySite(s.db.Table("game_bet_records"), "", scope).Select("COUNT(*) bet_count,SUM(bet_amount_minor) total_bet_minor,SUM(win_amount_minor) total_win_minor").Where("user_id=? AND deleted_at IS NULL", userID).Find(&bets)
 	s.db.Table("game_user_bonuses").Select("status,COUNT(*) count,SUM(bonus_amount) amount").Where("user_id=? AND deleted_at IS NULL", userID).Group("status").Find(&bonuses)
-	tenancy.ApplySite(s.db.Table("game_user_devices"), "", scope).Select("device_id,platform,risk_status,last_ip,last_seen_at").Where("user_id=? AND deleted_at IS NULL", userID).Find(&devices)
-	tenancy.ApplySite(s.db.Table("game_withdraw_accounts"), "", scope).Select("account_type,bank_name,wallet_type,CONCAT('**',RIGHT(account_no,4)) account_masked,status").Where("user_id=? AND deleted_at IS NULL", userID).Find(&accounts)
+	content.ApplySite(s.db.Table("game_user_devices"), "", scope).Select("device_id,platform,risk_status,last_ip,last_seen_at").Where("user_id=? AND deleted_at IS NULL", userID).Find(&devices)
+	content.ApplySite(s.db.Table("game_withdraw_accounts"), "", scope).Select("account_type,bank_name,wallet_type,CONCAT('**',RIGHT(account_no,4)) account_masked,status").Where("user_id=? AND deleted_at IS NULL", userID).Find(&accounts)
 	logs, _ := operationLogs(s.db, "withdrawal_risk", id)
 	return map[string]any{"withdrawalSummary": detail, "userRiskProfile": profile, "depositAndWithdrawalHistory": detail, "bettingSummary": bets, "bonusUsage": bonuses, "devicesAndIPs": devices, "associatedAccounts": accounts, "reviewHistory": history, "operationLogs": logs}, nil
 }

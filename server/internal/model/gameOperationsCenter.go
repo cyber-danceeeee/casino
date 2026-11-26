@@ -7,8 +7,8 @@ import (
 )
 
 type GamePromotionParticipationRule struct {
-	ID                 uint64           `gorm:"primaryKey" json:"id"`
-	TenantID           uint64           `gorm:"column:tenant_id" json:"tenantID"`
+	ID uint64 `gorm:"primaryKey" json:"id"`
+
 	SiteID             uint64           `gorm:"column:site_id" json:"siteID"`
 	PromotionID        uint64           `gorm:"column:promotion_id" json:"promotionID"`
 	RuleType           string           `json:"ruleType"`
@@ -25,8 +25,8 @@ type GamePromotionParticipationRule struct {
 func (GamePromotionParticipationRule) TableName() string { return "game_promotion_participation_rules" }
 
 type GamePromotionRewardRule struct {
-	ID                 uint64           `gorm:"primaryKey" json:"id"`
-	TenantID           uint64           `gorm:"column:tenant_id" json:"tenantID"`
+	ID uint64 `gorm:"primaryKey" json:"id"`
+
 	SiteID             uint64           `gorm:"column:site_id" json:"siteID"`
 	PromotionID        uint64           `gorm:"column:promotion_id" json:"promotionID"`
 	RewardType         string           `json:"rewardType"`
@@ -48,8 +48,8 @@ type GamePromotionRewardRule struct {
 func (GamePromotionRewardRule) TableName() string { return "game_promotion_reward_rules" }
 
 type GameBonusStatusHistory struct {
-	ID               uint64     `gorm:"primaryKey" json:"id"`
-	TenantID         uint64     `gorm:"column:tenant_id" json:"tenantID"`
+	ID uint64 `gorm:"primaryKey" json:"id"`
+
 	SiteID           uint64     `gorm:"column:site_id" json:"siteID"`
 	BonusRecordID    uint64     `gorm:"column:bonus_record_id" json:"bonusRecordID"`
 	BeforeStatus     string     `json:"beforeStatus"`
@@ -65,8 +65,8 @@ type GameBonusStatusHistory struct {
 func (GameBonusStatusHistory) TableName() string { return "game_bonus_status_histories" }
 
 type GameVIPBenefit struct {
-	ID           uint64           `gorm:"primaryKey" json:"id"`
-	TenantID     uint64           `gorm:"column:tenant_id" json:"tenantID"`
+	ID uint64 `gorm:"primaryKey" json:"id"`
+
 	SiteID       uint64           `gorm:"column:site_id" json:"siteID"`
 	VIPLevelID   uint64           `gorm:"column:vip_level_id" json:"vipLevelID"`
 	BenefitCode  string           `json:"benefitCode"`
@@ -84,8 +84,8 @@ type GameVIPBenefit struct {
 func (GameVIPBenefit) TableName() string { return "game_vip_benefits" }
 
 type GameVIPAdjustmentLog struct {
-	ID               uint64     `gorm:"primaryKey" json:"id"`
-	TenantID         uint64     `gorm:"column:tenant_id" json:"tenantID"`
+	ID uint64 `gorm:"primaryKey" json:"id"`
+
 	SiteID           uint64     `gorm:"column:site_id" json:"siteID"`
 	UserID           uint64     `gorm:"column:user_id" json:"userID"`
 	BeforeLevel      uint       `json:"beforeLevel"`
@@ -101,8 +101,8 @@ type GameVIPAdjustmentLog struct {
 func (GameVIPAdjustmentLog) TableName() string { return "game_vip_adjustment_logs" }
 
 type GamePromoCode struct {
-	ID              uint64           `gorm:"primaryKey" json:"id"`
-	TenantID        uint64           `gorm:"column:tenant_id" json:"tenantID"`
+	ID uint64 `gorm:"primaryKey" json:"id"`
+
 	SiteID          uint64           `gorm:"column:site_id" json:"siteID"`
 	Code            string           `json:"code"`
 	PromotionID     uint64           `gorm:"column:promotion_id" json:"promotionID"`
@@ -125,8 +125,8 @@ type GamePromoCode struct {
 func (GamePromoCode) TableName() string { return "game_promo_codes" }
 
 type GamePromoCodeRedemption struct {
-	ID                  uint64           `gorm:"primaryKey" json:"id"`
-	TenantID            uint64           `gorm:"column:tenant_id" json:"tenantID"`
+	ID uint64 `gorm:"primaryKey" json:"id"`
+
 	SiteID              uint64           `gorm:"column:site_id" json:"siteID"`
 	PromoCodeID         uint64           `gorm:"column:promo_code_id" json:"promoCodeID"`
 	UserID              uint64           `gorm:"column:user_id" json:"userID"`
@@ -144,8 +144,8 @@ type GamePromoCodeRedemption struct {
 func (GamePromoCodeRedemption) TableName() string { return "game_promo_code_redemptions" }
 
 type GameNotification struct {
-	ID              uint64     `gorm:"primaryKey" json:"id"`
-	TenantID        uint64     `gorm:"column:tenant_id" json:"tenantID"`
+	ID uint64 `gorm:"primaryKey" json:"id"`
+
 	SiteID          uint64     `gorm:"column:site_id" json:"siteID"`
 	NotificationID  string     `gorm:"column:notification_id" json:"notificationID"`
 	TitleZh         string     `json:"titleZh"`
@@ -169,8 +169,8 @@ type GameNotification struct {
 func (GameNotification) TableName() string { return "game_notifications" }
 
 type GameNotificationJob struct {
-	ID             uint64     `gorm:"primaryKey" json:"id"`
-	TenantID       uint64     `gorm:"column:tenant_id" json:"tenantID"`
+	ID uint64 `gorm:"primaryKey" json:"id"`
+
 	SiteID         uint64     `gorm:"column:site_id" json:"siteID"`
 	NotificationID uint64     `gorm:"column:notification_id" json:"notificationID"`
 	JobType        string     `json:"jobType"`

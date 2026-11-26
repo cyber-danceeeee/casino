@@ -7,7 +7,7 @@ import (
 // gameBonusRecords business-level http error codes.
 // the gameBonusRecordsNO value range is 1~999, if the same error code is used, it will cause panic.
 var (
-	gameBonusRecordsNO = 12
+	gameBonusRecordsNO       = 12
 	gameBonusRecordsName     = "gameBonusRecords"
 	gameBonusRecordsBaseCode = errcode.HCode(gameBonusRecordsNO)
 

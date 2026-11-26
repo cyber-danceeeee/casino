@@ -8,8 +8,8 @@ import (
 )
 
 type GameWalletFreezes struct {
-	sgorm.Model          `gorm:"embedded"`
-	TenantID             uint64           `gorm:"column:tenant_id" json:"tenantID"`
+	sgorm.Model `gorm:"embedded"`
+
 	SiteID               uint64           `gorm:"column:site_id" json:"siteID"`
 	FreezeNo             string           `gorm:"column:freeze_no" json:"freezeNo"`
 	WalletID             uint64           `gorm:"column:wallet_id" json:"walletID"`

@@ -7,7 +7,7 @@ import (
 // gameUserSessions business-level http error codes.
 // the gameUserSessionsNO value range is 1~999, if the same error code is used, it will cause panic.
 var (
-	gameUserSessionsNO = 47
+	gameUserSessionsNO       = 47
 	gameUserSessionsName     = "gameUserSessions"
 	gameUserSessionsBaseCode = errcode.HCode(gameUserSessionsNO)
 

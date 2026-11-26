@@ -9,9 +9,9 @@ import (
 	"github.com/go-dev-frame/sponge/pkg/gin/response"
 	"github.com/shopspring/decimal"
 
+	"casino/internal/content"
 	"casino/internal/database"
 	"casino/internal/model"
-	"casino/internal/tenancy"
 )
 
 func (h *gameWalletTransactionsHandler) WalletRecords(c *gin.Context) {
@@ -21,7 +21,7 @@ func (h *gameWalletTransactionsHandler) WalletRecords(c *gin.Context) {
 		h5Error(c, http.StatusUnauthorized, "authentication required")
 		return
 	}
-	scope := h5UserTenancyScope(db, user.ID, h5TenancyScope(c))
+	scope := h5UserContentScope(db, user.ID, h5ContentScope(c))
 	tab := strings.TrimSpace(c.Query("tab"))
 	if tab == "" {
 		tab = "statement"
@@ -33,7 +33,7 @@ func (h *gameWalletTransactionsHandler) WalletRecords(c *gin.Context) {
 	switch tab {
 	case "deposit":
 		var records []model.GameDepositOrders
-		query := tenancy.ApplySite(db.Model(&model.GameDepositOrders{}), "", scope).Where("user_id = ?", user.ID)
+		query := content.ApplySite(db.Model(&model.GameDepositOrders{}), "", scope).Where("user_id = ?", user.ID)
 		var total int64
 		_ = query.Count(&total).Error
 		_ = query.Order("id DESC").Offset(offset).Limit(pageSize).Find(&records).Error
@@ -44,7 +44,7 @@ func (h *gameWalletTransactionsHandler) WalletRecords(c *gin.Context) {
 		response.Success(c, gin.H{"tab": tab, "items": items, "total": total, "page": page, "pageSize": pageSize})
 	case "withdraw":
 		var records []model.GameWithdrawOrders
-		query := tenancy.ApplySite(db.Model(&model.GameWithdrawOrders{}), "", scope).Where("user_id = ?", user.ID)
+		query := content.ApplySite(db.Model(&model.GameWithdrawOrders{}), "", scope).Where("user_id = ?", user.ID)
 		var total int64
 		_ = query.Count(&total).Error
 		_ = query.Order("id DESC").Offset(offset).Limit(pageSize).Find(&records).Error
@@ -55,7 +55,7 @@ func (h *gameWalletTransactionsHandler) WalletRecords(c *gin.Context) {
 		response.Success(c, gin.H{"tab": tab, "items": items, "total": total, "page": page, "pageSize": pageSize})
 	default:
 		var records []h5WalletRecordRow
-		q := tenancy.ApplySite(db.Table("game_wallet_transactions wt"), "wt", scope).
+		q := content.ApplySite(db.Table("game_wallet_transactions wt"), "wt", scope).
 			Where("wt.user_id = ? AND wt.deleted_at IS NULL", user.ID)
 
 		categories, forcedDirection := h5WalletRecordCategoryFilter(c.Query("type"))

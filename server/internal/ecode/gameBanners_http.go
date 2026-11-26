@@ -7,7 +7,7 @@ import (
 // gameBanners business-level http error codes.
 // the gameBannersNO value range is 1~999, if the same error code is used, it will cause panic.
 var (
-	gameBannersNO = 9
+	gameBannersNO       = 9
 	gameBannersName     = "gameBanners"
 	gameBannersBaseCode = errcode.HCode(gameBannersNO)
 

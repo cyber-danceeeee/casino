@@ -7,7 +7,7 @@ import (
 // gameUserInvitationChests business-level http error codes.
 // the gameUserInvitationChestsNO value range is 1~999, if the same error code is used, it will cause panic.
 var (
-	gameUserInvitationChestsNO = 46
+	gameUserInvitationChestsNO       = 46
 	gameUserInvitationChestsName     = "gameUserInvitationChests"
 	gameUserInvitationChestsBaseCode = errcode.HCode(gameUserInvitationChestsNO)
 

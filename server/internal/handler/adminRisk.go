@@ -126,7 +126,7 @@ func (h *AdminRiskHandler) AssignEvent(c *gin.Context) {
 		h.action(c, h.service.Events.Assign(id, in, riskActor(c)))
 	}
 }
-func (h *AdminRiskHandler) EventAction(target, permission string) gin.HandlerFunc {
+func (h *AdminRiskHandler) EventAction(target string, permission string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id, ok := riskID(c)
 		if !ok {
@@ -265,7 +265,7 @@ func (h *AdminRiskHandler) ListWithdrawals(c *gin.Context) {
 func (h *AdminRiskHandler) GetWithdrawal(c *gin.Context) {
 	id, ok := riskID(c)
 	if ok {
-		data, err := h.service.Withdrawals.Detail(id, adminTenancyScope(c))
+		data, err := h.service.Withdrawals.Detail(id, adminContentScope(c))
 		h.write(c, data, err)
 	}
 }
@@ -339,7 +339,7 @@ func riskActor(c *gin.Context) riskadmin.Actor {
 	if correlation == "" {
 		correlation = c.GetString("request_id")
 	}
-	return riskadmin.Actor{ID: a.ID, Username: a.Username, Scope: adminTenancyScope(c), IP: c.ClientIP(), UserAgent: c.GetHeader("User-Agent"), CorrelationID: correlation}
+	return riskadmin.Actor{ID: a.ID, Username: a.Username, Scope: adminContentScope(c), IP: c.ClientIP(), UserAgent: c.GetHeader("User-Agent"), CorrelationID: correlation}
 }
 func riskList(c *gin.Context, keys []string) riskadmin.ListQuery {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
@@ -350,7 +350,7 @@ func riskList(c *gin.Context, keys []string) riskadmin.ListQuery {
 			values[key] = v
 		}
 	}
-	return riskadmin.ListQuery{Page: page, PageSize: size, Values: values, Scope: adminTenancyScope(c)}
+	return riskadmin.ListQuery{Page: page, PageSize: size, Values: values, Scope: adminContentScope(c)}
 }
 func riskError(c *gin.Context, err error) {
 	var domain *riskadmin.Error

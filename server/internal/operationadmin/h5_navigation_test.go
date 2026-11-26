@@ -9,19 +9,19 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
+	"casino/internal/content"
 	"casino/internal/model"
-	"casino/internal/tenancy"
 )
 
 func TestH5NavigationDraftIsolationValidationAndPublishing(t *testing.T) {
 	db := newH5NavigationTestDB(t)
 	service := New(db)
-	assetA := assetLibraryRecord{TenantID: 10, SiteID: 20, AssetScope: AssetScopeTenant, AssetType: "IMAGE", UsageType: "BUTTON_ICON", ObjectKey: "tenant/10/icon.png", Status: AssetStatusActive}
-	assetB := assetLibraryRecord{TenantID: 11, SiteID: 21, AssetScope: AssetScopeTenant, AssetType: "IMAGE", UsageType: "BUTTON_ICON", ObjectKey: "tenant/11/icon.png", Status: AssetStatusActive}
+	assetA := assetLibraryRecord{SiteID: 20, AssetScope: AssetScopeSite, AssetType: "IMAGE", UsageType: "BUTTON_ICON", ObjectKey: "h5/10/icon.png", Status: AssetStatusActive}
+	assetB := assetLibraryRecord{SiteID: 21, AssetScope: AssetScopeSite, AssetType: "IMAGE", UsageType: "BUTTON_ICON", ObjectKey: "h5/11/icon.png", Status: AssetStatusActive}
 	require.NoError(t, db.Create(&assetA).Error)
 	require.NoError(t, db.Create(&assetB).Error)
-	actorA := Actor{ID: 7, Username: "tenant-a", Scope: tenancy.Scope{TenantID: 10, SiteID: 20}}
-	_, err := service.ListH5Navigation(ListQuery{Page: 1, PageSize: 20, Scope: tenancy.Scope{Platform: true}})
+	actorA := Actor{ID: 7, Username: "h5-a", Scope: content.Scope{SiteID: 20}}
+	_, err := service.ListH5Navigation(ListQuery{Page: 1, PageSize: 20, Scope: content.Scope{Platform: true}})
 	var domain *Error
 	require.True(t, errors.As(err, &domain))
 	require.Equal(t, "H5_NAVIGATION_SCOPE_REQUIRED", domain.Code)
@@ -38,13 +38,13 @@ func TestH5NavigationDraftIsolationValidationAndPublishing(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, public, "draft entry must not be public")
 
-	_, err = service.GetH5Navigation(id, tenancy.Scope{TenantID: 11, SiteID: 21})
+	_, err = service.GetH5Navigation(id, content.Scope{SiteID: 21})
 	require.True(t, errors.As(err, &domain))
 	require.Equal(t, "H5_NAVIGATION_NOT_FOUND", domain.Code)
-	err = service.DeleteH5Navigation(id, Actor{ID: 1, Username: "platform", Scope: tenancy.Scope{Platform: true}})
+	err = service.DeleteH5Navigation(id, Actor{ID: 1, Username: "platform", Scope: content.Scope{Platform: true}})
 	require.True(t, errors.As(err, &domain))
 	require.Equal(t, "H5_NAVIGATION_SCOPE_REQUIRED", domain.Code)
-	_, err = service.SaveH5Navigation(id, input, Actor{ID: 8, Username: "tenant-b", Scope: tenancy.Scope{TenantID: 11, SiteID: 21}})
+	_, err = service.SaveH5Navigation(id, input, Actor{ID: 8, Username: "h5-b", Scope: content.Scope{SiteID: 21}})
 	require.True(t, errors.As(err, &domain))
 	require.Equal(t, "H5_NAVIGATION_NOT_FOUND", domain.Code)
 
@@ -54,7 +54,7 @@ func TestH5NavigationDraftIsolationValidationAndPublishing(t *testing.T) {
 
 	input.IconAssetID = assetB.ID
 	_, err = service.SaveH5Navigation(id, input, actorA)
-	require.Error(t, err, "tenant A must not reference tenant B assets")
+	require.Error(t, err, "h5 A must not reference h5 B assets")
 	require.True(t, errors.As(err, &domain))
 	require.Equal(t, "H5_NAVIGATION_ASSET_INVALID", domain.Code)
 
@@ -71,10 +71,10 @@ func TestH5NavigationDraftIsolationValidationAndPublishing(t *testing.T) {
 	require.True(t, errors.As(err, &domain))
 	require.Equal(t, "INVALID_H5_NAVIGATION_TARGET", domain.Code)
 
-	count, err := PublishH5NavigationDrafts(db, 10, 20, actorA.ID, 2)
+	count, err := PublishH5NavigationDrafts(db, 20, actorA.ID, 2)
 	require.NoError(t, err)
 	require.Equal(t, 1, count)
-	count, err = PublishH5NavigationDrafts(db, 10, 20, actorA.ID, 2)
+	count, err = PublishH5NavigationDrafts(db, 20, actorA.ID, 2)
 	require.NoError(t, err)
 	require.Zero(t, count, "repeated publish must be idempotent")
 
@@ -98,9 +98,9 @@ func TestH5NavigationDraftIsolationValidationAndPublishing(t *testing.T) {
 func TestH5NavigationPublicFiltersAndSortsDrafts(t *testing.T) {
 	db := newH5NavigationTestDB(t)
 	service := New(db)
-	asset := assetLibraryRecord{TenantID: 10, SiteID: 20, AssetScope: AssetScopeTenant, AssetType: "IMAGE", UsageType: "BUTTON_ICON", ObjectKey: "tenant/10/icon.png", Status: AssetStatusActive}
+	asset := assetLibraryRecord{SiteID: 20, AssetScope: AssetScopeSite, AssetType: "IMAGE", UsageType: "BUTTON_ICON", ObjectKey: "h5/10/icon.png", Status: AssetStatusActive}
 	require.NoError(t, db.Create(&asset).Error)
-	actor := Actor{ID: 7, Username: "tenant-a", Scope: tenancy.Scope{TenantID: 10, SiteID: 20}}
+	actor := Actor{ID: 7, Username: "h5-a", Scope: content.Scope{SiteID: 20}}
 	first, err := service.SaveH5Navigation(0, H5NavigationInput{
 		LabelZh: "活动", LabelEn: "Offers", IconAssetID: asset.ID, DisplayPosition: "BOTTOM_NAV", SortOrder: 20,
 		BadgeType: "NEW", VisibilityScope: "GUEST", CountryCodes: []string{"MY"}, LanguageCodes: []string{"en-US"},
@@ -120,7 +120,7 @@ func TestH5NavigationPublicFiltersAndSortsDrafts(t *testing.T) {
 	}, actor)
 	require.NoError(t, err)
 	require.NoError(t, service.SortH5Navigation(H5NavigationSortInput{DisplayPosition: "BOTTOM_NAV", IDs: []uint64{first, second}}, actor))
-	count, err := PublishH5NavigationDrafts(db, 10, 20, actor.ID, 3)
+	count, err := PublishH5NavigationDrafts(db, 20, actor.ID, 3)
 	require.NoError(t, err)
 	require.Equal(t, 3, count)
 
@@ -143,16 +143,16 @@ func TestH5NavigationPublicFiltersAndSortsDrafts(t *testing.T) {
 func TestPublishH5NavigationRejectsInactiveAsset(t *testing.T) {
 	db := newH5NavigationTestDB(t)
 	service := New(db)
-	asset := assetLibraryRecord{TenantID: 10, SiteID: 20, AssetScope: AssetScopeTenant, AssetType: "IMAGE", UsageType: "BUTTON_ICON", ObjectKey: "tenant/10/icon.png", Status: AssetStatusActive}
+	asset := assetLibraryRecord{SiteID: 20, AssetScope: AssetScopeSite, AssetType: "IMAGE", UsageType: "BUTTON_ICON", ObjectKey: "h5/10/icon.png", Status: AssetStatusActive}
 	require.NoError(t, db.Create(&asset).Error)
-	actor := Actor{ID: 7, Username: "tenant-a", Scope: tenancy.Scope{TenantID: 10, SiteID: 20}}
+	actor := Actor{ID: 7, Username: "h5-a", Scope: content.Scope{SiteID: 20}}
 	_, err := service.SaveH5Navigation(0, H5NavigationInput{
 		LabelZh: "提现", LabelEn: "Withdraw", IconAssetID: asset.ID, DisplayPosition: "HOME_QUICK",
 		BadgeType: "NONE", VisibilityScope: "LOGGED_IN", Enabled: true, ActionType: "OPEN_WITHDRAW",
 	}, actor)
 	require.NoError(t, err)
 	require.NoError(t, db.Model(&assetLibraryRecord{}).Where("id=?", asset.ID).Update("status", "DISABLED").Error)
-	_, err = PublishH5NavigationDrafts(db, 10, 20, actor.ID, 2)
+	_, err = PublishH5NavigationDrafts(db, 20, actor.ID, 2)
 	var domain *Error
 	require.True(t, errors.As(err, &domain))
 	require.Equal(t, "H5_NAVIGATION_ASSET_INVALID", domain.Code)
@@ -167,11 +167,7 @@ func newH5NavigationTestDB(t *testing.T) *gorm.DB {
 	sqlDB.SetMaxOpenConns(1)
 	t.Cleanup(func() { require.NoError(t, sqlDB.Close()) })
 	require.NoError(t, db.AutoMigrate(&assetLibraryRecord{}, &model.GameH5NavigationItems{}, &model.GameAdminOperationLogs{}))
-	require.NoError(t, db.Exec(`CREATE TABLE game_saas_sites (
-		id INTEGER PRIMARY KEY, tenant_id INTEGER, config_status TEXT, config_draft_updated_at DATETIME,
-		country_code TEXT, currency_code TEXT, default_language TEXT,
-		updated_by INTEGER, updated_at DATETIME, deleted_at DATETIME
-	)`).Error)
-	require.NoError(t, db.Exec(`INSERT INTO game_saas_sites (id,tenant_id,config_status,country_code,currency_code,default_language) VALUES (20,10,'PUBLISHED','MY','MYR','en-US'),(21,11,'PUBLISHED','MY','MYR','en-US')`).Error)
+	require.NoError(t, db.Exec("CREATE TABLE game_site_config (id INTEGER PRIMARY KEY, config_status TEXT, config_draft_updated_at DATETIME, country_code TEXT, currency_code TEXT, default_language TEXT, updated_by INTEGER, updated_at DATETIME, deleted_at DATETIME)").Error)
+	require.NoError(t, db.Exec("INSERT INTO game_site_config (id, config_status, country_code, currency_code, default_language) VALUES (20, 'PUBLISHED', 'MY', 'MYR', 'en-US'), (21, 'PUBLISHED', 'MY', 'MYR', 'en-US')").Error)
 	return db
 }

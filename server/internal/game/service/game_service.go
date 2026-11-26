@@ -7,12 +7,12 @@ import (
 	"sync"
 	"time"
 
+	"casino/internal/content"
 	"casino/internal/game/domain"
 	"casino/internal/game/provider/ag"
 	"casino/internal/game/provider/softaggregator"
 	"casino/internal/game/repository"
 	"casino/internal/model"
-	"casino/internal/tenancy"
 )
 
 type GameService struct {
@@ -29,12 +29,12 @@ func NewGameService(registry domain.ProviderRegistry, repo *repository.Repositor
 }
 
 func (s *GameService) SyncProviderGames(ctx context.Context, providerCode string) (repository.SyncSummary, error) {
-	return s.SyncProviderGamesScoped(ctx, tenancy.Scope{}, providerCode)
+	return s.SyncProviderGamesScoped(ctx, content.Scope{}, providerCode)
 }
 
-func (s *GameService) SyncProviderGamesScoped(ctx context.Context, scope tenancy.Scope, providerCode string) (repository.SyncSummary, error) {
+func (s *GameService) SyncProviderGamesScoped(ctx context.Context, scope content.Scope, providerCode string) (repository.SyncSummary, error) {
 	providerCode = strings.ToLower(strings.TrimSpace(providerCode))
-	summary := repository.SyncSummary{TenantID: scope.TenantID, SiteID: scope.SiteID, ProviderCode: providerCode}
+	summary := repository.SyncSummary{SiteID: scope.SiteID, ProviderCode: providerCode}
 	startedAt := time.Now()
 	defer func() { summary.DurationMS = time.Since(startedAt).Milliseconds() }()
 

@@ -19,12 +19,11 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
+	"casino/internal/content"
 	"casino/internal/database"
 	"casino/internal/hotranking"
 	"casino/internal/model"
-	"casino/internal/singlesite"
 	"casino/internal/storage"
-	"casino/internal/tenancy"
 )
 
 func h5HotRankingStore() (store *hotranking.Store) {
@@ -44,7 +43,7 @@ func h5Error(c *gin.Context, statusCode int, msg string) {
 	})
 }
 
-func h5MachineError(c *gin.Context, statusCode int, code, msg string) {
+func h5MachineError(c *gin.Context, statusCode int, code string, msg string) {
 	c.JSON(http.StatusOK, gin.H{
 		"code": statusCode,
 		"msg":  msg,
@@ -57,21 +56,21 @@ func h5CurrentUser(db *gorm.DB, c *gin.Context) (model.GameUsers, model.GameUser
 		return user, wallet
 	}
 	user := h5DefaultUser()
-	return user, h5EnsureWalletForScope(db, 0, h5TenancyScope(c))
+	return user, h5EnsureWalletForScope(db, 0, h5ContentScope(c))
 }
 
 func h5EnsureWallet(db *gorm.DB, userID uint64) model.GameUserWallets {
-	return h5EnsureWalletForScope(db, userID, tenancy.Scope{})
+	return h5EnsureWalletForScope(db, userID, content.Scope{})
 }
 
-func h5EnsureWalletForScope(db *gorm.DB, userID uint64, fallback tenancy.Scope) model.GameUserWallets {
+func h5EnsureWalletForScope(db *gorm.DB, userID uint64, fallback content.Scope) model.GameUserWallets {
 	var wallet model.GameUserWallets
-	scope := h5UserTenancyScope(db, userID, fallback)
+	scope := h5UserContentScope(db, userID, fallback)
 	defaults := h5ScopeDefaults(db, scope)
 	currency := defaults.CurrencyCode
 	if userID == 0 {
 		return model.GameUserWallets{
-			TenantID:            scope.TenantID,
+
 			SiteID:              scope.SiteID,
 			Currency:            currency,
 			CashBalance:         h5DecimalPtr(decimal.Zero),
@@ -80,13 +79,12 @@ func h5EnsureWalletForScope(db *gorm.DB, userID uint64, fallback tenancy.Scope) 
 			FrozenBalance:       h5DecimalPtr(decimal.Zero),
 		}
 	}
-	err := tenancy.ApplySite(db.Model(&model.GameUserWallets{}), "", scope).Where("user_id = ?", userID).First(&wallet).Error
+	err := content.ApplySite(db.Model(&model.GameUserWallets{}), "", scope).Where("user_id = ?", userID).First(&wallet).Error
 	if err == nil {
 		updates := map[string]any{}
-		if wallet.TenantID == 0 && scope.TenantID > 0 {
-			updates["tenant_id"] = scope.TenantID
+		if wallet.SiteID == 0 && scope.SiteID > 0 {
 			updates["site_id"] = scope.SiteID
-			wallet.TenantID = scope.TenantID
+			wallet.SiteID = scope.SiteID
 			wallet.SiteID = scope.SiteID
 		}
 		if currency != "" && !strings.EqualFold(wallet.Currency, currency) {
@@ -97,14 +95,14 @@ func h5EnsureWalletForScope(db *gorm.DB, userID uint64, fallback tenancy.Scope) 
 			_ = db.Model(&wallet).Updates(updates).Error
 		}
 		if currency != "" {
-			_ = tenancy.ApplySite(db.Model(&model.GameRegisterRewardClaims{}), "", scope).
+			_ = content.ApplySite(db.Model(&model.GameRegisterRewardClaims{}), "", scope).
 				Where("user_id = ? AND status = 1 AND deleted_at IS NULL", userID).
 				Update("currency", currency).Error
 		}
 		return wallet
 	}
 	wallet = model.GameUserWallets{
-		TenantID:            scope.TenantID,
+
 		SiteID:              scope.SiteID,
 		UserID:              userID,
 		Currency:            currency,
@@ -124,14 +122,13 @@ type h5ScopeDefaultValues struct {
 	PhoneCountryCode string
 }
 
-func h5ScopeDefaults(db *gorm.DB, scope tenancy.Scope) h5ScopeDefaultValues {
-	tenant := h5BootstrapTenant(db, scope.TenantID)
+func h5ScopeDefaults(db *gorm.DB, scope content.Scope) h5ScopeDefaultValues {
 	site := h5BootstrapSite(db, scope.SiteID)
-	countryCode := strings.ToUpper(strings.TrimSpace(h5FirstNonEmpty(site.CountryCode, tenant.CountryCode)))
+	countryCode := strings.ToUpper(strings.TrimSpace(h5FirstNonEmpty(site.CountryCode)))
 	country := h5BootstrapCountry(db, countryCode)
-	countryCode = strings.ToUpper(strings.TrimSpace(h5FirstNonEmpty(site.CountryCode, tenant.CountryCode, country.CountryCode, "PK")))
-	currencyCode := strings.ToUpper(strings.TrimSpace(h5FirstNonEmpty(site.CurrencyCode, tenant.DefaultCurrency, country.CurrencyCode, "PKR")))
-	language := strings.ToLower(strings.TrimSpace(h5FirstNonEmpty(site.DefaultLanguage, tenant.DefaultLanguage, country.DefaultLanguage, "en")))
+	countryCode = strings.ToUpper(strings.TrimSpace(h5FirstNonEmpty(site.CountryCode, country.CountryCode, "PK")))
+	currencyCode := strings.ToUpper(strings.TrimSpace(h5FirstNonEmpty(site.CurrencyCode, country.CurrencyCode, "PKR")))
+	language := strings.ToLower(strings.TrimSpace(h5FirstNonEmpty(site.DefaultLanguage, country.DefaultLanguage, "en")))
 	return h5ScopeDefaultValues{
 		CountryCode:      countryCode,
 		CurrencyCode:     currencyCode,
@@ -140,74 +137,20 @@ func h5ScopeDefaults(db *gorm.DB, scope tenancy.Scope) h5ScopeDefaultValues {
 	}
 }
 
-func h5TenancyScope(c *gin.Context) tenancy.Scope {
-	if scope, ok := singlesite.Scope(); ok {
-		return scope
-	}
-	if value, ok := c.Get("h5_tenancy_scope"); ok {
-		if scope, ok := value.(tenancy.Scope); ok {
-			return scope
-		}
-	}
-	scope := h5HeaderTenancyScope(c)
-	host := h5RequestHost(c)
-	if host != "" {
-		var row struct {
-			ID       uint64 `gorm:"column:id"`
-			TenantID uint64 `gorm:"column:tenant_id"`
-		}
-		domains := h5DomainCandidates(host)
-		err := database.GetDB().Table("game_saas_domains d").
-			Select("d.site_id id,d.tenant_id").
-			Joins("INNER JOIN game_saas_sites s ON s.id=d.site_id AND s.deleted_at IS NULL").
-			Joins("INNER JOIN game_saas_tenants t ON t.id=d.tenant_id AND t.deleted_at IS NULL").
-			Where("d.enabled=1 AND d.deleted_at IS NULL AND d.domain_type IN ? AND LOWER(d.domain) IN ?", []string{"H5", "PRIMARY"}, domains).
-			Order("d.is_primary DESC,d.id ASC").
-			Take(&row).Error
-		if err == nil && row.ID > 0 && row.TenantID > 0 {
-			scope = tenancy.Scope{TenantID: row.TenantID, SiteID: row.ID}
-		}
-		if row.ID == 0 {
-			err = database.GetDB().Table("game_saas_sites s").
-				Select("s.id,s.tenant_id").
-				Joins("INNER JOIN game_saas_tenants t ON t.id=s.tenant_id AND t.deleted_at IS NULL").
-				Where("s.deleted_at IS NULL AND (LOWER(s.h5_domain) IN ? OR LOWER(s.primary_domain) IN ?)", domains, domains).
-				Order("CASE WHEN s.h5_domain <> '' THEN 0 ELSE 1 END").
-				Take(&row).Error
-			if err == nil && row.ID > 0 && row.TenantID > 0 {
-				scope = tenancy.Scope{TenantID: row.TenantID, SiteID: row.ID}
-			}
-		}
-	}
-	if scope.TenantID == 0 && scope.SiteID > 0 {
-		var row struct {
-			ID       uint64 `gorm:"column:id"`
-			TenantID uint64 `gorm:"column:tenant_id"`
-		}
-		if err := database.GetDB().Table("game_saas_sites").Select("id,tenant_id").Where("id=? AND enabled=1 AND deleted_at IS NULL", scope.SiteID).Take(&row).Error; err == nil && row.TenantID > 0 {
-			scope = tenancy.Scope{TenantID: row.TenantID, SiteID: row.ID}
-		}
-	}
-	c.Set("h5_tenancy_scope", scope)
-	return scope
+func h5ContentScope(c *gin.Context) content.Scope { return content.Scope{SiteID: 1} }
+
+func h5PlatformCatalogScope() content.Scope {
+	return content.Scope{Platform: true}
 }
 
-func h5HeaderTenancyScope(c *gin.Context) tenancy.Scope {
-	return tenancy.Scope{TenantID: h5HeaderUint64(c, "X-Tenant-ID"), SiteID: h5HeaderUint64(c, "X-Site-ID")}
-}
-
-func h5PlatformCatalogScope() tenancy.Scope {
-	return tenancy.Scope{Platform: true}
-}
-
-func h5ApplyReadableScope(db *gorm.DB, alias string, scope tenancy.Scope) *gorm.DB {
+func h5ApplyReadableScope(db *gorm.DB, alias string, scope content.Scope) *gorm.DB {
 	if scope.Platform {
-		return db.Where(h5Column(alias, "tenant_id")+" = ? AND "+h5Column(alias, "site_id")+" = ?", 0, 0)
+		return db.Where(h5Column(alias, "")+" = ? AND "+h5Column(alias, "site_id")+" = ?", 0, 0)
 	}
-	return tenancy.ApplySite(db, alias, scope)
+	return content.ApplySite(db, alias, scope)
 }
 
-func h5FindWithPlatformFallback(base *gorm.DB, alias string, scope tenancy.Scope, dest any, apply func(*gorm.DB) *gorm.DB) error {
+func h5FindWithPlatformFallback(base *gorm.DB, alias string, scope content.Scope, dest any, apply func(*gorm.DB) *gorm.DB) error {
 	query := h5ApplyReadableScope(base.Session(&gorm.Session{}), alias, scope)
 	if apply != nil {
 		query = apply(query)
@@ -215,7 +158,7 @@ func h5FindWithPlatformFallback(base *gorm.DB, alias string, scope tenancy.Scope
 	if err := query.Find(dest).Error; err != nil {
 		return err
 	}
-	if h5CollectionLen(dest) > 0 || !scope.TenantScoped() {
+	if h5CollectionLen(dest) > 0 || !scope.SiteScoped() {
 		return nil
 	}
 	query = h5ApplyReadableScope(base.Session(&gorm.Session{}), alias, h5PlatformCatalogScope())
@@ -249,22 +192,21 @@ func h5Column(alias string, name string) string {
 	return alias + "." + name
 }
 
-func h5UserTenancyScope(db *gorm.DB, userID uint64, fallback tenancy.Scope) tenancy.Scope {
+func h5UserContentScope(db *gorm.DB, userID uint64, fallback content.Scope) content.Scope {
 	if userID == 0 {
 		return fallback
 	}
 	var row struct {
-		TenantID uint64 `gorm:"column:tenant_id"`
-		SiteID   uint64 `gorm:"column:site_id"`
+		SiteID uint64 `gorm:"column:site_id"`
 	}
-	if err := db.Model(&model.GameUsers{}).Select("tenant_id,site_id").Where("id=? AND deleted_at IS NULL", userID).Take(&row).Error; err == nil && row.TenantID > 0 {
-		return tenancy.Scope{TenantID: row.TenantID, SiteID: row.SiteID}
+	if err := db.Model(&model.GameUsers{}).Select("site_id").Where("id=? AND deleted_at IS NULL", userID).Take(&row).Error; err == nil && row.SiteID > 0 {
+		return content.Scope{SiteID: row.SiteID}
 	}
 	return fallback
 }
 
-func h5MaintenanceBlocked(c *gin.Context, db *gorm.DB, scope tenancy.Scope) (bool, string, string) {
-	if scope.TenantID == 0 && scope.SiteID == 0 {
+func h5MaintenanceBlocked(c *gin.Context, db *gorm.DB, scope content.Scope) (bool, string, string) {
+	if scope.SiteID == 0 {
 		return false, "", ""
 	}
 	maintenance := h5EffectiveMaintenance(c, db, scope)
@@ -278,16 +220,15 @@ func h5MaintenanceBlocked(c *gin.Context, db *gorm.DB, scope tenancy.Scope) (boo
 	}
 	code, _ := maintenance["errorCode"].(string)
 	if code == "" {
-		code = "TENANT_MAINTENANCE"
+		code = "SITE_MAINTENANCE"
 	}
 	return true, code, message
 }
 
-func h5EffectiveMaintenance(c *gin.Context, db *gorm.DB, scope tenancy.Scope) map[string]any {
-	tenant := h5BootstrapTenant(db, scope.TenantID)
+func h5EffectiveMaintenance(c *gin.Context, db *gorm.DB, scope content.Scope) map[string]any {
 	site := h5BootstrapSite(db, scope.SiteID)
-	fallback := h5NormalizeMaintenance(h5BootstrapJSON(site.MaintenanceConfig), tenant, site)
-	if scope.TenantID == 0 {
+	fallback := h5NormalizeMaintenance(h5BootstrapJSON(site.MaintenanceConfig), site)
+	if scope.SiteID == 0 {
 		return fallback
 	}
 	type maintenanceRow struct {
@@ -304,9 +245,7 @@ func h5EffectiveMaintenance(c *gin.Context, db *gorm.DB, scope tenancy.Scope) ma
 	}
 	var row maintenanceRow
 	nowValue := time.Now()
-	err := db.Table("game_tenant_maintenance").Where(
-		"tenant_id=? AND enabled=1 AND deleted_at IS NULL AND (site_id=0 OR site_id=?)", scope.TenantID, scope.SiteID,
-	).Where("start_at IS NULL OR start_at<=?", nowValue).
+	err := db.Table("game_site_maintenance").Where("enabled = 1 AND deleted_at IS NULL AND (site_id = 0 OR site_id = ?)", scope.SiteID).Where("start_at IS NULL OR start_at<=?", nowValue).
 		Where("end_at IS NULL OR end_at>?", nowValue).
 		Order("site_id DESC,id DESC").Take(&row).Error
 	if err != nil {
@@ -323,7 +262,7 @@ func h5EffectiveMaintenance(c *gin.Context, db *gorm.DB, scope tenancy.Scope) ma
 	if message == "" {
 		message = "Site is under maintenance"
 	}
-	errorCode := "TENANT_MAINTENANCE"
+	errorCode := "SITE_MAINTENANCE"
 	if row.ScopeType == "SITE" || row.SiteID > 0 {
 		errorCode = "SITE_MAINTENANCE"
 	}
@@ -334,7 +273,7 @@ func h5EffectiveMaintenance(c *gin.Context, db *gorm.DB, scope tenancy.Scope) ma
 	}
 }
 
-func h5IPAllowed(ip, csv string) bool {
+func h5IPAllowed(ip string, csv string) bool {
 	parsedIP := net.ParseIP(strings.TrimSpace(ip))
 	if parsedIP == nil {
 		return false
@@ -354,12 +293,12 @@ func h5IPAllowed(ip, csv string) bool {
 	return false
 }
 
-func h5ProviderMaintenanceHidden(db *gorm.DB, scope tenancy.Scope, providerCode, country, currency string) bool {
+func h5ProviderMaintenanceHidden(db *gorm.DB, scope content.Scope, providerCode string, country string, currency string) bool {
 	var count int64
 	nowValue := time.Now()
 	_ = db.Table("game_provider_maintenance").Where(
 		"provider_code=? AND enabled=1 AND hide_from_lobby=1 AND deleted_at IS NULL", strings.ToUpper(providerCode),
-	).Where("(tenant_id=0 AND site_id=0) OR (tenant_id=? AND (site_id=0 OR site_id=?))", scope.TenantID, scope.SiteID).
+	).Where("(site_id = 0) OR ((site_id = 0 OR site_id = ?))", scope.SiteID).
 		Where("start_at IS NULL OR start_at<=?", nowValue).Where("end_at IS NULL OR end_at>?", nowValue).
 		Where("affected_countries='' OR FIND_IN_SET('ALL',affected_countries)>0 OR FIND_IN_SET(?,affected_countries)>0", strings.ToUpper(country)).
 		Where("affected_currencies='' OR FIND_IN_SET('ALL',affected_currencies)>0 OR FIND_IN_SET(?,affected_currencies)>0", strings.ToUpper(currency)).
@@ -367,21 +306,14 @@ func h5ProviderMaintenanceHidden(db *gorm.DB, scope tenancy.Scope, providerCode,
 	return count > 0
 }
 
-func h5ApplyGameMaintenance(db *gorm.DB, scope tenancy.Scope, country, currency string) *gorm.DB {
+func h5ApplyGameMaintenance(db *gorm.DB, scope content.Scope, country string, currency string) *gorm.DB {
 	nowValue := time.Now()
-	providerSubquery := `NOT EXISTS (SELECT 1 FROM game_provider_maintenance pm
-		WHERE pm.provider_code=gp.provider_code AND pm.enabled=1 AND pm.hide_from_lobby=1 AND pm.deleted_at IS NULL
-		AND ((pm.tenant_id=0 AND pm.site_id=0) OR (pm.tenant_id=? AND (pm.site_id=0 OR pm.site_id=?)))
-		AND (pm.start_at IS NULL OR pm.start_at<=?) AND (pm.end_at IS NULL OR pm.end_at>?)
-		AND (pm.affected_countries='' OR FIND_IN_SET('ALL',pm.affected_countries)>0 OR FIND_IN_SET(?,pm.affected_countries)>0)
-		AND (pm.affected_currencies='' OR FIND_IN_SET('ALL',pm.affected_currencies)>0 OR FIND_IN_SET(?,pm.affected_currencies)>0))`
-	gameSubquery := `NOT EXISTS (SELECT 1 FROM game_game_maintenance gm
-		WHERE gm.game_id=game_games.id AND gm.tenant_id=? AND gm.site_id=? AND gm.enabled=1 AND gm.hide_from_lobby=1 AND gm.deleted_at IS NULL
-		AND (gm.start_at IS NULL OR gm.start_at<=?) AND (gm.end_at IS NULL OR gm.end_at>?)
-		AND (gm.affected_countries='' OR FIND_IN_SET('ALL',gm.affected_countries)>0 OR FIND_IN_SET(?,gm.affected_countries)>0)
-		AND (gm.affected_currencies='' OR FIND_IN_SET('ALL',gm.affected_currencies)>0 OR FIND_IN_SET(?,gm.affected_currencies)>0))`
-	return db.Where(providerSubquery, scope.TenantID, scope.SiteID, nowValue, nowValue, strings.ToUpper(country), strings.ToUpper(currency)).
-		Where(gameSubquery, scope.TenantID, scope.SiteID, nowValue, nowValue, strings.ToUpper(country), strings.ToUpper(currency))
+	providerSubquery := `NOT EXISTS(SELECT 1 FROM game_provider_maintenance AS pm WHERE pm.provider_code = gp.provider_code AND pm.enabled = 1 AND pm.hide_from_lobby = 1 AND pm.deleted_at IS NULL AND ((pm.site_id = 0) OR ((pm.site_id = 0 OR pm.site_id = ?))) AND (pm.start_at IS NULL OR pm.start_at <= ?) AND (pm.end_at IS NULL OR pm.end_at > ?) AND (pm.affected_countries = '' OR FIND_IN_SET('ALL', pm.affected_countries) > 0 OR FIND_IN_SET(?, pm.affected_countries) > 0) AND (pm.affected_currencies = '' OR FIND_IN_SET('ALL', pm.affected_currencies) > 0 OR FIND_IN_SET(?, pm.affected_currencies) > 0))`
+
+	gameSubquery := `NOT EXISTS(SELECT 1 FROM game_game_maintenance AS gm WHERE gm.game_id = game_games.id AND gm.site_id = ? AND gm.enabled = 1 AND gm.hide_from_lobby = 1 AND gm.deleted_at IS NULL AND (gm.start_at IS NULL OR gm.start_at <= ?) AND (gm.end_at IS NULL OR gm.end_at > ?) AND (gm.affected_countries = '' OR FIND_IN_SET('ALL', gm.affected_countries) > 0 OR FIND_IN_SET(?, gm.affected_countries) > 0) AND (gm.affected_currencies = '' OR FIND_IN_SET('ALL', gm.affected_currencies) > 0 OR FIND_IN_SET(?, gm.affected_currencies) > 0))`
+
+	return db.Where(providerSubquery, scope.SiteID, scope.SiteID, nowValue, nowValue, strings.ToUpper(country), strings.ToUpper(currency)).
+		Where(gameSubquery, scope.SiteID, scope.SiteID, nowValue, nowValue, strings.ToUpper(country), strings.ToUpper(currency))
 }
 
 func h5RequestHost(c *gin.Context) string {
@@ -458,19 +390,19 @@ func h5FindSettings(db *gorm.DB, userID uint64) model.GameUserSettings {
 		_ = db.Where("user_id = ?", userID).First(&settings).Error
 	}
 	if settings.UserID == 0 {
-		scope := h5UserTenancyScope(db, userID, tenancy.Scope{})
-		settings.TenantID = scope.TenantID
+		scope := h5UserContentScope(db, userID, content.Scope{})
+		settings.SiteID = scope.SiteID
 		settings.SiteID = scope.SiteID
 		settings.UserID = userID
 		settings.Language = h5ScopeDefaults(db, scope).Language
 		settings.MusicEnabled = 1
 		settings.PushEnabled = 1
-	} else if settings.TenantID == 0 {
-		scope := h5UserTenancyScope(db, userID, tenancy.Scope{})
-		settings.TenantID = scope.TenantID
+	} else if settings.SiteID == 0 {
+		scope := h5UserContentScope(db, userID, content.Scope{})
 		settings.SiteID = scope.SiteID
-		if scope.TenantID > 0 {
-			_ = db.Model(&settings).Updates(map[string]any{"tenant_id": scope.TenantID, "site_id": scope.SiteID}).Error
+		settings.SiteID = scope.SiteID
+		if scope.SiteID > 0 {
+			_ = db.Model(&settings).Updates(map[string]any{"site_id": scope.SiteID}).Error
 		}
 	}
 	return settings
@@ -479,7 +411,7 @@ func h5FindSettings(db *gorm.DB, userID uint64) model.GameUserSettings {
 func h5FindWithdrawAccounts(db *gorm.DB, userID uint64) []model.GameWithdrawAccounts {
 	var accounts []model.GameWithdrawAccounts
 	if userID > 0 {
-		_ = tenancy.ApplySite(db.Model(&model.GameWithdrawAccounts{}), "", h5UserTenancyScope(db, userID, tenancy.Scope{})).
+		_ = content.ApplySite(db.Model(&model.GameWithdrawAccounts{}), "", h5UserContentScope(db, userID, content.Scope{})).
 			Where("user_id = ? AND status <> ?", userID, 2).
 			Order("is_default DESC, id DESC").
 			Find(&accounts).Error
@@ -643,7 +575,7 @@ func h5Title(value string) string {
 
 func h5ConfigJSON(c *gin.Context, db *gorm.DB, key string, fallback interface{}) interface{} {
 	var configs []model.GameSystemConfigs
-	if err := h5FindWithPlatformFallback(db.Model(&model.GameSystemConfigs{}), "", h5TenancyScope(c), &configs, func(query *gorm.DB) *gorm.DB {
+	if err := h5FindWithPlatformFallback(db.Model(&model.GameSystemConfigs{}), "", h5ContentScope(c), &configs, func(query *gorm.DB) *gorm.DB {
 		return query.Where("config_key = ? AND status = ?", key, 1).Order("site_id DESC, id DESC").Limit(1)
 	}); err != nil || len(configs) == 0 {
 		return fallback
@@ -715,8 +647,8 @@ func h5LooksLikeAssetReference(value string) bool {
 
 func h5SocialLinks(c *gin.Context, db *gorm.DB) []gin.H {
 	var rows []model.GameSocialLinks
-	scope := h5TenancyScope(c)
-	if err := tenancy.ApplySite(db.Model(&model.GameSocialLinks{}), "", scope).Where("status=1 AND deleted_at IS NULL").Order("sort ASC,id ASC").Find(&rows).Error; err != nil {
+	scope := h5ContentScope(c)
+	if err := content.ApplySite(db.Model(&model.GameSocialLinks{}), "", scope).Where("status=1 AND deleted_at IS NULL").Order("sort ASC,id ASC").Find(&rows).Error; err != nil {
 		return []gin.H{}
 	}
 

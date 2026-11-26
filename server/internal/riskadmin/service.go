@@ -60,19 +60,19 @@ func paginate(db *gorm.DB, q ListQuery, out any) (PageResult, error) {
 	return PageResult{List: out, Total: total, Page: p, PageSize: size}, nil
 }
 
-func contains(db *gorm.DB, column, value string) *gorm.DB {
+func contains(db *gorm.DB, column string, value string) *gorm.DB {
 	if value = strings.TrimSpace(value); value != "" {
 		return db.Where(column+" LIKE ?", "%"+value+"%")
 	}
 	return db
 }
-func equal(db *gorm.DB, column, value string) *gorm.DB {
+func equal(db *gorm.DB, column string, value string) *gorm.DB {
 	if value = strings.TrimSpace(value); value != "" {
 		return db.Where(column+" = ?", value)
 	}
 	return db
 }
-func timeRange(db *gorm.DB, column, from, to string) *gorm.DB {
+func timeRange(db *gorm.DB, column string, from string, to string) *gorm.DB {
 	if from != "" {
 		db = db.Where(column+" >= ?", from)
 	}
@@ -83,7 +83,7 @@ func timeRange(db *gorm.DB, column, from, to string) *gorm.DB {
 }
 func generatedNo(prefix string) string { return fmt.Sprintf("%s-%d", prefix, time.Now().UnixNano()) }
 
-func audit(tx *gorm.DB, actor Actor, permission, action, target string, id, userID uint64, before, after any, reason string) error {
+func audit(tx *gorm.DB, actor Actor, permission string, action string, target string, id uint64, userID uint64, before any, after any, reason string) error {
 	b, _ := json.Marshal(before)
 	a, _ := json.Marshal(after)
 	return tx.Create(&model.GameAdminOperationLogs{OperatorID: actor.ID, OperatorUsername: actor.Username, Permission: permission, Action: action, TargetType: target, TargetID: id, TargetUserID: userID, BeforeState: string(b), AfterState: string(a), Reason: reason, IPAddress: actor.IP, UserAgent: actor.UserAgent, CorrelationID: actor.CorrelationID}).Error
@@ -116,7 +116,7 @@ type countPoint struct {
 	Value int64  `json:"value" gorm:"column:value"`
 }
 
-func (s *Service) Dashboard(from, to string) (map[string]any, error) {
+func (s *Service) Dashboard(from string, to string) (map[string]any, error) {
 	events := s.db.Table("game_user_risk_events").Where("deleted_at IS NULL")
 	if from != "" {
 		events = events.Where("created_at >= ?", from)

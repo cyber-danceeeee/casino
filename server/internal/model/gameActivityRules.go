@@ -27,5 +27,3 @@ var GameActivityRulesColumnNames = map[string]bool{
 	"sort":         true,
 	"status":       true,
 }
-
-

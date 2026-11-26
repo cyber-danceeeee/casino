@@ -21,21 +21,21 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"casino/internal/content"
 	"casino/internal/storage"
-	"casino/internal/tenancy"
 )
 
 const (
 	AssetScopePlatform = "PLATFORM"
-	AssetScopeTenant   = "TENANT"
+	AssetScopeSite     = "SITE"
 
 	AssetStatusActive  = "ACTIVE"
 	AssetStatusDeleted = "DELETED"
 )
 
 type assetLibraryRecord struct {
-	ID             uint64     `gorm:"primaryKey" json:"id"`
-	TenantID       uint64     `gorm:"column:tenant_id" json:"tenantID"`
+	ID uint64 `gorm:"primaryKey" json:"id"`
+
 	SiteID         uint64     `gorm:"column:site_id" json:"siteID"`
 	AssetScope     string     `gorm:"column:asset_scope" json:"assetScope"`
 	AssetType      string     `gorm:"column:asset_type" json:"assetType"`
@@ -86,10 +86,10 @@ type AssetUpdateInput struct {
 }
 
 type AssetRef struct {
-	Table      string `json:"table"`
-	Column     string `json:"column"`
-	RecordID   uint64 `json:"recordID"`
-	TenantID   uint64 `json:"tenantID"`
+	Table    string `json:"table"`
+	Column   string `json:"column"`
+	RecordID uint64 `json:"recordID"`
+
 	SiteID     uint64 `json:"siteID"`
 	TargetType string `json:"targetType"`
 }
@@ -113,7 +113,7 @@ func (s *Service) ListAssets(q ListQuery) (PageResult, error) {
 	return result, nil
 }
 
-func (s *Service) GetAsset(id uint64, scope tenancy.Scope) (map[string]any, error) {
+func (s *Service) GetAsset(id uint64, scope content.Scope) (map[string]any, error) {
 	var row assetLibraryRecord
 	if err := s.assetVisibleQuery(s.db.Model(&assetLibraryRecord{}), scope).
 		Where("id=? AND deleted_at IS NULL", id).
@@ -158,7 +158,7 @@ func (s *Service) UploadAsset(ctx context.Context, file *multipart.FileHeader, i
 		return assetLibraryRecord{}, err
 	}
 	row := assetLibraryRecord{
-		TenantID:       normalized.TenantID,
+
 		SiteID:         normalized.SiteID,
 		AssetScope:     normalized.AssetScope,
 		AssetType:      normalized.AssetType,
@@ -253,7 +253,7 @@ func (s *Service) DeleteAsset(id uint64, reason string, actor Actor) error {
 	})
 }
 
-func (s *Service) GetAssetReferences(id uint64, scope tenancy.Scope) ([]AssetRef, error) {
+func (s *Service) GetAssetReferences(id uint64, scope content.Scope) ([]AssetRef, error) {
 	var row assetLibraryRecord
 	if err := s.assetVisibleQuery(s.db.Model(&assetLibraryRecord{}), scope).Where("id=? AND deleted_at IS NULL", id).First(&row).Error; err != nil {
 		return nil, notFound(err, "ASSET_NOT_FOUND")
@@ -294,16 +294,16 @@ func (s *Service) assetReferences(db *gorm.DB, row assetLibraryRecord) []AssetRe
 	refs := make([]AssetRef, 0)
 	for _, source := range sources {
 		var rows []struct {
-			ID       uint64 `gorm:"column:id"`
-			TenantID uint64 `gorm:"column:tenant_id"`
-			SiteID   uint64 `gorm:"column:site_id"`
+			ID uint64 `gorm:"column:id"`
+
+			SiteID uint64 `gorm:"column:site_id"`
 		}
 		query := db.Table(source.table).
-			Select("id, COALESCE(tenant_id,0) AS tenant_id, COALESCE(site_id,0) AS site_id").
+			Select("id, COALESCE(site_id, 0) AS site_id").
 			Where(source.column+" IN ?", values).
 			Where("deleted_at IS NULL")
-		if row.AssetScope == AssetScopeTenant {
-			query = query.Where("tenant_id=?", row.TenantID)
+		if row.AssetScope == AssetScopeSite {
+			query = query
 			if row.SiteID > 0 {
 				query = query.Where("site_id IN (0, ?)", row.SiteID)
 			}
@@ -313,10 +313,10 @@ func (s *Service) assetReferences(db *gorm.DB, row assetLibraryRecord) []AssetRe
 		}
 		for _, matched := range rows {
 			refs = append(refs, AssetRef{
-				Table:      source.table,
-				Column:     source.column,
-				RecordID:   matched.ID,
-				TenantID:   matched.TenantID,
+				Table:    source.table,
+				Column:   source.column,
+				RecordID: matched.ID,
+
 				SiteID:     matched.SiteID,
 				TargetType: source.targetType,
 			})
@@ -324,13 +324,13 @@ func (s *Service) assetReferences(db *gorm.DB, row assetLibraryRecord) []AssetRe
 	}
 	for _, column := range []string{"desktop_asset_id", "mobile_asset_id", "desktop_asset_id_draft", "mobile_asset_id_draft"} {
 		var rows []struct {
-			ID       uint64 `gorm:"column:id"`
-			TenantID uint64 `gorm:"column:tenant_id"`
-			SiteID   uint64 `gorm:"column:site_id"`
+			ID uint64 `gorm:"column:id"`
+
+			SiteID uint64 `gorm:"column:site_id"`
 		}
-		query := db.Table("game_site_banners").Select("id,tenant_id,site_id").Where(column+"=? AND deleted_at IS NULL", row.ID)
-		if row.AssetScope == AssetScopeTenant {
-			query = query.Where("tenant_id=?", row.TenantID)
+		query := db.Table("game_site_banners").Select("id, site_id").Where(column+"=? AND deleted_at IS NULL", row.ID)
+		if row.AssetScope == AssetScopeSite {
+			query = query
 			if row.SiteID > 0 {
 				query = query.Where("site_id IN (0, ?)", row.SiteID)
 			}
@@ -340,18 +340,18 @@ func (s *Service) assetReferences(db *gorm.DB, row assetLibraryRecord) []AssetRe
 		}
 		for _, matched := range rows {
 			refs = append(refs, AssetRef{Table: "game_site_banners", Column: column, RecordID: matched.ID,
-				TenantID: matched.TenantID, SiteID: matched.SiteID, TargetType: "banner"})
+				SiteID: matched.SiteID, TargetType: "banner"})
 		}
 	}
 	for _, column := range []string{"icon_asset_id", "lottie_asset_id", "sound_asset_id", "icon_asset_id_draft", "lottie_asset_id_draft", "sound_asset_id_draft"} {
 		var rows []struct {
-			ID       uint64 `gorm:"column:id"`
-			TenantID uint64 `gorm:"column:tenant_id"`
-			SiteID   uint64 `gorm:"column:site_id"`
+			ID uint64 `gorm:"column:id"`
+
+			SiteID uint64 `gorm:"column:site_id"`
 		}
-		query := db.Table("game_h5_navigation_items").Select("id,tenant_id,site_id").Where(column+"=? AND deleted_at IS NULL", row.ID)
-		if row.AssetScope == AssetScopeTenant {
-			query = query.Where("tenant_id=?", row.TenantID)
+		query := db.Table("game_h5_navigation_items").Select("id, site_id").Where(column+"=? AND deleted_at IS NULL", row.ID)
+		if row.AssetScope == AssetScopeSite {
+			query = query
 			if row.SiteID > 0 {
 				query = query.Where("site_id IN (0, ?)", row.SiteID)
 			}
@@ -361,7 +361,7 @@ func (s *Service) assetReferences(db *gorm.DB, row assetLibraryRecord) []AssetRe
 		}
 		for _, matched := range rows {
 			refs = append(refs, AssetRef{Table: "game_h5_navigation_items", Column: column, RecordID: matched.ID,
-				TenantID: matched.TenantID, SiteID: matched.SiteID, TargetType: "h5_navigation"})
+				SiteID: matched.SiteID, TargetType: "h5_navigation"})
 		}
 	}
 	return refs
@@ -386,11 +386,11 @@ func assetReferenceValues(row assetLibraryRecord) []string {
 	return values
 }
 
-func (s *Service) assetVisibleQuery(db *gorm.DB, scope tenancy.Scope) *gorm.DB {
-	if !scope.TenantScoped() {
+func (s *Service) assetVisibleQuery(db *gorm.DB, scope content.Scope) *gorm.DB {
+	if !scope.SiteScoped() {
 		return db
 	}
-	query := db.Where("(asset_scope=? AND is_public=1) OR tenant_id=?", AssetScopePlatform, scope.TenantID)
+	query := db
 	if scope.SiteID > 0 {
 		query = query.Where("site_id IN (0, ?)", scope.SiteID)
 	}
@@ -407,7 +407,6 @@ func (s *Service) signAsset(row *assetLibraryRecord) {
 }
 
 type normalizedAssetUpload struct {
-	TenantID    uint64
 	SiteID      uint64
 	AssetScope  string
 	AssetType   string
@@ -430,34 +429,34 @@ func normalizeAssetUploadInput(input AssetUploadInput, file *multipart.FileHeade
 	}
 	scope := strings.ToUpper(strings.TrimSpace(input.AssetScope))
 	if scope == "" {
-		scope = AssetScopeTenant
+		scope = AssetScopeSite
 		if actor.Scope.Platform {
 			scope = AssetScopePlatform
 		}
 	}
-	if scope != AssetScopePlatform && scope != AssetScopeTenant {
+	if scope != AssetScopePlatform && scope != AssetScopeSite {
 		return normalizedAssetUpload{}, newError("INVALID_ASSET_SCOPE", "invalid asset scope")
 	}
 	if !actor.Scope.Platform {
-		scope = AssetScopeTenant
+		scope = AssetScopeSite
 	}
-	tenantID, siteID := actor.Scope.TenantID, actor.Scope.SiteID
+	siteID := actor.Scope.SiteID
 	if scope == AssetScopePlatform {
-		tenantID, siteID = 0, 0
+		siteID = 0
 	}
 	displayName := strings.TrimSpace(input.DisplayName)
 	if displayName == "" {
 		displayName = strings.TrimSuffix(path.Base(file.Filename), ext)
 	}
 	return normalizedAssetUpload{
-		TenantID: tenantID, SiteID: siteID, AssetScope: scope, AssetType: assetType,
+		SiteID: siteID, AssetScope: scope, AssetType: assetType,
 		UsageType: normalizeAssetUsage(input.UsageType), DisplayName: displayName,
 		AltText: strings.TrimSpace(input.AltText), Tags: strings.TrimSpace(input.Tags),
 		FileExt: ext, MimeType: storageContentType(file, ext),
 	}, nil
 }
 
-func normalizeAssetType(value, ext string) string {
+func normalizeAssetType(value string, ext string) string {
 	value = strings.ToUpper(strings.TrimSpace(value))
 	if value == "IMAGE" || value == "AUDIO" || value == "VIDEO" || value == "LOTTIE" {
 		return value
@@ -488,7 +487,7 @@ func normalizeAssetUsage(value string) string {
 	return value
 }
 
-func assetExtensionAllowed(assetType, ext string) bool {
+func assetExtensionAllowed(assetType string, ext string) bool {
 	allowed := map[string]map[string]bool{
 		"IMAGE":  {".jpg": true, ".jpeg": true, ".png": true, ".webp": true, ".avif": true, ".gif": true, ".svg": true, ".ico": true},
 		"AUDIO":  {".mp3": true, ".wav": true, ".ogg": true, ".m4a": true, ".aac": true},
@@ -578,16 +577,16 @@ func storageContentType(file *multipart.FileHeader, ext string) string {
 	return ""
 }
 
-func marshalAssetMetadata(width, height int, durationMs int64) string {
+func marshalAssetMetadata(width int, height int, durationMs int64) string {
 	data, _ := json.Marshal(map[string]any{"width": width, "height": height, "durationMs": durationMs})
 	return string(data)
 }
 
-func scopePath(scope tenancy.Scope, assetScope string) string {
+func scopePath(scope content.Scope, assetScope string) string {
 	if assetScope == AssetScopePlatform {
 		return "platform"
 	}
-	return path.Join("tenant-"+uintString(scope.TenantID), "site-"+uintString(scope.SiteID))
+	return "site-" + uintString(scope.SiteID)
 }
 
 func uintString(value uint64) string {

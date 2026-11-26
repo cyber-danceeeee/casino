@@ -25,5 +25,3 @@ var GameSupportCategoriesColumnNames = map[string]bool{
 	"sort":          true,
 	"status":        true,
 }
-
-

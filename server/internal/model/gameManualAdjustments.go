@@ -8,8 +8,8 @@ import (
 )
 
 type GameManualAdjustments struct {
-	sgorm.Model         `gorm:"embedded"`
-	TenantID            uint64           `gorm:"column:tenant_id" json:"tenantID"`
+	sgorm.Model `gorm:"embedded"`
+
 	SiteID              uint64           `gorm:"column:site_id" json:"siteID"`
 	AdjustmentNo        string           `gorm:"column:adjustment_no" json:"adjustmentNo"`
 	IdempotencyKey      string           `gorm:"column:idempotency_key" json:"idempotencyKey"`
@@ -40,8 +40,8 @@ type GameManualAdjustments struct {
 func (GameManualAdjustments) TableName() string { return "game_manual_adjustments" }
 
 type GameManualAdjustmentApprovals struct {
-	sgorm.Model      `gorm:"embedded"`
-	TenantID         uint64 `gorm:"column:tenant_id" json:"tenantID"`
+	sgorm.Model `gorm:"embedded"`
+
 	SiteID           uint64 `gorm:"column:site_id" json:"siteID"`
 	AdjustmentID     uint64 `gorm:"column:adjustment_id" json:"adjustmentID"`
 	OperatorID       uint64 `gorm:"column:operator_id" json:"operatorID"`

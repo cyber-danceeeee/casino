@@ -10,14 +10,13 @@ var _ time.Time
 
 // Tip: suggested filling in the binding rules https://github.com/go-playground/validator in request struct fields tag.
 
-
 // CreateGameActivityRulesRequest request params
 type CreateGameActivityRulesRequest struct {
 	ActivityID  uint64 `json:"activityID" binding:""`
-	Title  string `json:"title" binding:""`
-	ContentHTML  string `json:"contentHTML" binding:""`
-	Sort  int `json:"sort" binding:""`
-	Status  int `json:"status" binding:""` // 1 enabled, 2 disabled
+	Title       string `json:"title" binding:""`
+	ContentHTML string `json:"contentHTML" binding:""`
+	Sort        int    `json:"sort" binding:""`
+	Status      int    `json:"status" binding:""` // 1 enabled, 2 disabled
 }
 
 // UpdateGameActivityRulesByIDRequest request params
@@ -25,25 +24,24 @@ type UpdateGameActivityRulesByIDRequest struct {
 	ID uint64 `json:"id" binding:""` // uint64 id
 
 	ActivityID  uint64 `json:"activityID" binding:""`
-	Title  string `json:"title" binding:""`
-	ContentHTML  string `json:"contentHTML" binding:""`
-	Sort  int `json:"sort" binding:""`
-	Status  int `json:"status" binding:""` // 1 enabled, 2 disabled
+	Title       string `json:"title" binding:""`
+	ContentHTML string `json:"contentHTML" binding:""`
+	Sort        int    `json:"sort" binding:""`
+	Status      int    `json:"status" binding:""` // 1 enabled, 2 disabled
 }
 
 // GameActivityRulesObjDetail detail
 type GameActivityRulesObjDetail struct {
 	ID uint64 `json:"id"` // convert to uint64 id
 
-	ActivityID  uint64 `json:"activityID"`
-	Title  string `json:"title"`
-	ContentHTML  string `json:"contentHTML"`
-	Sort  int `json:"sort"`
-	Status  int `json:"status"` // 1 enabled, 2 disabled
-	CreatedAt  *time.Time `json:"createdAt"`
-	UpdatedAt  *time.Time `json:"updatedAt"`
+	ActivityID  uint64     `json:"activityID"`
+	Title       string     `json:"title"`
+	ContentHTML string     `json:"contentHTML"`
+	Sort        int        `json:"sort"`
+	Status      int        `json:"status"` // 1 enabled, 2 disabled
+	CreatedAt   *time.Time `json:"createdAt"`
+	UpdatedAt   *time.Time `json:"updatedAt"`
 }
-
 
 // CreateGameActivityRulesReply only for api docs
 type CreateGameActivityRulesReply struct {

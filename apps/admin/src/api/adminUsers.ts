@@ -11,11 +11,10 @@ export type AdminActor = {
   sessionID?: number
   username: string
   displayName?: string
-  tenantID?: number
   siteID?: number
   defaultSiteID?: number
   platform?: boolean
-  adminType: 'PLATFORM' | 'TENANT' | 'SITE'
+  adminType: 'SITE'
   mustChangePassword?: boolean
   roleCodes?: string[]
   permissions: string[]

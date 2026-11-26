@@ -12,21 +12,19 @@ import { businessColumns, businessEntries, humanizeBusinessKey, sanitizeBusiness
 
 const route = useRoute()
 const { t, te } = useI18n()
-const { actor, can, loadPermissions } = useAdminPermissions()
+const { can, loadPermissions } = useAdminPermissions()
 const loading = ref(false)
 const errorMessage = ref('')
 const data = ref<Record<string, unknown>>({})
 const detail = ref<Record<string, unknown>>({})
 const detailVisible = ref(false)
 const options = ref<AdminOptions>({})
-const filters = reactive({ tenantID: '', siteID: '', providerCode: '', channelCode: '', methodCode: '', country: '', currency: '', status: '', from: '', to: '' })
+const filters = reactive({ siteID: '', providerCode: '', channelCode: '', methodCode: '', country: '', currency: '', status: '', from: '', to: '' })
 const diagnostic = reactive({ kind: 'DEPOSIT', orderNo: '', providerCode: '' })
 
 const mode = computed(() => String(route.meta.moduleKey || 'payment-monitor'))
 const paymentMode = computed(() => ['payment-monitor', 'support-payment-diagnostics'].includes(mode.value))
 const diagnosticMode = computed(() => mode.value.startsWith('support-'))
-const isPlatform = computed(() => actor.value?.platform === true)
-const tenantOptions = computed(() => optionList(options.value, 'tenants'))
 const providerOptions = computed(() => optionList(options.value, 'providers'))
 const channelOptions = computed(() => optionList(options.value, 'paymentChannels'))
 const methodOptions = computed(() => optionList(options.value, 'paymentMethods'))
@@ -47,7 +45,7 @@ const metrics = computed(() => {
 })
 
 function params() {
-  return { ...filters, tenantID: isPlatform.value ? filters.tenantID || undefined : undefined, page: 1, pageSize: 100 }
+  return { ...filters, page: 1, pageSize: 100 }
 }
 
 async function load() {
@@ -93,7 +91,7 @@ async function addNote() {
     const note = await ElMessageBox.prompt(t('opsV1.monitor.notePrompt'), t('opsV1.monitor.addNote'), { inputPattern: /\S+/, inputErrorMessage: t('opsV1.common.required') })
     const reason = await askReason(t('opsV1.monitor.addNote'))
     if (!reason) return
-    await operationsAPI.monitor.note({ tenantID: Number(order.tenant_id || 0), siteID: Number(order.site_id || 0), targetType: `PAYMENT_${String(detail.value.orderType || diagnostic.kind)}`, targetID: String(id), note: note.value, reason })
+    await operationsAPI.monitor.note({ siteID: Number(order.site_id || 0), targetType: `PAYMENT_${String(detail.value.orderType || diagnostic.kind)}`, targetID: String(id), note: note.value, reason })
     ElMessage.success(t('opsV1.common.saved'))
   } catch { /* cancelled */ }
 }
@@ -122,7 +120,7 @@ function statusLabel(value: unknown) {
   return te(key) ? t(key) : status
 }
 function columns(value: unknown) { return businessColumns(value, 9) }
-function reset() { Object.assign(filters, { tenantID: '', siteID: '', providerCode: '', channelCode: '', methodCode: '', country: '', currency: '', status: '', from: '', to: '' }); void load() }
+function reset() { Object.assign(filters, { siteID: '', providerCode: '', channelCode: '', methodCode: '', country: '', currency: '', status: '', from: '', to: '' }); void load() }
 
 watch(() => route.meta.moduleKey, () => { data.value = {}; detail.value = {}; void load() })
 onMounted(async () => { await loadPermissions(); options.value = await fetchAdminOptions().catch(() => ({})); await load() })
@@ -132,7 +130,7 @@ onMounted(async () => { await loadPermissions(); options.value = await fetchAdmi
   <main class="monitor-page">
     <header class="page-heading"><div><p>{{ t('opsV1.monitor.eyebrow') }}</p><h1>{{ title }}</h1><span>{{ t('opsV1.monitor.description') }}</span></div><el-button circle :icon="Refresh" :loading="loading" @click="load" /></header>
     <section class="filter-band"><el-form inline @submit.prevent>
-      <el-form-item v-if="isPlatform" :label="t('opsV1.fields.tenant')"><el-select v-model="filters.tenantID" clearable filterable><el-option v-for="item in tenantOptions" :key="item.value" :label="item.label" :value="String(item.value)" /></el-select></el-form-item>
+
       <el-form-item v-if="!paymentMode" :label="t('opsV1.fields.provider')"><el-select v-model="filters.providerCode" clearable filterable><el-option v-for="item in providerOptions" :key="item.value" :label="item.label" :value="String(item.value)" /></el-select></el-form-item>
       <el-form-item v-if="paymentMode" :label="t('opsV1.monitor.channel')"><el-select v-model="filters.channelCode" clearable filterable><el-option v-for="item in channelOptions" :key="item.value" :label="item.label" :value="String(item.value)" /></el-select></el-form-item>
       <el-form-item v-if="paymentMode" :label="t('opsV1.monitor.method')"><el-select v-model="filters.methodCode" clearable filterable><el-option v-for="item in methodOptions" :key="item.value" :label="item.label" :value="String(item.value)" /></el-select></el-form-item>
@@ -162,7 +160,6 @@ onMounted(async () => { await loadPermissions(); options.value = await fetchAdmi
         <el-table-column v-if="paymentMode" prop="failedCount" :label="t('opsV1.monitor.failedCount')" width="110" align="right" />
         <el-table-column v-if="paymentMode" prop="pendingCount" :label="t('opsV1.monitor.pendingCount')" width="110" align="right" />
         <el-table-column v-if="paymentMode" prop="timeoutCount" :label="t('opsV1.monitor.timeoutCount')" width="110" align="right" />
-        <el-table-column v-if="!paymentMode" prop="enabledTenantCount" :label="t('opsV1.monitor.enabledTenants')" width="120" align="right" />
         <el-table-column v-if="!paymentMode" prop="enabledGameCount" :label="t('opsV1.monitor.enabledGames')" width="120" align="right" />
         <el-table-column prop="successRate" :label="paymentMode?t('opsV1.monitor.successRate'):t('opsV1.monitor.launchRate')" width="120" align="right"><template #default="{row}">{{ Number(row.successRate ?? row.launchSuccessRate ?? 0).toFixed(1) }}%</template></el-table-column>
         <el-table-column v-if="!paymentMode" prop="callbackSuccessRate" :label="t('opsV1.monitor.callbackRate')" width="130" align="right"><template #default="{row}">{{ row.callbackSuccessRate===undefined?'-':`${Number(row.callbackSuccessRate).toFixed(1)}%` }}</template></el-table-column>
@@ -181,7 +178,7 @@ onMounted(async () => { await loadPermissions(); options.value = await fetchAdmi
       <template v-if="paymentMode">
         <div v-if="can('monitor:payment:review') || can('operations:note:write')" class="drawer-actions"><el-button v-if="can('monitor:payment:review')" type="warning" @click="markReview">{{ t('opsV1.monitor.markReview') }}</el-button><el-button v-if="can('operations:note:write')" @click="addNote">{{ t('opsV1.monitor.addNote') }}</el-button></div>
         <el-descriptions v-if="detail.order" :column="2" border><el-descriptions-item v-for="[key,value] in businessEntries(object(detail.order))" :key="key" :label="humanizeBusinessKey(key)">{{ display(value) }}</el-descriptions-item></el-descriptions>
-        <el-tabs><el-tab-pane v-for="key in ['walletTransactions','ledgerTransactions','callbacks','events','audit','notes']" :key="key" :label="t(`opsV1.monitor.tabs.${key}`)"><el-table :data="array(detail[key])"><el-table-column v-for="column in columns(detail[key])" :key="column" :prop="column" :label="humanizeBusinessKey(column)" min-width="140" show-overflow-tooltip /></el-table><el-empty v-if="!array(detail[key]).length" :description="t('opsV1.common.empty')" /></el-tab-pane></el-tabs>
+        <el-tabs><el-tab-pane v-for="key in ['walletTransactions','callbacks','events','audit','notes']" :key="key" :label="t(`opsV1.monitor.tabs.${key}`)"><el-table :data="array(detail[key])"><el-table-column v-for="column in columns(detail[key])" :key="column" :prop="column" :label="humanizeBusinessKey(column)" min-width="140" show-overflow-tooltip /></el-table><el-empty v-if="!array(detail[key]).length" :description="t('opsV1.common.empty')" /></el-tab-pane></el-tabs>
       </template>
       <template v-else>
         <el-descriptions v-if="detail.health" :column="2" border><el-descriptions-item v-for="[key,value] in businessEntries(object(detail.health))" :key="key" :label="humanizeBusinessKey(key)">{{ display(value) }}</el-descriptions-item></el-descriptions>

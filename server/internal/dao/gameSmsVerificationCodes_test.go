@@ -96,7 +96,7 @@ func Test_gameSmsVerificationCodesDao_UpdateByID(t *testing.T) {
 	// zero id error
 	err = d.IDao.(GameSmsVerificationCodesDao).UpdateByID(d.Ctx, &model.GameSmsVerificationCodes{})
 	assert.Error(t, err)
-	
+
 }
 
 func Test_gameSmsVerificationCodesDao_GetByID(t *testing.T) {

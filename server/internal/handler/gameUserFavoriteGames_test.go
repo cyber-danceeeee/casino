@@ -103,7 +103,7 @@ func Test_gameUserFavoriteGamesHandler_Create(t *testing.T) {
 	}
 
 	t.Logf("%+v", result)
-	
+
 }
 
 func Test_gameUserFavoriteGamesHandler_DeleteByID(t *testing.T) {

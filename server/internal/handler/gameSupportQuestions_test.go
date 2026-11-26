@@ -103,7 +103,7 @@ func Test_gameSupportQuestionsHandler_Create(t *testing.T) {
 	}
 
 	t.Logf("%+v", result)
-	
+
 }
 
 func Test_gameSupportQuestionsHandler_DeleteByID(t *testing.T) {

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"casino/internal/tenancy"
+	"casino/internal/content"
 
 	"github.com/shopspring/decimal"
 	"gorm.io/driver/sqlite"
@@ -67,7 +67,7 @@ func TestListContains(t *testing.T) {
 
 func TestPaymentChannelsAreFilteredByCountryAndCurrency(t *testing.T) {
 	service, methodID := newRegionService(t)
-	scope := tenancy.Scope{TenantID: 101, SiteID: 202}
+	scope := content.Scope{SiteID: 202}
 
 	pkConfig, err := service.GetConfig(ConfigQuery{Scope: scope, Country: "pk", Currency: "pkr"})
 	if err != nil {
@@ -127,26 +127,13 @@ func newRegionService(t *testing.T) (*Service, uint64) {
 		t.Fatalf("open sqlite: %v", err)
 	}
 	statements := []string{
-		`CREATE TABLE game_payment_methods (
-			id INTEGER PRIMARY KEY AUTOINCREMENT, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME,
-			tenant_id INTEGER NOT NULL, site_id INTEGER NOT NULL, method_code TEXT NOT NULL, name TEXT NOT NULL,
-			method_type TEXT NOT NULL, icon_url TEXT NOT NULL, min_amount NUMERIC NOT NULL, max_amount NUMERIC NOT NULL,
-			sort INTEGER NOT NULL, status INTEGER NOT NULL
-		)`,
-		`CREATE TABLE game_payment_channels (
-			id INTEGER PRIMARY KEY AUTOINCREMENT, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME,
-			tenant_id INTEGER NOT NULL, site_id INTEGER NOT NULL, method_id INTEGER NOT NULL, channel_code TEXT NOT NULL,
-			name TEXT NOT NULL, country_code TEXT NOT NULL, currency_code TEXT NOT NULL, fee_rate NUMERIC NOT NULL,
-			min_amount NUMERIC NOT NULL, max_amount NUMERIC NOT NULL, sort INTEGER NOT NULL, status INTEGER NOT NULL
-		)`,
-		`CREATE TABLE game_deposit_amount_options (
-			id INTEGER PRIMARY KEY AUTOINCREMENT, deleted_at DATETIME, tenant_id INTEGER NOT NULL,
-			site_id INTEGER NOT NULL, amount NUMERIC NOT NULL, sort INTEGER NOT NULL, status INTEGER NOT NULL
-		)`,
-		`CREATE TABLE game_deposit_vouchers (
-			id INTEGER PRIMARY KEY AUTOINCREMENT, deleted_at DATETIME, tenant_id INTEGER NOT NULL, site_id INTEGER NOT NULL,
-			start_at DATETIME, end_at DATETIME, sort INTEGER NOT NULL, status INTEGER NOT NULL
-		)`,
+		`CREATE TABLE game_payment_methods (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME, site_id INTEGER NOT NULL, method_code TEXT NOT NULL, name TEXT NOT NULL, method_type TEXT NOT NULL, icon_url TEXT NOT NULL, min_amount REAL NOT NULL, max_amount REAL NOT NULL, sort INTEGER NOT NULL, status INTEGER NOT NULL)`,
+
+		`CREATE TABLE game_payment_channels (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME, site_id INTEGER NOT NULL, method_id INTEGER NOT NULL, channel_code TEXT NOT NULL, name TEXT NOT NULL, country_code TEXT NOT NULL, currency_code TEXT NOT NULL, fee_rate REAL NOT NULL, min_amount REAL NOT NULL, max_amount REAL NOT NULL, sort INTEGER NOT NULL, status INTEGER NOT NULL)`,
+
+		`CREATE TABLE game_deposit_amount_options (id INTEGER PRIMARY KEY AUTOINCREMENT, deleted_at DATETIME, site_id INTEGER NOT NULL, amount REAL NOT NULL, sort INTEGER NOT NULL, status INTEGER NOT NULL)`,
+
+		`CREATE TABLE game_deposit_vouchers (id INTEGER PRIMARY KEY AUTOINCREMENT, deleted_at DATETIME, site_id INTEGER NOT NULL, start_at DATETIME, end_at DATETIME, sort INTEGER NOT NULL, status INTEGER NOT NULL)`,
 	}
 	for _, statement := range statements {
 		if err := db.Exec(statement).Error; err != nil {
@@ -157,7 +144,7 @@ func newRegionService(t *testing.T) (*Service, uint64) {
 	zero := decimal.Zero
 	max := decimal.NewFromInt(50000)
 	method := map[string]any{
-		"tenant_id": 0, "site_id": 0, "method_code": "wallet", "name": "Wallet", "method_type": "deposit",
+		"site_id": 0, "method_code": "wallet", "name": "Wallet", "method_type": "deposit",
 		"icon_url": "", "min_amount": zero, "max_amount": max, "sort": 0, "status": 1,
 	}
 	if err := db.Table("game_payment_methods").Create(method).Error; err != nil {
@@ -170,12 +157,12 @@ func newRegionService(t *testing.T) (*Service, uint64) {
 	fee := decimal.Zero
 	channels := []map[string]any{
 		{
-			"tenant_id": 0, "site_id": 0, "method_id": methodID, "channel_code": "easypaisa-pk", "name": "EasyPaisa",
+			"site_id": 0, "method_id": methodID, "channel_code": "easypaisa-pk", "name": "EasyPaisa",
 			"country_code": "PK", "currency_code": "PKR", "fee_rate": fee, "min_amount": zero, "max_amount": max,
 			"sort": 0, "status": 1,
 		},
 		{
-			"tenant_id": 0, "site_id": 0, "method_id": methodID, "channel_code": "spei-mx", "name": "SPEI",
+			"site_id": 0, "method_id": methodID, "channel_code": "spei-mx", "name": "SPEI",
 			"country_code": "MX", "currency_code": "MXN", "fee_rate": fee, "min_amount": zero, "max_amount": max,
 			"sort": 0, "status": 1,
 		},

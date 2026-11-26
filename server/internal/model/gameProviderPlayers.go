@@ -6,7 +6,6 @@ import "github.com/go-dev-frame/sponge/pkg/sgorm"
 type GameProviderPlayers struct {
 	sgorm.Model `gorm:"embedded"`
 
-	TenantID               uint64 `gorm:"column:tenant_id" json:"tenantID"`
 	SiteID                 uint64 `gorm:"column:site_id" json:"siteID"`
 	ProviderCode           string `gorm:"column:provider_code;type:varchar(64);not null" json:"providerCode"`
 	UserID                 uint64 `gorm:"column:user_id;type:bigint(20) unsigned;not null" json:"userID"`
@@ -22,11 +21,11 @@ func (GameProviderPlayers) TableName() string {
 
 // GameProviderPlayersColumnNames Whitelist for custom query fields to prevent sql injection attacks.
 var GameProviderPlayersColumnNames = map[string]bool{
-	"id":                       true,
-	"created_at":               true,
-	"updated_at":               true,
-	"deleted_at":               true,
-	"tenant_id":                true,
+	"id":         true,
+	"created_at": true,
+	"updated_at": true,
+	"deleted_at": true,
+
 	"site_id":                  true,
 	"provider_code":            true,
 	"user_id":                  true,

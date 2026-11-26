@@ -103,7 +103,7 @@ func Test_gameGameLaunchLogsHandler_Create(t *testing.T) {
 	}
 
 	t.Logf("%+v", result)
-	
+
 }
 
 func Test_gameGameLaunchLogsHandler_DeleteByID(t *testing.T) {

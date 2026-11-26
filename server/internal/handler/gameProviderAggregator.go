@@ -13,11 +13,11 @@ import (
 	"gorm.io/gorm"
 
 	"casino/internal/adminauth"
+	"casino/internal/content"
 	"casino/internal/database"
 	"casino/internal/game/domain"
 	gameservice "casino/internal/game/service"
 	"casino/internal/model"
-	"casino/internal/tenancy"
 )
 
 type GameProviderAggregatorHandler interface {
@@ -59,15 +59,15 @@ func (h *gameProviderAggregatorHandler) GameList(c *gin.Context) {
 	}
 
 	db := database.GetDB()
-	scope := h5TenancyScope(c)
+	scope := h5ContentScope(c)
 	var provider model.GameGameProviders
-	if err := tenancy.ApplySite(db.Model(&model.GameGameProviders{}), "", scope).Where("provider_code = ?", providerCode).First(&provider).Error; err != nil {
+	if err := content.ApplySite(db.Model(&model.GameGameProviders{}), "", scope).Where("provider_code = ?", providerCode).First(&provider).Error; err != nil {
 		h5Error(c, http.StatusNotFound, "provider not found")
 		return
 	}
 
 	var games []model.GameGames
-	q := tenancy.ApplySite(db.Model(&model.GameGames{}), "", scope).Where("provider_id = ?", provider.ID)
+	q := content.ApplySite(db.Model(&model.GameGames{}), "", scope).Where("provider_id = ?", provider.ID)
 	if strings.EqualFold(strings.TrimSpace(c.Query("enabled")), "true") {
 		q = q.Where("status = ?", 1)
 	}
@@ -117,7 +117,7 @@ func (h *gameProviderAggregatorHandler) HeartbeatSession(c *gin.Context) {
 		return
 	}
 	sessionID := strings.TrimSpace(c.Param("sessionId"))
-	scope := h5UserTenancyScope(db, user.ID, h5TenancyScope(c))
+	scope := h5UserContentScope(db, user.ID, h5ContentScope(c))
 	if err := h.runtime.LaunchService.Heartbeat(c.Request.Context(), scope, sessionID, user.ID); err != nil {
 		h5Error(c, http.StatusBadRequest, err.Error())
 		return
@@ -140,7 +140,7 @@ func (h *gameProviderAggregatorHandler) ExitSession(c *gin.Context) {
 		return
 	}
 	sessionID := strings.TrimSpace(c.Param("sessionId"))
-	scope := h5UserTenancyScope(db, user.ID, h5TenancyScope(c))
+	scope := h5UserContentScope(db, user.ID, h5ContentScope(c))
 	if err := h.runtime.LaunchService.Exit(c.Request.Context(), scope, sessionID, user.ID, req.Reason); err != nil {
 		h5Error(c, http.StatusBadRequest, err.Error())
 		return
@@ -163,7 +163,7 @@ func (h *gameProviderAggregatorHandler) launch(c *gin.Context, demo bool) {
 		h5Error(c, http.StatusUnauthorized, "authentication required")
 		return
 	}
-	scope := h5UserTenancyScope(db, user.ID, h5TenancyScope(c))
+	scope := h5UserContentScope(db, user.ID, h5ContentScope(c))
 	if blocked, code, message := h5MaintenanceBlocked(c, db, scope); blocked {
 		h5MachineError(c, http.StatusServiceUnavailable, code, message)
 		return
@@ -178,7 +178,7 @@ func (h *gameProviderAggregatorHandler) launch(c *gin.Context, demo bool) {
 		sessionID = h5Token("launch")
 	}
 	result, err := h.runtime.LaunchService.Launch(c.Request.Context(), gameservice.LaunchRequest{
-		TenantID:     scope.TenantID,
+
 		SiteID:       scope.SiteID,
 		ProviderCode: providerCodeParam(c),
 		GameID:       gameID,

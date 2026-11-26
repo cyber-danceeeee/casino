@@ -232,7 +232,7 @@ func (h *gameGameLaunchLogsHandler) List(c *gin.Context) {
 
 	response.Success(c, gin.H{
 		"gameGameLaunchLogss": data,
-		"total":        total,
+		"total":               total,
 	})
 }
 

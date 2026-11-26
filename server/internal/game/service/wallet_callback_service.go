@@ -16,10 +16,10 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"casino/internal/content"
 	"casino/internal/game/domain"
 	"casino/internal/game/repository"
 	"casino/internal/model"
-	"casino/internal/tenancy"
 )
 
 type WalletCallbackService struct {
@@ -41,8 +41,8 @@ func (s *WalletCallbackService) Execute(ctx context.Context, command domain.Wall
 	if err != nil {
 		return nil, domain.NewWalletError(domain.WalletErrorPlayerNotFound, "provider player not found", err)
 	}
-	scope := tenancy.Scope{TenantID: player.TenantID, SiteID: player.SiteID}
-	command.TenantID = scope.TenantID
+	scope := content.Scope{SiteID: player.SiteID}
+	command.SiteID = scope.SiteID
 	command.SiteID = scope.SiteID
 	if command.Currency == "" {
 		command.Currency = player.Currency
@@ -77,7 +77,7 @@ func (s *WalletCallbackService) Execute(ctx context.Context, command domain.Wall
 	var result *domain.WalletResult
 	err = s.repo.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var existing model.GameProviderTransactions
-		err := tenancy.ApplySite(tx.Clauses(clause.Locking{Strength: "UPDATE"}).Model(&model.GameProviderTransactions{}), "", scope).
+		err := content.ApplySite(tx.Clauses(clause.Locking{Strength: "UPDATE"}).Model(&model.GameProviderTransactions{}), "", scope).
 			Where("provider_code = ? AND provider_transaction_id = ? AND operation = ?",
 				command.ProviderCode, command.ProviderTransactionID, command.Operation).
 			First(&existing).Error
@@ -109,7 +109,7 @@ func (s *WalletCallbackService) Execute(ctx context.Context, command domain.Wall
 		}
 
 		var wallet model.GameUserWallets
-		if err := tenancy.ApplySite(tx.Clauses(clause.Locking{Strength: "UPDATE"}).Model(&model.GameUserWallets{}), "", scope).Where("user_id = ?", player.UserID).First(&wallet).Error; err != nil {
+		if err := content.ApplySite(tx.Clauses(clause.Locking{Strength: "UPDATE"}).Model(&model.GameUserWallets{}), "", scope).Where("user_id = ?", player.UserID).First(&wallet).Error; err != nil {
 			return domain.NewWalletError(domain.WalletErrorPlayerNotFound, "wallet not found", err)
 		}
 		if ok, err := reconcileWalletCurrency(ctx, tx, scope, &wallet, command.Currency); err != nil {
@@ -156,7 +156,7 @@ func (s *WalletCallbackService) Execute(ctx context.Context, command domain.Wall
 			after = before + amount
 		case domain.WalletOperationRollback:
 			var original model.GameProviderTransactions
-			if err := tenancy.ApplySite(tx.Clauses(clause.Locking{Strength: "UPDATE"}).Model(&model.GameProviderTransactions{}), "", scope).
+			if err := content.ApplySite(tx.Clauses(clause.Locking{Strength: "UPDATE"}).Model(&model.GameProviderTransactions{}), "", scope).
 				Where("provider_code = ? AND provider_transaction_id = ? AND status = ?",
 					command.ProviderCode, command.RelatedTransactionID, model.GameProviderTransactionSuccess).
 				First(&original).Error; err != nil {
@@ -189,7 +189,7 @@ func (s *WalletCallbackService) Execute(ctx context.Context, command domain.Wall
 
 		idempotencyKey := "provider:" + command.ProviderCode + ":" + command.ProviderTransactionID + ":" + string(command.Operation)
 		ledger := &model.GameWalletTransactions{
-			TenantID:            scope.TenantID,
+
 			SiteID:              scope.SiteID,
 			TxnNo:               walletTxnNo(),
 			UserID:              player.UserID,
@@ -239,9 +239,9 @@ func (s *WalletCallbackService) Execute(ctx context.Context, command domain.Wall
 	return result, nil
 }
 
-func (s *WalletCallbackService) balance(ctx context.Context, scope tenancy.Scope, userID uint64, currency string) (int64, error) {
+func (s *WalletCallbackService) balance(ctx context.Context, scope content.Scope, userID uint64, currency string) (int64, error) {
 	var wallet model.GameUserWallets
-	if err := tenancy.ApplySite(s.repo.DB().WithContext(ctx).Model(&model.GameUserWallets{}), "", scope).Where("user_id = ?", userID).First(&wallet).Error; err != nil {
+	if err := content.ApplySite(s.repo.DB().WithContext(ctx).Model(&model.GameUserWallets{}), "", scope).Where("user_id = ?", userID).First(&wallet).Error; err != nil {
 		return 0, domain.NewWalletError(domain.WalletErrorPlayerNotFound, "wallet not found", err)
 	}
 	if ok, err := reconcileWalletCurrency(ctx, s.repo.DB(), scope, &wallet, currency); err != nil {
@@ -258,7 +258,7 @@ func (s *WalletCallbackService) createProviderTransaction(tx *gorm.DB, command d
 		rawRequest = "{}"
 	}
 	row := &model.GameProviderTransactions{
-		TenantID:              command.TenantID,
+
 		SiteID:                command.SiteID,
 		ProviderCode:          command.ProviderCode,
 		ProviderTransactionID: command.ProviderTransactionID,

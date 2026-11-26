@@ -55,20 +55,3 @@ func TestRequireAllowsAuthorizedActor(t *testing.T) {
 	assert.Equal(t, http.StatusOK, recorder.Code)
 	assert.JSONEq(t, `{"code":0}`, recorder.Body.String())
 }
-
-func TestRequirePlatformRejectsTenantActor(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	router := gin.New()
-	router.GET("/platform", func(c *gin.Context) {
-		c.Set(actorContextKey, Actor{ID: 8, TenantID: 100, AdminType: "TENANT"})
-	}, RequirePlatform(), func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"code": 0})
-	})
-
-	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, "/platform", nil)
-	router.ServeHTTP(recorder, request)
-
-	assert.Equal(t, http.StatusOK, recorder.Code)
-	assert.Contains(t, recorder.Body.String(), "PLATFORM_ACCESS_REQUIRED")
-}

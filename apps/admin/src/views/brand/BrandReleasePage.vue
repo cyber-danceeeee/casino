@@ -23,7 +23,7 @@ async function load() {
     ElMessage.error(
       error instanceof Error
         ? error.message
-        : t("tenantExperience.common.loadFailed"),
+        : t("siteExperience.common.loadFailed"),
     );
   } finally {
     loading.value = false;
@@ -64,9 +64,9 @@ onMounted(load);
   <div v-loading="loading" class="release-page">
     <header class="page-header">
       <div>
-        <p>{{ t("tenantExperience.release.eyebrow") }}</p>
-        <h1>{{ t("tenantExperience.release.title") }}</h1>
-        <span>{{ t("tenantExperience.release.description") }}</span>
+        <p>{{ t("siteExperience.release.eyebrow") }}</p>
+        <h1>{{ t("siteExperience.release.title") }}</h1>
+        <span>{{ t("siteExperience.release.description") }}</span>
       </div>
       <el-button
         type="primary"
@@ -77,23 +77,23 @@ onMounted(load);
         >{{
           hasChanges
             ? t("brandPortal.actions.publish")
-            : t("tenantExperience.release.noChanges")
+            : t("siteExperience.release.noChanges")
         }}</el-button
       >
     </header>
     <section class="versions">
       <article>
-        <span>{{ t("tenantExperience.release.published") }}</span
+        <span>{{ t("siteExperience.release.published") }}</span
         ><strong>v{{ overview?.publishedVersion || 1 }}</strong
         ><small>{{ formatBackendTime(overview?.publishedAt || "") }}</small>
       </article>
       <article>
-        <span>{{ t("tenantExperience.release.draft") }}</span
+        <span>{{ t("siteExperience.release.draft") }}</span
         ><strong>v{{ overview?.draftVersion || 1 }}</strong
         ><small>{{ formatBackendTime(overview?.draftUpdatedAt || "") }}</small>
       </article>
       <article>
-        <span>{{ t("tenantExperience.release.changes") }}</span
+        <span>{{ t("siteExperience.release.changes") }}</span
         ><strong>{{ overview?.unpublishedChanges || 0 }}</strong
         ><small>{{ overview?.lastUpdatedBy || "-" }}</small>
       </article>
@@ -102,7 +102,7 @@ onMounted(load);
       <article class="preview">
         <header>
           <Monitor />
-          <h2>{{ t("tenantExperience.release.h5Preview") }}</h2>
+          <h2>{{ t("siteExperience.release.h5Preview") }}</h2>
         </header>
         <H5PreviewFrame
           :h5-domain="overview?.h5Domain"
@@ -110,7 +110,7 @@ onMounted(load);
         />
       </article>
       <article class="changes">
-        <h2>{{ t("tenantExperience.release.changeList") }}</h2>
+        <h2>{{ t("siteExperience.release.changeList") }}</h2>
         <div
           v-for="change in overview?.pendingChanges || []"
           :key="change.module"
@@ -118,7 +118,7 @@ onMounted(load);
         >
           <header>
             <strong>{{
-              t(`tenantExperience.modules.${change.module}`, change.module)
+              t(`siteExperience.modules.${change.module}`, change.module)
             }}</strong
             ><span
               >{{ change.updatedBy || "-" }} ·
@@ -128,7 +128,7 @@ onMounted(load);
           <p>
             {{
               t(
-                `tenantExperience.changeSummary.${change.module}`,
+                `siteExperience.changeSummary.${change.module}`,
                 change.summary,
               )
             }}
@@ -140,7 +140,7 @@ onMounted(load);
             >
               <span>{{
                 t(
-                  `tenantExperience.configKeys.${key}`,
+                  `siteExperience.configKeys.${key}`,
                   humanizeBusinessKey(key),
                 )
               }}</span
@@ -152,7 +152,7 @@ onMounted(load);
         </div>
         <el-empty
           v-if="!overview?.pendingChanges?.length"
-          :description="t('tenantExperience.release.noChanges')"
+          :description="t('siteExperience.release.noChanges')"
         />
       </article>
     </section>

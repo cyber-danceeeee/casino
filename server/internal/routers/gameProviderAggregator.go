@@ -26,6 +26,6 @@ func gameProviderAggregatorRouter(group *gin.RouterGroup, h handler.GameProvider
 	group.POST("/game/providers/:providerCode/callbacks/wallet/:operation", h.Callback)
 	group.POST("/game/providers/:providerCode/callbacks/player/info", h.Callback)
 
-	admin := group.Group("/admin/game/providers", adminauth.Middleware(), adminauth.RequirePlatform(), adminauth.Require(adminauth.PermissionGameProviderSync))
+	admin := group.Group("/admin/game/providers", adminauth.Middleware(), adminauth.Require(adminauth.PermissionGameProviderSync))
 	admin.POST("/:providerCode/sync", h.SyncProviderGames)
 }

@@ -17,7 +17,7 @@ func (s *Service) SetDefaultVisibility(resource string, id uint64, enabled bool,
 		return newError("INVALID_DEFAULT_RESOURCE", err.Error())
 	}
 	if !actor.Scope.SiteScoped() {
-		return newError("TENANT_SITE_SCOPE_REQUIRED", "tenant site scope is required")
+		return newError("SITE_SCOPE_REQUIRED", "H5 scope is required")
 	}
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		if err := operationdefaults.SetVisibility(tx, actor.Scope, resource, id, enabled, actor.ID); err != nil {

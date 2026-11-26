@@ -232,7 +232,7 @@ func (h *gameUserVipLogsHandler) List(c *gin.Context) {
 
 	response.Success(c, gin.H{
 		"gameUserVipLogss": data,
-		"total":        total,
+		"total":            total,
 	})
 }
 

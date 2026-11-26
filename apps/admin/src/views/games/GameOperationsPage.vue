@@ -79,7 +79,7 @@ async function load() {
     ElMessage.error(
       error instanceof Error
         ? error.message
-        : t("tenantExperience.common.loadFailed"),
+        : t("siteExperience.common.loadFailed"),
     );
   } finally {
     loading.value = false;
@@ -93,7 +93,7 @@ async function changeProvider(providerCode: string) {
     providerCategoryOptions.value = (await fetchProviderOptionGameTypes(providerCode))
       .filter((item) => item.source === "providerCategory");
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : t("tenantExperience.common.loadFailed"));
+    ElMessage.error(error instanceof Error ? error.message : t("siteExperience.common.loadFailed"));
   }
 }
 async function loadCategories() {
@@ -111,15 +111,15 @@ async function batch(
   if (!selected.value.length) return;
   try {
     const prompt = await ElMessageBox.prompt(
-      `${t(`tenantExperience.gameOps.actions.${field}.${value ? "on" : "off"}`)}\n\n${selectedLabel.value}`,
-      t("tenantExperience.gameOps.confirmTitle"),
+      `${t(`siteExperience.gameOps.actions.${field}.${value ? "on" : "off"}`)}\n\n${selectedLabel.value}`,
+      t("siteExperience.gameOps.confirmTitle"),
       {
         confirmButtonText: t("common.confirm"),
         cancelButtonText: t("common.cancel"),
-        inputPlaceholder: t("tenantExperience.fields.reason"),
+        inputPlaceholder: t("siteExperience.fields.reason"),
         inputValidator: (reason) =>
           Boolean(reason.trim()) ||
-          t("tenantExperience.validation.reasonRequired"),
+          t("siteExperience.validation.reasonRequired"),
         type: "warning",
       },
     );
@@ -129,7 +129,7 @@ async function batch(
       reason: prompt.value.trim(),
     });
     ElMessage.success(
-      t("tenantExperience.gameOps.updated", {
+      t("siteExperience.gameOps.updated", {
         count: result.updatedCount || selected.value.length,
       }),
     );
@@ -140,7 +140,7 @@ async function batch(
       ElMessage.error(
         error instanceof Error
           ? error.message
-          : t("tenantExperience.common.actionFailed"),
+          : t("siteExperience.common.actionFailed"),
       );
   }
 }
@@ -159,12 +159,12 @@ async function saveCategories() {
       addCategoryIds: categoryForm.ids,
       reason: categoryForm.reason.trim(),
     });
-    ElMessage.success(t("tenantExperience.gameOps.categoryAssigned"));
+    ElMessage.success(t("siteExperience.gameOps.categoryAssigned"));
     categoryDialogVisible.value = false;
     window.dispatchEvent(new Event("brand-config-refresh"));
     await load();
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : t("tenantExperience.common.actionFailed"));
+    ElMessage.error(error instanceof Error ? error.message : t("siteExperience.common.actionFailed"));
   } finally {
     categorySaving.value = false;
   }
@@ -218,9 +218,9 @@ onMounted(async () => {
   <div class="game-operations">
     <header class="page-header">
       <div>
-        <p>{{ t("tenantExperience.gameOps.eyebrow") }}</p>
-        <h1>{{ t("tenantExperience.gameOps.title") }}</h1>
-        <span>{{ t("tenantExperience.gameOps.description") }}</span>
+        <p>{{ t("siteExperience.gameOps.eyebrow") }}</p>
+        <h1>{{ t("siteExperience.gameOps.title") }}</h1>
+        <span>{{ t("siteExperience.gameOps.description") }}</span>
       </div>
       <div class="header-actions">
 
@@ -232,7 +232,7 @@ onMounted(async () => {
       <el-input
         v-model="filters.keyword"
         clearable
-        :placeholder="t('tenantExperience.gameOps.searchPlaceholder')"
+        :placeholder="t('siteExperience.gameOps.searchPlaceholder')"
         @keyup.enter="
           page = 1;
           load();
@@ -241,7 +241,7 @@ onMounted(async () => {
         v-model="filters.providerCode"
         clearable
         filterable
-        :placeholder="t('tenantExperience.fields.provider')"
+        :placeholder="t('siteExperience.fields.provider')"
         @change="changeProvider"
       ><el-option v-for="item in providerOptions" :key="item.value" :label="item.label" :value="item.value" /></el-select
       ><el-select
@@ -254,11 +254,11 @@ onMounted(async () => {
       ><el-select
         v-model="filters.enabled"
         clearable
-        :placeholder="t('tenantExperience.fields.status')"
+        :placeholder="t('siteExperience.fields.status')"
         ><el-option
-          :label="t('tenantExperience.status.ENABLED')"
+          :label="t('siteExperience.status.ENABLED')"
           value="true" /><el-option
-          :label="t('tenantExperience.status.DISABLED')"
+          :label="t('siteExperience.status.DISABLED')"
           value="false" /></el-select
       ><el-button
         type="primary"
@@ -272,33 +272,33 @@ onMounted(async () => {
     </section>
     <section v-if="selected.length" class="batch-bar">
       <strong>{{
-        t("tenantExperience.gameOps.selected", { count: selected.length })
+        t("siteExperience.gameOps.selected", { count: selected.length })
       }}</strong
       ><el-button-group
         ><el-button
           v-if="can('game:status:update')"
           @click="batch('platformEnabled', true)"
           >{{
-            t("tenantExperience.gameOps.actions.platformEnabled.on")
+            t("siteExperience.gameOps.actions.platformEnabled.on")
           }}</el-button
         ><el-button
           v-if="can('game:status:update')"
           @click="batch('platformEnabled', false)"
           >{{
-            t("tenantExperience.gameOps.actions.platformEnabled.off")
+            t("siteExperience.gameOps.actions.platformEnabled.off")
           }}</el-button
         ><el-button v-if="can('game:update')" @click="batch('isHot', true)">{{
-          t("tenantExperience.gameOps.actions.isHot.on")
+          t("siteExperience.gameOps.actions.isHot.on")
         }}</el-button
         ><el-button
           v-if="can('game:update')"
           @click="batch('isFeatured', true)"
-          >{{ t("tenantExperience.gameOps.actions.isFeatured.on") }}</el-button
+          >{{ t("siteExperience.gameOps.actions.isFeatured.on") }}</el-button
         ><el-button v-if="can('game:update')" @click="batch('isNew', true)">{{
-          t("tenantExperience.gameOps.actions.isNew.on")
+          t("siteExperience.gameOps.actions.isNew.on")
         }}</el-button
         ><el-button v-if="can('game:update')" @click="assignCategory">{{
-          t("tenantExperience.gameOps.assignCategory")
+          t("siteExperience.gameOps.assignCategory")
         }}</el-button></el-button-group
       >
     </section>
@@ -309,7 +309,7 @@ onMounted(async () => {
         row-key="id"
         @selection-change="selected = $event"
         ><el-table-column type="selection" width="46" /><el-table-column
-          :label="t('tenantExperience.fields.cover')"
+          :label="t('siteExperience.fields.cover')"
           width="76"
           ><template #default="{ row }"
             ><el-image
@@ -325,52 +325,52 @@ onMounted(async () => {
               fit="cover" /></template></el-table-column
         ><el-table-column
           prop="gameCode"
-          :label="t('tenantExperience.fields.gameCode')"
+          :label="t('siteExperience.fields.gameCode')"
           min-width="165"
         /><el-table-column
           prop="name"
-          :label="t('tenantExperience.fields.gameName')"
+          :label="t('siteExperience.fields.gameName')"
           min-width="180"
         /><el-table-column
           prop="providerCode"
-          :label="t('tenantExperience.fields.provider')"
+          :label="t('siteExperience.fields.provider')"
           width="130"
           ><template #default="{ row }"
             ><el-tag effect="plain">{{ row.providerCode }}</el-tag></template
           ></el-table-column
         ><el-table-column
-          :label="t('tenantExperience.fields.category')"
+          :label="t('siteExperience.fields.category')"
           min-width="170"
           ><template #default="{ row }">{{
             categoryNames(row)
           }}</template></el-table-column
         ><el-table-column
-          :label="t('tenantExperience.fields.enabled')"
+          :label="t('siteExperience.fields.enabled')"
           width="95"
           ><template #default="{ row }"
             ><el-switch
               :model-value="Boolean(draftValue(row, 'platformEnabled'))"
               disabled /></template></el-table-column
         ><el-table-column
-          :label="t('tenantExperience.fields.popular')"
+          :label="t('siteExperience.fields.popular')"
           width="90"
           ><template #default="{ row }"
             ><el-switch
               :model-value="Boolean(draftValue(row, 'isHot'))"
               disabled /></template></el-table-column
         ><el-table-column
-          :label="t('tenantExperience.fields.recommended')"
+          :label="t('siteExperience.fields.recommended')"
           width="115"
           ><template #default="{ row }"
             ><el-switch
               :model-value="Boolean(draftValue(row, 'isFeatured'))"
               disabled /></template></el-table-column
-        ><el-table-column :label="t('tenantExperience.fields.new')" width="80"
+        ><el-table-column :label="t('siteExperience.fields.new')" width="80"
           ><template #default="{ row }"
             ><el-switch
               :model-value="Boolean(draftValue(row, 'isNew'))"
               disabled /></template></el-table-column
-        ><el-table-column :label="t('tenantExperience.fields.sort')" width="85"
+        ><el-table-column :label="t('siteExperience.fields.sort')" width="85"
           ><template #default="{ row }">{{
             draftValue(row, "sortOrder") ?? "-"
           }}</template></el-table-column
@@ -386,9 +386,9 @@ onMounted(async () => {
                 })
               " /></template></el-table-column
         ><template #empty
-          ><el-empty :description="t('tenantExperience.empty.games')"
+          ><el-empty :description="t('siteExperience.empty.games')"
             ><el-button @click="reset">{{
-              t("tenantExperience.common.clearFilters")
+              t("siteExperience.common.clearFilters")
             }}</el-button></el-empty
           ></template
         ></el-table
@@ -401,14 +401,14 @@ onMounted(async () => {
         @change="load"
       />
     </section>
-    <el-dialog v-model="categoryDialogVisible" :title="t('tenantExperience.gameOps.assignCategory')" width="min(560px, 94vw)">
+    <el-dialog v-model="categoryDialogVisible" :title="t('siteExperience.gameOps.assignCategory')" width="min(560px, 94vw)">
       <el-form label-position="top">
-        <el-form-item :label="t('tenantExperience.gameOps.categories')" required>
+        <el-form-item :label="t('siteExperience.gameOps.categories')" required>
           <el-select v-model="categoryForm.ids" multiple filterable clearable class="full-width" :placeholder="t('gameCenter.placeholders.select')">
             <el-option v-for="category in categories" :key="category.id" :value="category.id" :label="String(category.nameZh || category.nameEn || category.code)" />
           </el-select>
         </el-form-item>
-        <el-form-item :label="t('tenantExperience.fields.reason')" required>
+        <el-form-item :label="t('siteExperience.fields.reason')" required>
           <el-input v-model="categoryForm.reason" type="textarea" :rows="3" maxlength="500" show-word-limit />
         </el-form-item>
       </el-form>

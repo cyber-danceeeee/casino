@@ -11,11 +11,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGeneratedCRUDGuardBlocksTenantAdminIDOR(t *testing.T) {
+func TestGeneratedCRUDGuardBlocksH5AdminIDOR(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	r.Use(func(c *gin.Context) {
-		adminauth.StoreActor(c, adminauth.Actor{ID: 11, TenantID: 7, SiteID: 3, Permissions: []string{adminauth.PermissionBetView}})
+		adminauth.StoreActor(c, adminauth.Actor{ID: 11, SiteID: 3, Permissions: []string{adminauth.PermissionBetView}})
 		c.Next()
 	})
 	r.Use(generatedCRUDGuard("/api/v1"))

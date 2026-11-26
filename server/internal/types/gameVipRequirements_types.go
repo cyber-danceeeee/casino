@@ -10,14 +10,13 @@ var _ time.Time
 
 // Tip: suggested filling in the binding rules https://github.com/go-playground/validator in request struct fields tag.
 
-
 // CreateGameVipRequirementsRequest request params
 type CreateGameVipRequirementsRequest struct {
-	VipLevelID  uint64 `json:"vipLevelID" binding:""`
-	RequirementType  string `json:"requirementType" binding:""` // level_up, retain
-	TargetLevelNo  uint `json:"targetLevelNo" binding:""`
-	PeriodDays  uint `json:"periodDays" binding:""`
-	DepositAmount  string `json:"depositAmount" binding:""`
+	VipLevelID      uint64 `json:"vipLevelID" binding:""`
+	RequirementType string `json:"requirementType" binding:""` // level_up, retain
+	TargetLevelNo   uint   `json:"targetLevelNo" binding:""`
+	PeriodDays      uint   `json:"periodDays" binding:""`
+	DepositAmount   string `json:"depositAmount" binding:""`
 	ValidBetAmount  string `json:"validBetAmount" binding:""`
 }
 
@@ -25,11 +24,11 @@ type CreateGameVipRequirementsRequest struct {
 type UpdateGameVipRequirementsByIDRequest struct {
 	ID uint64 `json:"id" binding:""` // uint64 id
 
-	VipLevelID  uint64 `json:"vipLevelID" binding:""`
-	RequirementType  string `json:"requirementType" binding:""` // level_up, retain
-	TargetLevelNo  uint `json:"targetLevelNo" binding:""`
-	PeriodDays  uint `json:"periodDays" binding:""`
-	DepositAmount  string `json:"depositAmount" binding:""`
+	VipLevelID      uint64 `json:"vipLevelID" binding:""`
+	RequirementType string `json:"requirementType" binding:""` // level_up, retain
+	TargetLevelNo   uint   `json:"targetLevelNo" binding:""`
+	PeriodDays      uint   `json:"periodDays" binding:""`
+	DepositAmount   string `json:"depositAmount" binding:""`
 	ValidBetAmount  string `json:"validBetAmount" binding:""`
 }
 
@@ -37,16 +36,15 @@ type UpdateGameVipRequirementsByIDRequest struct {
 type GameVipRequirementsObjDetail struct {
 	ID uint64 `json:"id"` // convert to uint64 id
 
-	VipLevelID  uint64 `json:"vipLevelID"`
-	RequirementType  string `json:"requirementType"` // level_up, retain
-	TargetLevelNo  uint `json:"targetLevelNo"`
-	PeriodDays  uint `json:"periodDays"`
-	DepositAmount  string `json:"depositAmount"`
-	ValidBetAmount  string `json:"validBetAmount"`
-	CreatedAt  *time.Time `json:"createdAt"`
-	UpdatedAt  *time.Time `json:"updatedAt"`
+	VipLevelID      uint64     `json:"vipLevelID"`
+	RequirementType string     `json:"requirementType"` // level_up, retain
+	TargetLevelNo   uint       `json:"targetLevelNo"`
+	PeriodDays      uint       `json:"periodDays"`
+	DepositAmount   string     `json:"depositAmount"`
+	ValidBetAmount  string     `json:"validBetAmount"`
+	CreatedAt       *time.Time `json:"createdAt"`
+	UpdatedAt       *time.Time `json:"updatedAt"`
 }
-
 
 // CreateGameVipRequirementsReply only for api docs
 type CreateGameVipRequirementsReply struct {

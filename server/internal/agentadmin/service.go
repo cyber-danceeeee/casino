@@ -12,7 +12,7 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
-	"casino/internal/tenancy"
+	"casino/internal/content"
 )
 
 type Service struct{ db *gorm.DB }
@@ -32,41 +32,41 @@ func page(q ListQuery) (int, int, int) {
 	return q.Page, q.PageSize, (q.Page - 1) * q.PageSize
 }
 func val(q ListQuery, key string) string { return strings.TrimSpace(q.Values[key]) }
-func like(db *gorm.DB, col, value string) *gorm.DB {
+func like(db *gorm.DB, col string, value string) *gorm.DB {
 	if value != "" {
 		return db.Where(col+" LIKE ?", "%"+value+"%")
 	}
 	return db
 }
-func eq(db *gorm.DB, col, value string) *gorm.DB {
+func eq(db *gorm.DB, col string, value string) *gorm.DB {
 	if value != "" {
 		return db.Where(col+" = ?", value)
 	}
 	return db
 }
-func scoped(db *gorm.DB, alias string, scope tenancy.Scope) *gorm.DB {
-	return tenancy.ApplySite(db, alias, scope)
+func scoped(db *gorm.DB, alias string, scope content.Scope) *gorm.DB {
+	return content.ApplySite(db, alias, scope)
 }
 func actorScoped(db *gorm.DB, alias string, actor Actor) *gorm.DB {
 	return scoped(db, alias, actor.Scope)
 }
-func sqlScope(scope tenancy.Scope, alias string) (string, []any) {
-	if !scope.TenantScoped() {
+func sqlScope(scope content.Scope, alias string) (string, []any) {
+	if !scope.SiteScoped() {
 		return "", nil
 	}
 	prefix := ""
 	if strings.TrimSpace(alias) != "" {
 		prefix = alias + "."
 	}
-	clause := " AND " + prefix + "tenant_id=?"
-	args := []any{scope.TenantID}
+	clause := ""
+	args := []any{}
 	if scope.SiteScoped() {
 		clause += " AND " + prefix + "site_id IN (0, ?)"
 		args = append(args, scope.SiteID)
 	}
 	return clause, args
 }
-func rangeTime(db *gorm.DB, col, from, to string) *gorm.DB {
+func rangeTime(db *gorm.DB, col string, from string, to string) *gorm.DB {
 	if from != "" {
 		db = db.Where(col+">=?", from)
 	}
@@ -104,7 +104,7 @@ func lastInsertID(tx *gorm.DB) (uint64, error) {
 	return id, nil
 }
 
-func sameDate(left, right time.Time) bool {
+func sameDate(left time.Time, right time.Time) bool {
 	ly, lm, ld := left.Date()
 	ry, rm, rd := right.Date()
 	return ly == ry && lm == rm && ld == rd
@@ -142,8 +142,8 @@ func paginate(db *gorm.DB, q ListQuery, out any) (PageResult, error) {
 	return PageResult{List: out, Total: total, Page: p, PageSize: ps}, nil
 }
 
-func audit(tx *gorm.DB, actor Actor, permission, action, target string, targetID uint64, before, after any, reason string, amount *decimal.Decimal, currency string) error {
-	row := map[string]any{"tenant_id": actor.Scope.TenantID, "site_id": actor.Scope.SiteID, "operator_id": actor.ID, "operator_username": actor.Username, "permission": permission, "action": action, "target_type": target, "target_id": targetID, "before_state": jsonString(before), "after_state": jsonString(after), "reason": reason, "ip_address": actor.IP, "user_agent": actor.UserAgent, "correlation_id": actor.CorrelationID, "currency": currency, "created_at": time.Now(), "updated_at": time.Now()}
+func audit(tx *gorm.DB, actor Actor, permission string, action string, target string, targetID uint64, before any, after any, reason string, amount *decimal.Decimal, currency string) error {
+	row := map[string]any{"site_id": actor.Scope.SiteID, "operator_id": actor.ID, "operator_username": actor.Username, "permission": permission, "action": action, "target_type": target, "target_id": targetID, "before_state": jsonString(before), "after_state": jsonString(after), "reason": reason, "ip_address": actor.IP, "user_agent": actor.UserAgent, "correlation_id": actor.CorrelationID, "currency": currency, "created_at": time.Now(), "updated_at": time.Now()}
 	if amount != nil {
 		row["amount"] = amount
 	}

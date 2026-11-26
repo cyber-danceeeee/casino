@@ -74,37 +74,37 @@ func (h *adminBetsHandler) ListReconciliationItems(c *gin.Context) {
 
 func (h *adminBetsHandler) GetBet(c *gin.Context) {
 	if id, ok := betPathID(c); ok {
-		data, err := h.service.BetDetail(id, adminTenancyScope(c))
+		data, err := h.service.BetDetail(id, adminContentScope(c))
 		h.write(c, data, err)
 	}
 }
 func (h *adminBetsHandler) GetRound(c *gin.Context) {
 	if id, ok := betPathID(c); ok {
-		data, err := h.service.RoundDetail(id, adminTenancyScope(c))
+		data, err := h.service.RoundDetail(id, adminContentScope(c))
 		h.write(c, data, err)
 	}
 }
 func (h *adminBetsHandler) GetRollback(c *gin.Context) {
 	if id, ok := betPathID(c); ok {
-		data, err := h.service.RollbackDetail(id, adminTenancyScope(c))
+		data, err := h.service.RollbackDetail(id, adminContentScope(c))
 		h.write(c, data, err)
 	}
 }
 func (h *adminBetsHandler) GetAbnormal(c *gin.Context) {
 	if id, ok := betPathID(c); ok {
-		data, err := h.service.AbnormalDetail(id, adminTenancyScope(c))
+		data, err := h.service.AbnormalDetail(id, adminContentScope(c))
 		h.write(c, data, err)
 	}
 }
 func (h *adminBetsHandler) GetCallback(c *gin.Context) {
 	if id, ok := betPathID(c); ok {
-		data, err := h.service.CallbackDetail(id, adminTenancyScope(c))
+		data, err := h.service.CallbackDetail(id, adminContentScope(c))
 		h.write(c, data, err)
 	}
 }
 func (h *adminBetsHandler) GetReconciliationRun(c *gin.Context) {
 	if id, ok := betPathID(c); ok {
-		data, err := h.service.ReconciliationRunDetail(id, adminTenancyScope(c))
+		data, err := h.service.ReconciliationRunDetail(id, adminContentScope(c))
 		h.write(c, data, err)
 	}
 }
@@ -252,7 +252,7 @@ func betActor(c *gin.Context) betadmin.Actor {
 	if correlation == "" {
 		correlation = c.GetString("request_id")
 	}
-	return betadmin.Actor{ID: actor.ID, Username: actor.Username, Scope: adminTenancyScope(c), IP: c.ClientIP(), UserAgent: c.GetHeader("User-Agent"), CorrelationID: correlation}
+	return betadmin.Actor{ID: actor.ID, Username: actor.Username, Scope: adminContentScope(c), IP: c.ClientIP(), UserAgent: c.GetHeader("User-Agent"), CorrelationID: correlation}
 }
 func betListQuery(c *gin.Context, keys []string) betadmin.ListQuery {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
@@ -263,7 +263,7 @@ func betListQuery(c *gin.Context, keys []string) betadmin.ListQuery {
 			values[key] = value
 		}
 	}
-	return betadmin.ListQuery{Page: page, PageSize: pageSize, Values: values, Scope: adminTenancyScope(c)}
+	return betadmin.ListQuery{Page: page, PageSize: pageSize, Values: values, Scope: adminContentScope(c)}
 }
 func betError(c *gin.Context, err error) {
 	var domain *betadmin.Error

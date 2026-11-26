@@ -232,7 +232,7 @@ func (h *gameUserSessionsHandler) List(c *gin.Context) {
 
 	response.Success(c, gin.H{
 		"gameUserSessionss": data,
-		"total":        total,
+		"total":             total,
 	})
 }
 

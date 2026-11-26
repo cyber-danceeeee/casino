@@ -114,7 +114,6 @@ type providerGameTypeOption struct {
 }
 
 type categoryRecord struct {
-	TenantID   uint64    `gorm:"column:tenant_id" json:"tenantID"`
 	SiteID     uint64    `gorm:"column:site_id" json:"siteID"`
 	ID         uint64    `json:"id"`
 	Code       string    `gorm:"column:category_key" json:"code"`
@@ -135,7 +134,6 @@ type categoryRecord struct {
 func (categoryRecord) TableName() string { return "game_game_categories" }
 
 type tagRecord struct {
-	TenantID  uint64    `gorm:"column:tenant_id" json:"tenantID"`
 	SiteID    uint64    `gorm:"column:site_id" json:"siteID"`
 	ID        uint64    `json:"id"`
 	Code      string    `json:"code"`
@@ -152,7 +150,6 @@ type tagRecord struct {
 func (tagRecord) TableName() string { return "game_game_tags" }
 
 type collectionRecord struct {
-	TenantID      uint64     `gorm:"column:tenant_id" json:"tenantID"`
 	SiteID        uint64     `gorm:"column:site_id" json:"siteID"`
 	ID            uint64     `json:"id"`
 	Code          string     `json:"code"`
@@ -197,19 +194,19 @@ func paginate(db *gorm.DB, q ListQuery, out any) (PageResult, error) {
 	return PageResult{List: out, Total: total, Page: p, PageSize: ps}, nil
 }
 
-func contains(db *gorm.DB, column, value string) *gorm.DB {
+func contains(db *gorm.DB, column string, value string) *gorm.DB {
 	if value = strings.TrimSpace(value); value != "" {
 		return db.Where(column+" LIKE ?", "%"+value+"%")
 	}
 	return db
 }
-func equal(db *gorm.DB, column, value string) *gorm.DB {
+func equal(db *gorm.DB, column string, value string) *gorm.DB {
 	if value = strings.TrimSpace(value); value != "" {
 		return db.Where(column+" = ?", value)
 	}
 	return db
 }
-func boolFilter(db *gorm.DB, column, value string) *gorm.DB {
+func boolFilter(db *gorm.DB, column string, value string) *gorm.DB {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case "true", "1":
 		return db.Where(column + " = 1")
@@ -219,7 +216,7 @@ func boolFilter(db *gorm.DB, column, value string) *gorm.DB {
 		return db
 	}
 }
-func timeRange(db *gorm.DB, column, from, to string) *gorm.DB {
+func timeRange(db *gorm.DB, column string, from string, to string) *gorm.DB {
 	if from != "" {
 		db = db.Where(column+" >= ?", from)
 	}
@@ -251,7 +248,7 @@ func validateCode(code string) error {
 	}
 	return nil
 }
-func validateTimeRange(start, end *time.Time) error {
+func validateTimeRange(start *time.Time, end *time.Time) error {
 	if start != nil && end != nil && end.Before(*start) {
 		return newError("INVALID_TIME_RANGE", "end time must be after start time")
 	}
@@ -264,19 +261,19 @@ func notFound(err error, code string) error {
 	return err
 }
 
-func duplicateCode(err error, code, message string) error {
+func duplicateCode(err error, code string, message string) error {
 	var mysqlErr *mysql.MySQLError
 	if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
 		return newError(code, message)
 	}
 	return err
 }
-func audit(tx *gorm.DB, actor Actor, permission, action, target string, targetID uint64, before, after any, reason string) error {
+func audit(tx *gorm.DB, actor Actor, permission string, action string, target string, targetID uint64, before any, after any, reason string) error {
 	b, _ := json.Marshal(before)
 	a, _ := json.Marshal(after)
-	return tx.Create(&model.GameAdminOperationLogs{TenantID: actor.Scope.TenantID, SiteID: actor.Scope.SiteID, OperatorID: actor.ID, OperatorUsername: actor.Username, Permission: permission, Action: action, TargetType: target, TargetID: targetID, BeforeState: string(b), AfterState: string(a), Reason: reason, IPAddress: actor.IP, UserAgent: actor.UserAgent, CorrelationID: actor.CorrelationID}).Error
+	return tx.Create(&model.GameAdminOperationLogs{SiteID: actor.Scope.SiteID, OperatorID: actor.ID, OperatorUsername: actor.Username, Permission: permission, Action: action, TargetType: target, TargetID: targetID, BeforeState: string(b), AfterState: string(a), Reason: reason, IPAddress: actor.IP, UserAgent: actor.UserAgent, CorrelationID: actor.CorrelationID}).Error
 }
-func (s *Service) RecordAssetUpload(kind, assetURL string, actor Actor) error {
+func (s *Service) RecordAssetUpload(kind string, assetURL string, actor Actor) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		return audit(tx, actor, "game:asset:upload", "upload", "game_asset", 0, nil, map[string]any{"kind": kind, "url": assetURL}, "")
 	})

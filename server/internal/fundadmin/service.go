@@ -10,8 +10,8 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"casino/internal/content"
 	"casino/internal/model"
-	"casino/internal/tenancy"
 )
 
 const (
@@ -157,9 +157,9 @@ func jsonState(value any) string {
 	return string(data)
 }
 
-func (s *Service) audit(tx *gorm.DB, actor Actor, permission, action, targetType string, targetID, userID uint64, before, after any, reason string, amount *decimal.Decimal, currency string) error {
+func (s *Service) audit(tx *gorm.DB, actor Actor, permission string, action string, targetType string, targetID uint64, userID uint64, before any, after any, reason string, amount *decimal.Decimal, currency string) error {
 	row := model.GameAdminOperationLogs{
-		TenantID: actor.Scope.TenantID, SiteID: actor.Scope.SiteID,
+		SiteID:     actor.Scope.SiteID,
 		OperatorID: actor.ID, OperatorUsername: actor.Username, Permission: permission, Action: action,
 		TargetType: targetType, TargetID: targetID, TargetUserID: userID,
 		BeforeState: jsonState(before), AfterState: jsonState(after), Amount: amount,
@@ -169,10 +169,10 @@ func (s *Service) audit(tx *gorm.DB, actor Actor, permission, action, targetType
 	return tx.Create(&row).Error
 }
 
-func lockWallet(tx *gorm.DB, walletID uint64, scope tenancy.Scope) (model.GameUserWallets, error) {
+func lockWallet(tx *gorm.DB, walletID uint64, scope content.Scope) (model.GameUserWallets, error) {
 	var wallet model.GameUserWallets
 	query := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Model(&model.GameUserWallets{}).Where("id = ? AND deleted_at IS NULL", walletID)
-	if err := tenancy.ApplySite(query, "", scope).Take(&wallet).Error; err != nil {
+	if err := content.ApplySite(query, "", scope).Take(&wallet).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return wallet, ErrWalletNotFound
 		}
@@ -181,10 +181,10 @@ func lockWallet(tx *gorm.DB, walletID uint64, scope tenancy.Scope) (model.GameUs
 	return wallet, nil
 }
 
-func lockUserWallet(tx *gorm.DB, userID uint64, currency string, scope tenancy.Scope) (model.GameUserWallets, error) {
+func lockUserWallet(tx *gorm.DB, userID uint64, currency string, scope content.Scope) (model.GameUserWallets, error) {
 	var wallet model.GameUserWallets
 	query := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Model(&model.GameUserWallets{}).Where("user_id = ? AND deleted_at IS NULL", userID)
-	query = tenancy.ApplySite(query, "", scope)
+	query = content.ApplySite(query, "", scope)
 	if strings.TrimSpace(currency) != "" {
 		query = query.Where("currency = ?", strings.TrimSpace(currency))
 	}
@@ -197,18 +197,18 @@ func lockUserWallet(tx *gorm.DB, userID uint64, currency string, scope tenancy.S
 	return wallet, nil
 }
 
-func createLedger(tx *gorm.DB, wallet model.GameUserWallets, txnNo, category, direction, sourceType string, sourceID uint64, orderNo string, amount decimal.Decimal, beforeCash, afterCash, beforeFrozen, afterFrozen decimal.Decimal, actor Actor, reason string, idempotencyKey *string) (uint64, error) {
+func createLedger(tx *gorm.DB, wallet model.GameUserWallets, txnNo string, category string, direction string, sourceType string, sourceID uint64, orderNo string, amount decimal.Decimal, beforeCash decimal.Decimal, afterCash decimal.Decimal, beforeFrozen decimal.Decimal, afterFrozen decimal.Decimal, actor Actor, reason string, idempotencyKey *string) (uint64, error) {
 	now := time.Now()
-	tenantID, siteID := wallet.TenantID, wallet.SiteID
-	if tenantID == 0 {
-		tenantID = actor.Scope.TenantID
+	siteID := wallet.SiteID
+	if siteID == 0 {
+
 	}
 	if siteID == 0 {
 		siteID = actor.Scope.SiteID
 	}
 	row := model.GameWalletTransactions{
-		TenantID: tenantID, SiteID: siteID,
-		TxnNo: txnNo, UserID: wallet.UserID, WalletID: wallet.ID, WalletType: "CASH",
+		SiteID: siteID,
+		TxnNo:  txnNo, UserID: wallet.UserID, WalletID: wallet.ID, WalletType: "CASH",
 		Direction: direction, Category: category, SourceType: sourceType, SourceID: sourceID,
 		IdempotencyKey: idempotencyKey, OrderNo: orderNo, Amount: moneyPtr(amount), Currency: wallet.Currency,
 		Status: 1, BalanceBefore: moneyPtr(beforeCash), BalanceAfter: moneyPtr(afterCash),

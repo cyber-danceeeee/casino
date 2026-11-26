@@ -14,9 +14,9 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"casino/internal/content"
 	"casino/internal/model"
 	"casino/internal/storage"
-	"casino/internal/tenancy"
 )
 
 const (
@@ -150,14 +150,14 @@ func (s *Service) EnsureH5NavigationSchema() error {
 }
 
 func (s *Service) ListH5Navigation(q ListQuery) (PageResult, error) {
-	if err := requireH5NavigationTenantScope(q.Scope); err != nil {
+	if err := requireH5NavigationSiteScope(q.Scope); err != nil {
 		return PageResult{}, err
 	}
 	if err := s.EnsureH5NavigationSchema(); err != nil {
 		return PageResult{}, err
 	}
 	var rows []model.GameH5NavigationItems
-	db := tenancy.ApplySiteStrict(s.db.Model(&model.GameH5NavigationItems{}), "", q.Scope).Where("deleted_at IS NULL")
+	db := content.ApplySiteStrict(s.db.Model(&model.GameH5NavigationItems{}), "", q.Scope).Where("deleted_at IS NULL")
 	if keyword := strings.TrimSpace(q.Values["keyword"]); keyword != "" {
 		db = db.Where("menu_code LIKE ? OR draft_payload LIKE ? OR published_payload LIKE ?", "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%")
 	}
@@ -192,8 +192,8 @@ func (s *Service) ListH5Navigation(q ListQuery) (PageResult, error) {
 	return result, nil
 }
 
-func (s *Service) GetH5Navigation(id uint64, scope tenancy.Scope) (map[string]any, error) {
-	if err := requireH5NavigationTenantScope(scope); err != nil {
+func (s *Service) GetH5Navigation(id uint64, scope content.Scope) (map[string]any, error) {
+	if err := requireH5NavigationSiteScope(scope); err != nil {
 		return nil, err
 	}
 	if err := s.EnsureH5NavigationSchema(); err != nil {
@@ -210,7 +210,7 @@ func (s *Service) GetH5Navigation(id uint64, scope tenancy.Scope) (map[string]an
 }
 
 func (s *Service) SaveH5Navigation(id uint64, in H5NavigationInput, actor Actor) (uint64, error) {
-	if err := requireH5NavigationTenantScope(actor.Scope); err != nil {
+	if err := requireH5NavigationSiteScope(actor.Scope); err != nil {
 		return 0, err
 	}
 	if err := s.EnsureH5NavigationSchema(); err != nil {
@@ -237,7 +237,7 @@ func (s *Service) SaveH5Navigation(id uint64, in H5NavigationInput, actor Actor)
 		if err != nil {
 			return err
 		}
-		dimensions, err := loadTenantSiteDimensions(tx, actor.Scope)
+		dimensions, err := loadSiteDimensions(tx, actor.Scope)
 		if err != nil {
 			return err
 		}
@@ -256,7 +256,7 @@ func (s *Service) SaveH5Navigation(id uint64, in H5NavigationInput, actor Actor)
 		}
 		if id == 0 {
 			row := model.GameH5NavigationItems{
-				TenantID: actor.Scope.TenantID, SiteID: actor.Scope.SiteID, MenuCode: draft.MenuCode,
+				SiteID: actor.Scope.SiteID, MenuCode: draft.MenuCode,
 				LabelZh: draft.Labels["zh-CN"], LabelEn: draft.Labels["en-US"],
 				IconAssetIDDraft: draft.IconAssetID, LottieAssetIDDraft: draft.LottieAssetID,
 				SoundAssetIDDraft: draft.SoundAssetID, DisplayPosition: draft.DisplayPosition,
@@ -269,7 +269,7 @@ func (s *Service) SaveH5Navigation(id uint64, in H5NavigationInput, actor Actor)
 				return err
 			}
 			returnID = row.ID
-		} else if err := tenancy.ApplySiteStrict(tx.Model(&model.GameH5NavigationItems{}), "", actor.Scope).Where("id=?", id).Updates(updates).Error; err != nil {
+		} else if err := content.ApplySiteStrict(tx.Model(&model.GameH5NavigationItems{}), "", actor.Scope).Where("id=?", id).Updates(updates).Error; err != nil {
 			return err
 		}
 		if err := markH5NavigationSiteDraft(tx, actor); err != nil {
@@ -285,7 +285,7 @@ func (s *Service) SaveH5Navigation(id uint64, in H5NavigationInput, actor Actor)
 }
 
 func (s *Service) CopyH5Navigation(id uint64, actor Actor) (uint64, error) {
-	if err := requireH5NavigationTenantScope(actor.Scope); err != nil {
+	if err := requireH5NavigationSiteScope(actor.Scope); err != nil {
 		return 0, err
 	}
 	row, err := s.h5NavigationByID(s.db, id, actor.Scope, false)
@@ -305,7 +305,7 @@ func (s *Service) CopyH5Navigation(id uint64, actor Actor) (uint64, error) {
 }
 
 func (s *Service) DeleteH5Navigation(id uint64, actor Actor) error {
-	if err := requireH5NavigationTenantScope(actor.Scope); err != nil {
+	if err := requireH5NavigationSiteScope(actor.Scope); err != nil {
 		return err
 	}
 	row, err := s.h5NavigationByID(s.db, id, actor.Scope, false)
@@ -320,7 +320,7 @@ func (s *Service) DeleteH5Navigation(id uint64, actor Actor) error {
 	payload, _ := json.Marshal(draft)
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		nowValue := time.Now()
-		if err := tenancy.ApplySiteStrict(tx.Model(&model.GameH5NavigationItems{}), "", actor.Scope).Where("id=?", id).Updates(map[string]any{
+		if err := content.ApplySiteStrict(tx.Model(&model.GameH5NavigationItems{}), "", actor.Scope).Where("id=?", id).Updates(map[string]any{
 			"draft_payload": string(payload), "publish_status": H5NavigationPublishDraft,
 			"draft_updated_at": nowValue, "updated_by": actor.ID, "updated_at": nowValue,
 		}).Error; err != nil {
@@ -334,7 +334,7 @@ func (s *Service) DeleteH5Navigation(id uint64, actor Actor) error {
 }
 
 func (s *Service) SortH5Navigation(in H5NavigationSortInput, actor Actor) error {
-	if err := requireH5NavigationTenantScope(actor.Scope); err != nil {
+	if err := requireH5NavigationSiteScope(actor.Scope); err != nil {
 		return err
 	}
 	position := strings.ToUpper(strings.TrimSpace(in.DisplayPosition))
@@ -356,7 +356,7 @@ func (s *Service) SortH5Navigation(in H5NavigationSortInput, actor Actor) error 
 			}
 			draft.SortOrder = (index + 1) * 10
 			payload, _ := json.Marshal(draft)
-			if err := tenancy.ApplySiteStrict(tx.Model(&model.GameH5NavigationItems{}), "", actor.Scope).Where("id=?", id).Updates(map[string]any{
+			if err := content.ApplySiteStrict(tx.Model(&model.GameH5NavigationItems{}), "", actor.Scope).Where("id=?", id).Updates(map[string]any{
 				"draft_payload": string(payload), "publish_status": H5NavigationPublishDraft,
 				"draft_updated_at": time.Now(), "updated_by": actor.ID, "updated_at": time.Now(),
 			}).Error; err != nil {
@@ -370,8 +370,8 @@ func (s *Service) SortH5Navigation(in H5NavigationSortInput, actor Actor) error 
 	})
 }
 
-func (s *Service) H5Navigation(scope tenancy.Scope, language, country string, loggedIn bool, position string, at time.Time) ([]PublicH5NavigationItem, error) {
-	if scope.TenantID == 0 || scope.SiteID == 0 {
+func (s *Service) H5Navigation(scope content.Scope, language string, country string, loggedIn bool, position string, at time.Time) ([]PublicH5NavigationItem, error) {
+	if scope.SiteID == 0 {
 		return []PublicH5NavigationItem{}, nil
 	}
 	position = strings.ToUpper(strings.TrimSpace(position))
@@ -382,7 +382,7 @@ func (s *Service) H5Navigation(scope tenancy.Scope, language, country string, lo
 		return []PublicH5NavigationItem{}, nil
 	}
 	var rows []model.GameH5NavigationItems
-	err := tenancy.ApplySiteStrict(s.db.Model(&model.GameH5NavigationItems{}), "", scope).
+	err := content.ApplySiteStrict(s.db.Model(&model.GameH5NavigationItems{}), "", scope).
 		Where("display_position=? AND config_version>0 AND enabled=1 AND deleted_at IS NULL", position).
 		Where("(start_at IS NULL OR start_at<=?) AND (end_at IS NULL OR end_at>=?)", at, at).
 		Order("sort_order ASC,id ASC").Find(&rows).Error
@@ -417,14 +417,14 @@ func (s *Service) H5Navigation(scope tenancy.Scope, language, country string, lo
 	return out, nil
 }
 
-func requireH5NavigationTenantScope(scope tenancy.Scope) error {
+func requireH5NavigationSiteScope(scope content.Scope) error {
 	if !scope.SiteScoped() {
-		return newError("H5_NAVIGATION_SCOPE_REQUIRED", "tenant site scope is required")
+		return newError("H5_NAVIGATION_SCOPE_REQUIRED", "H5 scope is required")
 	}
 	return nil
 }
 
-func normalizeH5NavigationInput(tx *gorm.DB, in H5NavigationInput, scope tenancy.Scope) (H5NavigationDraft, error) {
+func normalizeH5NavigationInput(tx *gorm.DB, in H5NavigationInput, scope content.Scope) (H5NavigationDraft, error) {
 	code := strings.ToLower(strings.TrimSpace(in.MenuCode))
 	if !h5NavigationCodePattern.MatchString(code) {
 		return H5NavigationDraft{}, newError("INVALID_H5_NAVIGATION_CODE", "navigation code must use lowercase letters, numbers, or hyphens")
@@ -476,7 +476,7 @@ func normalizeH5NavigationInput(tx *gorm.DB, in H5NavigationInput, scope tenancy
 		}
 	case "OPEN_GAME":
 		if in.GameID == 0 {
-			return H5NavigationDraft{}, newError("H5_NAVIGATION_GAME_REQUIRED", "a tenant game is required")
+			return H5NavigationDraft{}, newError("H5_NAVIGATION_GAME_REQUIRED", "a site game is required")
 		}
 		game, err := h5NavigationGame(tx, scope, in.GameID, providerCode)
 		if err != nil {
@@ -500,10 +500,10 @@ type h5NavigationGameRow struct {
 	Name             string
 }
 
-func h5NavigationGame(tx *gorm.DB, scope tenancy.Scope, gameID uint64, providerCode string) (h5NavigationGameRow, error) {
+func h5NavigationGame(tx *gorm.DB, scope content.Scope, gameID uint64, providerCode string) (h5NavigationGameRow, error) {
 	var game h5NavigationGameRow
-	db := tenancy.ApplySite(tx.Table("game_games g"), "g", scope).
-		Scopes(func(db *gorm.DB) *gorm.DB { return tenancy.ApplySite(db, "p", scope) }).
+	db := content.ApplySite(tx.Table("game_games g"), "g", scope).
+		Scopes(func(db *gorm.DB) *gorm.DB { return content.ApplySite(db, "p", scope) }).
 		Select("g.id,p.provider_code,g.provider_game_code,g.name").
 		Joins("JOIN game_game_providers p ON p.id=g.provider_id AND p.deleted_at IS NULL").
 		Where("g.id=? AND g.deleted_at IS NULL", gameID)
@@ -511,12 +511,12 @@ func h5NavigationGame(tx *gorm.DB, scope tenancy.Scope, gameID uint64, providerC
 		db = db.Where("p.provider_code=?", providerCode)
 	}
 	if err := db.Take(&game).Error; err != nil {
-		return game, newError("H5_NAVIGATION_GAME_NOT_FOUND", "selected tenant game does not exist")
+		return game, newError("H5_NAVIGATION_GAME_NOT_FOUND", "selected site game does not exist")
 	}
 	return game, nil
 }
 
-func (s *Service) validateH5NavigationAssets(db *gorm.DB, scope tenancy.Scope, draft H5NavigationDraft) error {
+func (s *Service) validateH5NavigationAssets(db *gorm.DB, scope content.Scope, draft H5NavigationDraft) error {
 	if draft.IconAssetID == 0 && draft.LottieAssetID == 0 {
 		return newError("H5_NAVIGATION_ASSET_REQUIRED", "an icon or Lottie asset is required")
 	}
@@ -542,9 +542,9 @@ func (s *Service) validateH5NavigationAssets(db *gorm.DB, scope tenancy.Scope, d
 	return nil
 }
 
-func (s *Service) h5NavigationByID(db *gorm.DB, id uint64, scope tenancy.Scope, lock bool) (model.GameH5NavigationItems, error) {
+func (s *Service) h5NavigationByID(db *gorm.DB, id uint64, scope content.Scope, lock bool) (model.GameH5NavigationItems, error) {
 	var row model.GameH5NavigationItems
-	query := tenancy.ApplySiteStrict(db.Model(&model.GameH5NavigationItems{}), "", scope).Where("id=? AND deleted_at IS NULL", id)
+	query := content.ApplySiteStrict(db.Model(&model.GameH5NavigationItems{}), "", scope).Where("id=? AND deleted_at IS NULL", id)
 	if lock {
 		query = query.Clauses(clause.Locking{Strength: "UPDATE"})
 	}
@@ -554,7 +554,7 @@ func (s *Service) h5NavigationByID(db *gorm.DB, id uint64, scope tenancy.Scope, 
 	return row, nil
 }
 
-func (s *Service) hydrateH5Navigation(row *H5NavigationRecord, scope tenancy.Scope) {
+func (s *Service) hydrateH5Navigation(row *H5NavigationRecord, scope content.Scope) {
 	row.DraftConfiguration = decodeH5NavigationDraft(row.DraftPayload)
 	if row.DraftConfiguration.MenuCode == "" {
 		row.DraftConfiguration = legacyPublishedH5Navigation(row.GameH5NavigationItems)
@@ -572,7 +572,7 @@ func (s *Service) hydrateH5Navigation(row *H5NavigationRecord, scope tenancy.Sco
 	row.Visible = row.DraftConfiguration.Enabled
 }
 
-func (s *Service) h5NavigationAsset(id uint64, scope tenancy.Scope) *assetLibraryRecord {
+func (s *Service) h5NavigationAsset(id uint64, scope content.Scope) *assetLibraryRecord {
 	if id == 0 {
 		return nil
 	}
@@ -584,7 +584,7 @@ func (s *Service) h5NavigationAsset(id uint64, scope tenancy.Scope) *assetLibrar
 	return &row
 }
 
-func (s *Service) publicH5NavigationAsset(scope tenancy.Scope, id uint64, assetType string) (string, bool) {
+func (s *Service) publicH5NavigationAsset(scope content.Scope, id uint64, assetType string) (string, bool) {
 	if id == 0 {
 		return "", false
 	}
@@ -600,7 +600,7 @@ func (s *Service) publicH5NavigationAsset(scope tenancy.Scope, id uint64, assetT
 	return value, value != ""
 }
 
-func normalizeH5NavigationLabels(values map[string]string, labelZh, labelEn string) map[string]string {
+func normalizeH5NavigationLabels(values map[string]string, labelZh string, labelEn string) map[string]string {
 	out := map[string]string{}
 	for key, value := range values {
 		key = normalizeH5NavigationLanguage(key)
@@ -698,7 +698,7 @@ func inputFromH5NavigationDraft(draft H5NavigationDraft, reason string) H5Naviga
 	}
 }
 
-func h5NavigationVisible(draft H5NavigationDraft, language, country string, loggedIn bool, at time.Time) bool {
+func h5NavigationVisible(draft H5NavigationDraft, language string, country string, loggedIn bool, at time.Time) bool {
 	if !draft.Enabled || draft.Deleted || (draft.StartAt != nil && draft.StartAt.After(at)) || (draft.EndAt != nil && draft.EndAt.Before(at)) {
 		return false
 	}
@@ -747,13 +747,13 @@ func h5NavigationLabel(labels map[string]string, language string) string {
 }
 
 func markH5NavigationSiteDraft(tx *gorm.DB, actor Actor) error {
-	return tx.Table("game_saas_sites").Where("id=? AND tenant_id=? AND deleted_at IS NULL", actor.Scope.SiteID, actor.Scope.TenantID).
+	return tx.Table("game_site_config").Where("id = ? AND deleted_at IS NULL", actor.Scope.SiteID).
 		Updates(map[string]any{"config_status": H5NavigationPublishDraft, "config_draft_updated_at": time.Now(), "updated_by": actor.ID, "updated_at": time.Now()}).Error
 }
 
-func PreviewH5NavigationDrafts(db *gorm.DB, tenantID, siteID uint64) ([]map[string]any, error) {
+func PreviewH5NavigationDrafts(db *gorm.DB, siteID uint64) ([]map[string]any, error) {
 	var rows []model.GameH5NavigationItems
-	if err := db.Where("tenant_id=? AND site_id=? AND deleted_at IS NULL", tenantID, siteID).Order("id ASC").Find(&rows).Error; err != nil {
+	if err := db.Where("site_id = ? AND deleted_at IS NULL", siteID).Order("id ASC").Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	out := make([]map[string]any, 0, len(rows))
@@ -773,14 +773,14 @@ func PreviewH5NavigationDrafts(db *gorm.DB, tenantID, siteID uint64) ([]map[stri
 	return out, nil
 }
 
-func PublishH5NavigationDrafts(tx *gorm.DB, tenantID, siteID, actorID, configVersion uint64) (int, error) {
+func PublishH5NavigationDrafts(tx *gorm.DB, siteID uint64, actorID uint64, configVersion uint64) (int, error) {
 	var rows []model.GameH5NavigationItems
-	if err := tx.Where("tenant_id=? AND site_id=? AND publish_status=? AND deleted_at IS NULL", tenantID, siteID, H5NavigationPublishDraft).
+	if err := tx.Where("site_id = ? AND publish_status = ? AND deleted_at IS NULL", siteID, H5NavigationPublishDraft).
 		Order("id ASC").Find(&rows).Error; err != nil {
 		return 0, err
 	}
 	service := New(tx)
-	scope := tenancy.Scope{TenantID: tenantID, SiteID: siteID}
+	scope := content.Scope{SiteID: siteID}
 	nowValue := time.Now()
 	for _, row := range rows {
 		draft := decodeH5NavigationDraft(row.DraftPayload)
@@ -788,7 +788,7 @@ func PublishH5NavigationDrafts(tx *gorm.DB, tenantID, siteID, actorID, configVer
 			return 0, newError("INVALID_H5_NAVIGATION_DRAFT", "navigation draft payload is invalid")
 		}
 		if draft.Deleted {
-			if err := tx.Model(&model.GameH5NavigationItems{}).Where("id=? AND tenant_id=? AND site_id=?", row.ID, tenantID, siteID).
+			if err := tx.Model(&model.GameH5NavigationItems{}).Where("id = ? AND site_id = ?", row.ID, siteID).
 				Updates(map[string]any{"deleted_at": nowValue, "updated_by": actorID, "updated_at": nowValue}).Error; err != nil {
 				return 0, err
 			}
@@ -819,7 +819,7 @@ func PublishH5NavigationDrafts(tx *gorm.DB, tenantID, siteID, actorID, configVer
 			"config_version": configVersion, "published_at": nowValue, "published_by": actorID,
 			"updated_by": actorID, "updated_at": nowValue,
 		}
-		if err := tx.Model(&model.GameH5NavigationItems{}).Where("id=? AND tenant_id=? AND site_id=? AND deleted_at IS NULL", row.ID, tenantID, siteID).
+		if err := tx.Model(&model.GameH5NavigationItems{}).Where("id = ? AND site_id = ? AND deleted_at IS NULL", row.ID, siteID).
 			Updates(updates).Error; err != nil {
 			return 0, err
 		}

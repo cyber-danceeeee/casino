@@ -11,7 +11,7 @@ flowchart LR
     T --> N[notification.events]
     T --> V[provider.events]
     T --> J[system.jobs]
-    T --> L[ledger.events]
+    T --> L[payment.events]
     T --> PAY[payment.events]
     A & D & P & N & V & J & L & PAY -->|manual ack| C[Idempotent Consumers]
 ```
@@ -28,13 +28,11 @@ Durable exchanges:
 
 Durable primary queues:
 
-- `ledger.events`
 - `payment.events`
 - `provider.events`
 - `promotion.events`
 - `notification.events`
 - `audit.events`
-- `dashboard.events`
 - `system.jobs`
 - `retry.events` (topology/operations marker)
 - `dead.events` (topology/operations marker)
@@ -52,13 +50,7 @@ Every primary business queue has:
 
 | Routing key | Current consumer queue |
 | --- | --- |
-| `ledger.transaction.posted` | `audit.events` |
-| `tenant.deposit.credited` | `dashboard.events` |
-| `tenant.credit.changed` | `dashboard.events` |
-| `tenant.funds.frozen` | `dashboard.events` |
-| `tenant.funds.unfrozen` | `dashboard.events` |
 | `payment.deposit.success` | `promotion.events` |
-| `tenant.provisioned` | `notification.events` |
 | `task.notification.send.requested` | `notification.events` |
 | `task.provider.sync.requested` | `provider.events` |
 | `task.support.export.requested` | `system.jobs` |
@@ -66,22 +58,20 @@ Every primary business queue has:
 | `task.backup.requested` | `system.jobs` |
 | `task.system.execution.requested` | `system.jobs` |
 
-The protocol also reserves mappings for `wallet.balance.changed`, `payment.withdraw.success`, `provider.callback.received`, `provider.bet`, `provider.win`, `provider.rollback`, `promotion.reward`, `tenant.config.published`, and `alert.created`.
 
 ## Message Envelope
 
 ```json
 {
   "event_id": "EVT...",
-  "event_type": "ledger.transaction_posted.v1",
+  "event_type": "player.deposit_succeeded.v1",
   "version": 1,
-  "tenant_id": 1001,
-  "site_id": 2001,
+  "site_id": 1,
   "request_id": "request-id",
   "correlation_id": "business-flow-id",
   "causation_id": "parent-event-id",
   "occurred_at": "2026-07-20T00:00:00Z",
-  "producer": "tenantledger",
+  "producer": "payments",
   "payload": {},
   "metadata": {}
 }

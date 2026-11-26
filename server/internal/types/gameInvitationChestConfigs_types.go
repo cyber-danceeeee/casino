@@ -10,49 +10,47 @@ var _ time.Time
 
 // Tip: suggested filling in the binding rules https://github.com/go-playground/validator in request struct fields tag.
 
-
 // CreateGameInvitationChestConfigsRequest request params
 type CreateGameInvitationChestConfigsRequest struct {
-	ChestCode  string `json:"chestCode" binding:""`
-	Title  string `json:"title" binding:""`
-	RequiredInvites  uint `json:"requiredInvites" binding:""`
-	RewardCash  string `json:"rewardCash" binding:""`
-	RewardBonus  string `json:"rewardBonus" binding:""`
-	IconURL  string `json:"iconURL" binding:""`
-	Sort  int `json:"sort" binding:""`
-	Status  int `json:"status" binding:""` // 1 enabled, 2 disabled
+	ChestCode       string `json:"chestCode" binding:""`
+	Title           string `json:"title" binding:""`
+	RequiredInvites uint   `json:"requiredInvites" binding:""`
+	RewardCash      string `json:"rewardCash" binding:""`
+	RewardBonus     string `json:"rewardBonus" binding:""`
+	IconURL         string `json:"iconURL" binding:""`
+	Sort            int    `json:"sort" binding:""`
+	Status          int    `json:"status" binding:""` // 1 enabled, 2 disabled
 }
 
 // UpdateGameInvitationChestConfigsByIDRequest request params
 type UpdateGameInvitationChestConfigsByIDRequest struct {
 	ID uint64 `json:"id" binding:""` // uint64 id
 
-	ChestCode  string `json:"chestCode" binding:""`
-	Title  string `json:"title" binding:""`
-	RequiredInvites  uint `json:"requiredInvites" binding:""`
-	RewardCash  string `json:"rewardCash" binding:""`
-	RewardBonus  string `json:"rewardBonus" binding:""`
-	IconURL  string `json:"iconURL" binding:""`
-	Sort  int `json:"sort" binding:""`
-	Status  int `json:"status" binding:""` // 1 enabled, 2 disabled
+	ChestCode       string `json:"chestCode" binding:""`
+	Title           string `json:"title" binding:""`
+	RequiredInvites uint   `json:"requiredInvites" binding:""`
+	RewardCash      string `json:"rewardCash" binding:""`
+	RewardBonus     string `json:"rewardBonus" binding:""`
+	IconURL         string `json:"iconURL" binding:""`
+	Sort            int    `json:"sort" binding:""`
+	Status          int    `json:"status" binding:""` // 1 enabled, 2 disabled
 }
 
 // GameInvitationChestConfigsObjDetail detail
 type GameInvitationChestConfigsObjDetail struct {
 	ID uint64 `json:"id"` // convert to uint64 id
 
-	ChestCode  string `json:"chestCode"`
-	Title  string `json:"title"`
-	RequiredInvites  uint `json:"requiredInvites"`
-	RewardCash  string `json:"rewardCash"`
-	RewardBonus  string `json:"rewardBonus"`
-	IconURL  string `json:"iconURL"`
-	Sort  int `json:"sort"`
-	Status  int `json:"status"` // 1 enabled, 2 disabled
-	CreatedAt  *time.Time `json:"createdAt"`
-	UpdatedAt  *time.Time `json:"updatedAt"`
+	ChestCode       string     `json:"chestCode"`
+	Title           string     `json:"title"`
+	RequiredInvites uint       `json:"requiredInvites"`
+	RewardCash      string     `json:"rewardCash"`
+	RewardBonus     string     `json:"rewardBonus"`
+	IconURL         string     `json:"iconURL"`
+	Sort            int        `json:"sort"`
+	Status          int        `json:"status"` // 1 enabled, 2 disabled
+	CreatedAt       *time.Time `json:"createdAt"`
+	UpdatedAt       *time.Time `json:"updatedAt"`
 }
-
 
 // CreateGameInvitationChestConfigsReply only for api docs
 type CreateGameInvitationChestConfigsReply struct {

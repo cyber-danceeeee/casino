@@ -7,8 +7,8 @@ import (
 	"github.com/go-dev-frame/sponge/pkg/gin/response"
 	"gorm.io/gorm"
 
+	"casino/internal/content"
 	"casino/internal/database"
-	"casino/internal/tenancy"
 )
 
 type AdminOptionsHandler interface {
@@ -33,10 +33,10 @@ type adminOption struct {
 
 func (h *adminOptionsHandler) List(c *gin.Context) {
 	db := database.GetDB()
-	scope := adminTenancyScope(c)
+	scope := adminContentScope(c)
 	data := gin.H{
 		"providers":            adminOptionRows(db, scope, "game_game_providers", "provider_code", "name", "deleted_at IS NULL", "sort ASC, provider_code ASC"),
-		"sites":                adminOptionRows(db, scope, "game_saas_sites", "id", "site_name", "deleted_at IS NULL", "site_name ASC, id ASC"),
+		"sites":                adminOptionRows(db, scope, "game_site_config", "id", "site_name", "deleted_at IS NULL", "site_name ASC, id ASC"),
 		"games":                adminOptionRows(db, scope, "game_games", "id", "name", "deleted_at IS NULL", "sort ASC, id ASC"),
 		"gameCategories":       adminOptionRows(db, scope, "game_game_categories", "category_key", "name_zh", "deleted_at IS NULL", "sort ASC, category_key ASC"),
 		"gameTags":             adminOptionRows(db, scope, "game_game_tags", "code", "name_zh", "deleted_at IS NULL", "sort_order ASC, code ASC"),
@@ -63,7 +63,6 @@ func (h *adminOptionsHandler) List(c *gin.Context) {
 		"launchStatuses":       []adminOption{{Label: "LAUNCH_REQUESTED", Value: "LAUNCH_REQUESTED"}, {Label: "LAUNCH_SUCCESS", Value: "LAUNCH_SUCCESS"}, {Label: "LAUNCH_FAILED", Value: "LAUNCH_FAILED"}, {Label: "PLAYING", Value: "PLAYING"}, {Label: "CLOSED", Value: "CLOSED"}},
 	}
 	if scope.Platform {
-		data["tenants"] = adminOptionRows(db, scope, "game_saas_tenants", "id", "tenant_name", "deleted_at IS NULL", "tenant_name ASC,id ASC")
 	}
 	response.Success(c, data)
 }
@@ -80,7 +79,7 @@ func adminCountryOptionRows(db *gorm.DB) []adminOption {
 	return adminCleanOptions(rows)
 }
 
-func adminGlobalDistinctOptionRows(db *gorm.DB, table, column, where, order string) []adminOption {
+func adminGlobalDistinctOptionRows(db *gorm.DB, table string, column string, where string, order string) []adminOption {
 	rows := []adminOption{}
 	query := db.Table(table).Select("DISTINCT " + column + " AS value, " + column + " AS label")
 	if strings.TrimSpace(where) != "" {
@@ -93,10 +92,10 @@ func adminGlobalDistinctOptionRows(db *gorm.DB, table, column, where, order stri
 	return adminCleanOptions(rows)
 }
 
-func adminOptionRows(db *gorm.DB, scope tenancy.Scope, table, valueColumn, labelColumn, where, order string) []adminOption {
+func adminOptionRows(db *gorm.DB, scope content.Scope, table string, valueColumn string, labelColumn string, where string, order string) []adminOption {
 	rows := []adminOption{}
 	query := db.Table(table).Select(valueColumn + " AS value, COALESCE(NULLIF(" + labelColumn + ", ''), " + valueColumn + ") AS label")
-	query = tenancy.ApplySite(query, "", scope)
+	query = content.ApplySite(query, "", scope)
 	if strings.TrimSpace(where) != "" {
 		query = query.Where(where)
 	}
@@ -107,10 +106,10 @@ func adminOptionRows(db *gorm.DB, scope tenancy.Scope, table, valueColumn, label
 	return adminCleanOptions(rows)
 }
 
-func adminDistinctOptionRows(db *gorm.DB, scope tenancy.Scope, table, column, where, order string) []adminOption {
+func adminDistinctOptionRows(db *gorm.DB, scope content.Scope, table string, column string, where string, order string) []adminOption {
 	rows := []adminOption{}
 	query := db.Table(table).Select("DISTINCT " + column + " AS value, " + column + " AS label")
-	query = tenancy.ApplySite(query, "", scope)
+	query = content.ApplySite(query, "", scope)
 	if strings.TrimSpace(where) != "" {
 		query = query.Where(where)
 	}
@@ -121,10 +120,10 @@ func adminDistinctOptionRows(db *gorm.DB, scope tenancy.Scope, table, column, wh
 	return adminCleanOptions(rows)
 }
 
-func adminNumberOptionRows(db *gorm.DB, scope tenancy.Scope, table, column, where, order string) []adminOption {
+func adminNumberOptionRows(db *gorm.DB, scope content.Scope, table string, column string, where string, order string) []adminOption {
 	rows := []adminOption{}
 	query := db.Table(table).Select("DISTINCT CAST(" + column + " AS CHAR) AS value, CAST(" + column + " AS CHAR) AS label")
-	query = tenancy.ApplySite(query, "", scope)
+	query = content.ApplySite(query, "", scope)
 	if strings.TrimSpace(where) != "" {
 		query = query.Where(where)
 	}

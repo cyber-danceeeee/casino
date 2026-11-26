@@ -103,7 +103,7 @@ func Test_gameUserWelfareCardsHandler_Create(t *testing.T) {
 	}
 
 	t.Logf("%+v", result)
-	
+
 }
 
 func Test_gameUserWelfareCardsHandler_DeleteByID(t *testing.T) {

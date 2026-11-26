@@ -232,7 +232,7 @@ func (h *gameGameCategoryRelationsHandler) List(c *gin.Context) {
 
 	response.Success(c, gin.H{
 		"gameGameCategoryRelationss": data,
-		"total":        total,
+		"total":                      total,
 	})
 }
 

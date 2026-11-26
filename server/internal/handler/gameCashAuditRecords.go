@@ -232,7 +232,7 @@ func (h *gameCashAuditRecordsHandler) List(c *gin.Context) {
 
 	response.Success(c, gin.H{
 		"gameCashAuditRecordss": data,
-		"total":        total,
+		"total":                 total,
 	})
 }
 

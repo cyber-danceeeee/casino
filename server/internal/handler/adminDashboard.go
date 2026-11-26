@@ -7,9 +7,10 @@ import (
 	"sync"
 	"time"
 
+	"casino/internal/content"
 	"casino/internal/dashboardadmin"
 	"casino/internal/database"
-	"casino/internal/tenancy"
+
 	"github.com/gin-gonic/gin"
 	"github.com/go-dev-frame/sponge/pkg/gin/response"
 )
@@ -29,7 +30,7 @@ func NewAdminDashboardHandler() *AdminDashboardHandler {
 }
 
 func (h *AdminDashboardHandler) Filters(c *gin.Context) {
-	data, err := h.service.Filters(adminTenancyScope(c))
+	data, err := h.service.Filters(adminContentScope(c))
 	dashboardWrite(c, data, err)
 }
 func (h *AdminDashboardHandler) Overview(c *gin.Context)       { h.call(c, h.service.Overview) }
@@ -60,7 +61,7 @@ func (h *AdminDashboardHandler) Realtime(c *gin.Context)     { h.call(c, h.servi
 func (h *AdminDashboardHandler) Alerts(c *gin.Context)       { h.call(c, h.service.Alerts) }
 
 func (h *AdminDashboardHandler) call(c *gin.Context, fn func(dashboardadmin.Filter) (map[string]any, error)) {
-	scope := adminTenancyScope(c)
+	scope := adminContentScope(c)
 	cacheKey := dashboardCacheKey(c, scope)
 	h.cacheMu.RLock()
 	cached, exists := h.cache[cacheKey]
@@ -94,8 +95,8 @@ func (h *AdminDashboardHandler) call(c *gin.Context, fn func(dashboardadmin.Filt
 	dashboardWrite(c, data, err)
 }
 
-func dashboardCacheKey(c *gin.Context, scope tenancy.Scope) string {
-	return c.Request.URL.Path + "?" + c.Request.URL.RawQuery + "|tenant=" + strconv.FormatUint(scope.TenantID, 10) + "|site=" + strconv.FormatUint(scope.SiteID, 10) + "|platform=" + strconv.FormatBool(scope.Platform)
+func dashboardCacheKey(c *gin.Context, scope content.Scope) string {
+	return c.Request.URL.Path + "?" + c.Request.URL.RawQuery + "|site=" + strconv.FormatUint(scope.SiteID, 10) + "|platform=" + strconv.FormatBool(scope.Platform)
 }
 
 func dashboardWrite(c *gin.Context, data any, err error) {

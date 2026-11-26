@@ -1,7 +1,6 @@
 package systemadmin
 
 import (
-	"casino/internal/singlesite"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
@@ -22,13 +21,12 @@ const (
 )
 
 type accountProfileRow struct {
-	ID                 uint64     `json:"id"`
-	Username           string     `json:"username"`
-	DisplayName        string     `json:"displayName" gorm:"column:display_name"`
-	Email              string     `json:"email"`
-	Mobile             string     `json:"mobile"`
-	TenantID           uint64     `json:"tenantID" gorm:"column:tenant_id"`
-	TenantName         string     `json:"tenantName" gorm:"column:tenant_name"`
+	ID          uint64 `json:"id"`
+	Username    string `json:"username"`
+	DisplayName string `json:"displayName" gorm:"column:display_name"`
+	Email       string `json:"email"`
+	Mobile      string `json:"mobile"`
+
 	SiteID             uint64     `json:"defaultSiteID" gorm:"column:site_id"`
 	SiteName           string     `json:"defaultSiteName" gorm:"column:site_name"`
 	PreferredLanguage  string     `json:"preferredLanguage" gorm:"column:preferred_language"`
@@ -42,9 +40,8 @@ type accountProfileRow struct {
 func (s *Service) AccountProfile(actor Actor) (map[string]any, error) {
 	var row accountProfileRow
 	err := s.db.Table("game_admin_accounts a").
-		Select("a.id,a.username,a.display_name,a.email,a.mobile,a.tenant_id,COALESCE(t.tenant_name,'') tenant_name,a.site_id,COALESCE(st.site_name,'') site_name,a.preferred_language,a.timezone,a.mfa_enabled,a.must_change_password,a.last_login_at,a.last_password_changed_at").
-		Joins("LEFT JOIN game_saas_tenants t ON t.id=a.tenant_id AND t.deleted_at IS NULL").
-		Joins("LEFT JOIN game_saas_sites st ON st.id=a.site_id AND st.deleted_at IS NULL").
+		Select("a.id, a.username, a.display_name, a.email, a.mobile, a.site_id, COALESCE(st.site_name, '') AS site_name, a.preferred_language, a.timezone, a.mfa_enabled, a.must_change_password, a.last_login_at, a.last_password_changed_at").
+		Joins("LEFT JOIN game_site_config st ON st.id=a.site_id AND st.deleted_at IS NULL").
 		Where("a.id=? AND a.deleted_at IS NULL", actor.ID).Take(&row).Error
 	if err != nil {
 		return nil, rowNotFound("administrator")
@@ -55,13 +52,15 @@ func (s *Service) AccountProfile(actor Actor) (map[string]any, error) {
 		Where("ar.admin_id=? AND ar.deleted_at IS NULL", actor.ID).Order("r.code").Pluck("r.code", &roles).Error; err != nil {
 		return nil, err
 	}
-	adminType := "TENANT"
-	if row.TenantID == 0 {
+	adminType := "SITE"
+	if row.SiteID == 0 {
 		adminType = "PLATFORM"
 	}
-	if singlesite.Active() {
+	{
+
 		adminType = "SITE"
 	}
+
 	return map[string]any{"profile": row, "adminType": adminType, "roles": roles}, nil
 }
 
@@ -175,7 +174,7 @@ func (s *Service) ChangeAccountPassword(input ChangePasswordInput, actor Actor) 
 func verifyAccountPassword(db *gorm.DB, adminID uint64, password string) (adminCredential, error) {
 	var account adminCredential
 	err := db.Table("game_admin_accounts a").
-		Select("a.id,a.username,a.display_name,a.tenant_id,a.site_id,a.password_hash,a.mfa_enabled,a.mfa_secret_encrypted,a.must_change_password,a.status").
+		Select("a.id, a.username, a.display_name, a.site_id, a.password_hash, a.mfa_enabled, a.mfa_secret_encrypted, a.must_change_password, a.status").
 		Where("a.id=? AND a.status=1 AND a.deleted_at IS NULL", adminID).Take(&account).Error
 	if err != nil || bcrypt.CompareHashAndPassword([]byte(account.PasswordHash), []byte(password)) != nil {
 		return adminCredential{}, NewError("CURRENT_PASSWORD_INVALID", "current password is invalid")

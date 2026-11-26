@@ -62,7 +62,7 @@ func main() {
 	}
 }
 
-func run(configFile, sourceRoot string, apply bool, concurrency int) error {
+func run(configFile string, sourceRoot string, apply bool, concurrency int) error {
 	if err := config.Init(configFile); err != nil {
 		return err
 	}
@@ -242,7 +242,7 @@ func uploadAndUpdate(ctx context.Context, db *gorm.DB, item match) error {
 		}).Error
 }
 
-func imageKey(category, stem string) string {
+func imageKey(category string, stem string) string {
 	return strings.ToLower(strings.TrimSpace(category) + "/" + strings.TrimSpace(stem))
 }
 
@@ -259,7 +259,7 @@ func removeSpaces(value string) string {
 	}, value)
 }
 
-func preferredImage(candidate, current imageFile) bool {
+func preferredImage(candidate imageFile, current imageFile) bool {
 	return imagePriority(candidate.Extension) > imagePriority(current.Extension)
 }
 

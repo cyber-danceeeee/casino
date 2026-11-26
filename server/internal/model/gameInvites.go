@@ -1,8 +1,9 @@
 package model
 
 import (
-	"github.com/go-dev-frame/sponge/pkg/sgorm"
 	"time"
+
+	"github.com/go-dev-frame/sponge/pkg/sgorm"
 )
 
 // GameInvites Referral records
@@ -34,5 +35,3 @@ var GameInvitesColumnNames = map[string]bool{
 	"first_deposit_at": true,
 	"valid_at":         true,
 }
-
-

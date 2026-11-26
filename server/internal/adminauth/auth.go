@@ -11,7 +11,6 @@ import (
 
 	"casino/internal/config"
 	"casino/internal/database"
-	"casino/internal/singlesite"
 )
 
 const actorContextKey = "admin_actor"
@@ -329,60 +328,41 @@ const (
 	PermissionSystemEventView               = "system:event:view"
 	PermissionSystemEventDispatch           = "system:event:dispatch"
 	PermissionSystemEventReplay             = "system:event:replay"
-	PermissionSystemTenantList              = "system:tenant:list"
-	PermissionSystemTenantView              = "system:tenant:view"
-	PermissionSystemTenantCreate            = "system:tenant:create"
-	PermissionSystemTenantUpdate            = "system:tenant:update"
-	PermissionSystemTenantStatus            = "system:tenant:status"
-	PermissionSystemTenantDelete            = "system:tenant:delete"
-	PermissionSystemTenantLedgerView        = "system:tenant:ledger:view"
-	PermissionSystemTenantLedgerDeposit     = "system:tenant:ledger:deposit"
-	PermissionSystemTenantLedgerCredit      = "system:tenant:ledger:credit"
-	PermissionSystemTenantLedgerFreeze      = "system:tenant:ledger:freeze"
-	PermissionSystemTenantLedgerReverse     = "system:tenant:ledger:reverse"
-	PermissionSystemSiteList                = "system:site:list"
-	PermissionSystemSiteView                = "system:site:view"
-	PermissionSystemSiteCreate              = "system:site:create"
-	PermissionSystemSiteUpdate              = "system:site:update"
-	PermissionSystemSiteStatus              = "system:site:status"
-	PermissionSystemSiteDelete              = "system:site:delete"
-	PermissionSystemSiteConfigPreview       = "system:site:config:preview"
-	PermissionSystemSiteConfigPublish       = "system:site:config:publish"
-	PermissionSystemDomainList              = "system:domain:list"
-	PermissionSystemDomainView              = "system:domain:view"
-	PermissionSystemDomainCreate            = "system:domain:create"
-	PermissionSystemDomainUpdate            = "system:domain:update"
-	PermissionSystemDomainStatus            = "system:domain:status"
-	PermissionSystemDomainDelete            = "system:domain:delete"
-	PermissionSupportPlayerRead             = "support:player:read"
-	PermissionSupportTimelineRead           = "support:timeline:read"
-	PermissionSupportCaseRead               = "support:case:read"
-	PermissionSupportCaseWrite              = "support:case:write"
-	PermissionSupportExport                 = "support:export"
-	PermissionMonitorPaymentRead            = "monitor:payment:read"
-	PermissionMonitorPaymentReview          = "monitor:payment:review"
-	PermissionMonitorProviderRead           = "monitor:provider:read"
-	PermissionOperationalNoteWrite          = "operations:note:write"
-	PermissionMaintenanceTenantRead         = "maintenance:tenant:read"
-	PermissionMaintenanceTenantWrite        = "maintenance:tenant:write"
-	PermissionMaintenanceProviderRead       = "maintenance:provider:read"
-	PermissionMaintenanceProviderWrite      = "maintenance:provider:write"
-	PermissionMaintenanceGameRead           = "maintenance:game:read"
-	PermissionMaintenanceGameWrite          = "maintenance:game:write"
-	PermissionHealthSystemRead              = "health:system:read"
-	PermissionJobsRead                      = "jobs:read"
-	PermissionJobsRetry                     = "jobs:retry"
-	PermissionJobsExecute                   = "jobs:execute"
-	PermissionAlertsRead                    = "alerts:read"
-	PermissionAlertsAcknowledge             = "alerts:acknowledge"
-	PermissionAlertsResolve                 = "alerts:resolve"
-	PermissionBackupRead                    = "backup:read"
-	PermissionBackupCreate                  = "backup:create"
-	PermissionBackupRestore                 = "backup:restore"
-	PermissionBackupDelete                  = "backup:delete"
-	PermissionReleaseRead                   = "release:read"
-	PermissionReleasePublish                = "release:publish"
-	PermissionReleaseRollback               = "release:rollback"
+
+	PermissionSystemSiteView           = "system:site:view"
+	PermissionSystemSiteUpdate         = "system:site:update"
+	PermissionSystemSiteStatus         = "system:site:status"
+	PermissionSystemSiteConfigPreview  = "system:site:config:preview"
+	PermissionSystemSiteConfigPublish  = "system:site:config:publish"
+	PermissionSupportPlayerRead        = "support:player:read"
+	PermissionSupportTimelineRead      = "support:timeline:read"
+	PermissionSupportCaseRead          = "support:case:read"
+	PermissionSupportCaseWrite         = "support:case:write"
+	PermissionSupportExport            = "support:export"
+	PermissionMonitorPaymentRead       = "monitor:payment:read"
+	PermissionMonitorPaymentReview     = "monitor:payment:review"
+	PermissionMonitorProviderRead      = "monitor:provider:read"
+	PermissionOperationalNoteWrite     = "operations:note:write"
+	PermissionMaintenanceSiteRead      = "maintenance:site:read"
+	PermissionMaintenanceSiteWrite     = "maintenance:site:write"
+	PermissionMaintenanceProviderRead  = "maintenance:provider:read"
+	PermissionMaintenanceProviderWrite = "maintenance:provider:write"
+	PermissionMaintenanceGameRead      = "maintenance:game:read"
+	PermissionMaintenanceGameWrite     = "maintenance:game:write"
+	PermissionHealthSystemRead         = "health:system:read"
+	PermissionJobsRead                 = "jobs:read"
+	PermissionJobsRetry                = "jobs:retry"
+	PermissionJobsExecute              = "jobs:execute"
+	PermissionAlertsRead               = "alerts:read"
+	PermissionAlertsAcknowledge        = "alerts:acknowledge"
+	PermissionAlertsResolve            = "alerts:resolve"
+	PermissionBackupRead               = "backup:read"
+	PermissionBackupCreate             = "backup:create"
+	PermissionBackupRestore            = "backup:restore"
+	PermissionBackupDelete             = "backup:delete"
+	PermissionReleaseRead              = "release:read"
+	PermissionReleasePublish           = "release:publish"
+	PermissionReleaseRollback          = "release:rollback"
 )
 
 var userCenterPermissions = []string{
@@ -696,29 +676,10 @@ var userCenterPermissions = []string{
 	PermissionSystemEventView,
 	PermissionSystemEventDispatch,
 	PermissionSystemEventReplay,
-	PermissionSystemTenantList,
-	PermissionSystemTenantView,
-	PermissionSystemTenantCreate,
-	PermissionSystemTenantUpdate,
-	PermissionSystemTenantStatus,
-	PermissionSystemTenantDelete,
-	PermissionSystemTenantLedgerView,
-	PermissionSystemTenantLedgerDeposit,
-	PermissionSystemTenantLedgerCredit,
-	PermissionSystemTenantLedgerFreeze,
-	PermissionSystemTenantLedgerReverse,
-	PermissionSystemSiteList,
+
 	PermissionSystemSiteView,
-	PermissionSystemSiteCreate,
 	PermissionSystemSiteUpdate,
 	PermissionSystemSiteStatus,
-	PermissionSystemSiteDelete,
-	PermissionSystemDomainList,
-	PermissionSystemDomainView,
-	PermissionSystemDomainCreate,
-	PermissionSystemDomainUpdate,
-	PermissionSystemDomainStatus,
-	PermissionSystemDomainDelete,
 	PermissionSupportPlayerRead,
 	PermissionSupportTimelineRead,
 	PermissionSupportCaseRead,
@@ -728,8 +689,8 @@ var userCenterPermissions = []string{
 	PermissionMonitorPaymentReview,
 	PermissionMonitorProviderRead,
 	PermissionOperationalNoteWrite,
-	PermissionMaintenanceTenantRead,
-	PermissionMaintenanceTenantWrite,
+	PermissionMaintenanceSiteRead,
+	PermissionMaintenanceSiteWrite,
 	PermissionMaintenanceProviderRead,
 	PermissionMaintenanceProviderWrite,
 	PermissionMaintenanceGameRead,
@@ -751,11 +712,11 @@ var userCenterPermissions = []string{
 }
 
 type Actor struct {
-	ID                 uint64   `json:"id"`
-	SessionID          uint64   `json:"sessionID"`
-	Username           string   `json:"username"`
-	DisplayName        string   `json:"displayName"`
-	TenantID           uint64   `json:"tenantID"`
+	ID          uint64 `json:"id"`
+	SessionID   uint64 `json:"sessionID"`
+	Username    string `json:"username"`
+	DisplayName string `json:"displayName"`
+
 	SiteID             uint64   `json:"siteID"`
 	DefaultSiteID      uint64   `json:"defaultSiteID"`
 	Platform           bool     `json:"platform"`
@@ -824,38 +785,6 @@ func RequireAny(permissions ...string) gin.HandlerFunc {
 	}
 }
 
-func RequirePlatform() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		actor, ok := FromContext(c)
-		if !ok || (!actor.Platform && !singlesite.Active()) {
-			abort(c, http.StatusForbidden, "PLATFORM_ACCESS_REQUIRED", "platform administrator access required")
-			return
-		}
-		c.Next()
-	}
-}
-
-func EnforceSystemPortalBoundary() gin.HandlerFunc {
-	platformPrefixes := []string{
-		"/admin/system/admins", "/admin/system/roles", "/admin/system/permissions",
-		"/admin/system/departments", "/admin/system/menus", "/admin/system/configs",
-		"/admin/system/tenants", "/admin/system/countries", "/admin/system/tasks",
-		"/admin/system/events", "/admin/system/monitoring",
-	}
-	return func(c *gin.Context) {
-		actor, ok := FromContext(c)
-		if ok && !actor.Platform && !singlesite.Active() {
-			for _, prefix := range platformPrefixes {
-				if strings.Contains(c.Request.URL.Path, prefix) {
-					abort(c, http.StatusForbidden, "PLATFORM_ACCESS_REQUIRED", "platform administrator access required")
-					return
-				}
-			}
-		}
-		c.Next()
-	}
-}
-
 func FromContext(c *gin.Context) (Actor, bool) {
 	value, ok := c.Get(actorContextKey)
 	if !ok {
@@ -891,16 +820,16 @@ func resolveActor(c *gin.Context) (Actor, bool) {
 	hash := sha256.Sum256([]byte(token))
 	tokenHash := hex.EncodeToString(hash[:])
 	row := struct {
-		ID                 uint64 `gorm:"column:id"`
-		SessionID          uint64 `gorm:"column:session_id"`
-		Username           string `gorm:"column:username"`
-		DisplayName        string `gorm:"column:display_name"`
-		TenantID           uint64 `gorm:"column:tenant_id"`
+		ID          uint64 `gorm:"column:id"`
+		SessionID   uint64 `gorm:"column:session_id"`
+		Username    string `gorm:"column:username"`
+		DisplayName string `gorm:"column:display_name"`
+
 		SiteID             uint64 `gorm:"column:site_id"`
 		MustChangePassword bool   `gorm:"column:must_change_password"`
 	}{}
 	err := database.GetDB().Table("game_admin_sessions AS s").
-		Select("a.id, s.id session_id, a.username, a.display_name, a.tenant_id, a.site_id, a.must_change_password").
+		Select("a.id, s.id AS session_id, a.username, a.display_name, a.site_id, a.must_change_password").
 		Joins("INNER JOIN game_admin_accounts AS a ON a.id = s.admin_id AND a.deleted_at IS NULL AND a.status = 1").
 		Where("s.token_hash = ? AND s.revoked_at IS NULL AND s.expired_at > ? AND s.deleted_at IS NULL", tokenHash, time.Now()).
 		Take(&row).Error
@@ -915,26 +844,18 @@ func resolveActor(c *gin.Context) (Actor, bool) {
 		Joins("INNER JOIN game_admin_roles AS r ON r.id=ar.role_id AND r.status=1 AND r.deleted_at IS NULL").
 		Where("ar.admin_id=? AND ar.deleted_at IS NULL", row.ID).Order("r.code").Pluck("r.code", &roleCodes).Error
 	makeActor := func(permissions []string) Actor {
-		adminType := "TENANT"
-		if row.TenantID == 0 {
-			adminType = "PLATFORM"
-		}
-		tenantID, siteID, platform := row.TenantID, row.SiteID, row.TenantID == 0
-		if scope, ok := singlesite.Scope(); ok {
-			tenantID, siteID, platform, adminType = scope.TenantID, scope.SiteID, false, "SITE"
-		}
 		return Actor{
 			ID: row.ID, SessionID: row.SessionID, Username: row.Username, DisplayName: row.DisplayName,
-			TenantID: tenantID, SiteID: siteID, DefaultSiteID: siteID,
-			Platform: platform, AdminType: adminType, MustChangePassword: row.MustChangePassword,
+			SiteID: 1, DefaultSiteID: 1,
+			Platform: false, AdminType: "SITE", MustChangePassword: row.MustChangePassword,
 			RoleCodes: roleCodes, Permissions: permissions,
 		}
 	}
 
 	var superAdminCount int64
 	_ = database.GetDB().Table("game_admin_account_roles AS ar").
-		Joins("INNER JOIN game_admin_roles AS r ON r.id = ar.role_id AND r.status = 1 AND r.system_protected = 1 AND r.tenant_id = 0 AND r.deleted_at IS NULL").
-		Where("ar.admin_id = ? AND ar.deleted_at IS NULL AND r.code = ? AND ? = 0", row.ID, superAdminRoleCode, row.TenantID).
+		Joins("INNER JOIN game_admin_roles AS r ON r.id = ar.role_id AND r.status = 1 AND r.system_protected = 1 AND r.deleted_at IS NULL").
+		Where("ar.admin_id = ? AND ar.deleted_at IS NULL AND r.code = ?", row.ID, superAdminRoleCode).
 		Count(&superAdminCount).Error
 	if superAdminCount > 0 {
 		permissions := []string{}
@@ -949,7 +870,7 @@ func resolveActor(c *gin.Context) (Actor, bool) {
 	permissions := []string{}
 	_ = database.GetDB().Table("game_admin_account_roles AS ar").
 		Distinct("p.code").
-		Joins("INNER JOIN game_admin_roles AS r ON r.id = ar.role_id AND r.tenant_id = ? AND r.status = 1 AND r.deleted_at IS NULL", row.TenantID).
+		Joins("INNER JOIN game_admin_roles AS r ON r.id = ar.role_id AND r.status = 1 AND r.deleted_at IS NULL").
 		Joins("INNER JOIN game_admin_role_permissions AS rp ON rp.role_id = r.id AND rp.deleted_at IS NULL").
 		Joins("INNER JOIN game_admin_permissions AS p ON p.id = rp.permission_id AND p.enabled = 1 AND p.deleted_at IS NULL").
 		Where("ar.admin_id = ? AND ar.deleted_at IS NULL", row.ID).

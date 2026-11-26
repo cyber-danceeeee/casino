@@ -12,21 +12,21 @@ import (
 	"casino/internal/model"
 )
 
-func TestDepositPromotionIsIdempotentAndTenantScoped(t *testing.T) {
+func TestDepositPromotionIsIdempotentAndH5Scoped(t *testing.T) {
 	db := promotionTestDB(t)
-	seedPromotionUser(t, db, 7, 3, 101, "MX", "USD")
-	promotion := seedDepositPromotion(t, db, 7, 3, "WELCOME", "", 100)
+	seedPromotionUser(t, db, 3, 101, "MX", "USD")
+	promotion := seedDepositPromotion(t, db, 3, "WELCOME", "", 100)
 	require.NoError(t, db.Create(&model.GamePromotionParticipationRule{
-		TenantID: 7, SiteID: 3, PromotionID: promotion.ID, RuleType: "FIRST_DEPOSIT", ComparisonOperator: "EQ", Enabled: true,
+		SiteID: 3, PromotionID: promotion.ID, RuleType: "FIRST_DEPOSIT", ComparisonOperator: "EQ", Enabled: true,
 	}).Error)
 	require.NoError(t, db.Create(&model.GamePromotionRewardRule{
-		TenantID: 7, SiteID: 3, PromotionID: promotion.ID, RewardType: "BONUS", CalculationType: "FIXED",
+		SiteID: 3, PromotionID: promotion.ID, RewardType: "BONUS", CalculationType: "FIXED",
 		RewardAmount: money("50"), PercentageRate: money("0"), Currency: "USD", WageringMultiplier: money("2"),
 		MinimumAmount: money("0"), MaximumReward: money("0"), Enabled: true,
 	}).Error)
 	service := New(db)
 	trigger := DepositTrigger{
-		TenantID: 7, SiteID: 3, UserID: 101, DepositOrderID: 501, OrderNo: "D501", EventID: "event-501",
+		SiteID: 3, UserID: 101, DepositOrderID: 501, OrderNo: "D501", EventID: "event-501",
 		Amount: decimal.NewFromInt(100), Currency: "USD", Country: "MX", DepositSequence: 1,
 	}
 	require.NoError(t, service.ProcessDepositSucceeded(context.Background(), trigger))
@@ -46,23 +46,23 @@ func TestDepositPromotionIsIdempotentAndTenantScoped(t *testing.T) {
 	require.NoError(t, service.ProcessDepositSucceeded(context.Background(), trigger))
 	assertPromotionCounts(t, db, 1, 1, 1)
 
-	trigger.EventID = "event-cross-tenant"
-	trigger.TenantID = 8
+	trigger.EventID = "event-cross-h5"
+	trigger.SiteID = 8
 	require.NoError(t, service.ProcessDepositSucceeded(context.Background(), trigger))
 	assertPromotionCounts(t, db, 1, 1, 1)
 }
 
 func TestPercentageRewardUsesCap(t *testing.T) {
 	db := promotionTestDB(t)
-	seedPromotionUser(t, db, 7, 3, 101, "MX", "USD")
-	promotion := seedDepositPromotion(t, db, 7, 3, "RELOAD", "RELOAD", 100)
+	seedPromotionUser(t, db, 3, 101, "MX", "USD")
+	promotion := seedDepositPromotion(t, db, 3, "RELOAD", "RELOAD", 100)
 	require.NoError(t, db.Create(&model.GamePromotionRewardRule{
-		TenantID: 7, SiteID: 3, PromotionID: promotion.ID, RewardType: "CASH", CalculationType: "PERCENTAGE",
+		SiteID: 3, PromotionID: promotion.ID, RewardType: "CASH", CalculationType: "PERCENTAGE",
 		RewardAmount: money("0"), PercentageRate: money("50"), Currency: "USD", WageringMultiplier: money("0"),
 		MinimumAmount: money("20"), MaximumReward: money("30"), Enabled: true,
 	}).Error)
 	require.NoError(t, New(db).ProcessDepositSucceeded(context.Background(), DepositTrigger{
-		TenantID: 7, SiteID: 3, UserID: 101, EventID: "event-cap", OrderNo: "D-CAP", Amount: decimal.NewFromInt(100),
+		SiteID: 3, UserID: 101, EventID: "event-cap", OrderNo: "D-CAP", Amount: decimal.NewFromInt(100),
 		Currency: "USD", Country: "MX", DepositSequence: 2,
 	}))
 	var wallet model.GameUserWallets
@@ -72,16 +72,16 @@ func TestPercentageRewardUsesCap(t *testing.T) {
 
 func TestRewardFailureRollsBackWalletAndClaim(t *testing.T) {
 	db := promotionTestDB(t)
-	seedPromotionUser(t, db, 7, 3, 101, "MX", "USD")
-	promotion := seedDepositPromotion(t, db, 7, 3, "ROLLBACK", "", 100)
+	seedPromotionUser(t, db, 3, 101, "MX", "USD")
+	promotion := seedDepositPromotion(t, db, 3, "ROLLBACK", "", 100)
 	require.NoError(t, db.Create(&model.GamePromotionRewardRule{
-		TenantID: 7, SiteID: 3, PromotionID: promotion.ID, RewardType: "CASH", CalculationType: "FIXED",
+		SiteID: 3, PromotionID: promotion.ID, RewardType: "CASH", CalculationType: "FIXED",
 		RewardAmount: money("10"), PercentageRate: money("0"), Currency: "USD", WageringMultiplier: money("0"),
 		MinimumAmount: money("0"), MaximumReward: money("0"), Enabled: true,
 	}).Error)
 	require.NoError(t, db.Migrator().DropTable(&model.GamePromotionClaimReward{}))
 	err := New(db).ProcessDepositSucceeded(context.Background(), DepositTrigger{
-		TenantID: 7, SiteID: 3, UserID: 101, EventID: "event-rollback", OrderNo: "D-RB", Amount: decimal.NewFromInt(100),
+		SiteID: 3, UserID: 101, EventID: "event-rollback", OrderNo: "D-RB", Amount: decimal.NewFromInt(100),
 		Currency: "USD", Country: "MX", DepositSequence: 2,
 	})
 	require.Error(t, err)
@@ -102,10 +102,10 @@ func promotionTestDB(t *testing.T) *gorm.DB {
 		&model.GamePromotionClaim{}, &model.GamePromotionClaimReward{},
 	))
 	statements := []string{
-		`CREATE TABLE game_users (id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, site_id INTEGER NOT NULL, user_no TEXT, username TEXT, phone_country_code TEXT, phone TEXT, vip_level INTEGER DEFAULT 0, country_code TEXT, deleted_at DATETIME)`,
-		`CREATE TABLE game_user_wallets (id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id INTEGER NOT NULL, site_id INTEGER NOT NULL, user_id INTEGER NOT NULL, currency TEXT NOT NULL, cash_balance NUMERIC NOT NULL DEFAULT 0, bonus_balance NUMERIC NOT NULL DEFAULT 0, withdrawable_balance NUMERIC NOT NULL DEFAULT 0, frozen_balance NUMERIC NOT NULL DEFAULT 0, status INTEGER NOT NULL DEFAULT 1, last_transaction_at DATETIME, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME)`,
-		`CREATE TABLE game_wallet_transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id INTEGER, site_id INTEGER, txn_no TEXT, external_txn_no TEXT, user_id INTEGER, wallet_id INTEGER, wallet_type TEXT, direction TEXT, category TEXT, source_type TEXT, source_id INTEGER, provider_code TEXT, idempotency_key TEXT UNIQUE, order_no TEXT, amount NUMERIC, currency TEXT, status INTEGER, balance_before NUMERIC, balance_after NUMERIC, frozen_balance_before NUMERIC, frozen_balance_after NUMERIC, remark TEXT, operator_id INTEGER, operator_username TEXT, completed_at DATETIME, raw_metadata TEXT, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME)`,
-		`CREATE TABLE game_bonus_records (id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id INTEGER, site_id INTEGER, order_no TEXT, bonus_id TEXT, user_id INTEGER, source_type TEXT, source_id INTEGER, promotion_id INTEGER, bonus_type TEXT, amount NUMERIC, currency TEXT, requirement_multiplier NUMERIC, required_valid_bet NUMERIC, completed_valid_bet NUMERIC, current_wagering NUMERIC, remaining_wagering NUMERIC, withdrawable_amount NUMERIC, status INTEGER, status_code TEXT, issued_at DATETIME, unlocked_at DATETIME, expires_at DATETIME, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME)`,
+		`CREATE TABLE game_users (id INTEGER PRIMARY KEY, site_id INTEGER NOT NULL, user_no TEXT, username TEXT, phone_country_code TEXT, phone TEXT, vip_level INTEGER DEFAULT 0, country_code TEXT, deleted_at DATETIME)`,
+		`CREATE TABLE game_user_wallets (id INTEGER PRIMARY KEY AUTOINCREMENT, site_id INTEGER NOT NULL, user_id INTEGER NOT NULL, currency TEXT NOT NULL, cash_balance REAL NOT NULL DEFAULT 0, bonus_balance REAL NOT NULL DEFAULT 0, withdrawable_balance REAL NOT NULL DEFAULT 0, frozen_balance REAL NOT NULL DEFAULT 0, status INTEGER NOT NULL DEFAULT 1, last_transaction_at DATETIME, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME)`,
+		`CREATE TABLE game_wallet_transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, site_id INTEGER, txn_no TEXT, external_txn_no TEXT, user_id INTEGER, wallet_id INTEGER, wallet_type TEXT, direction TEXT, category TEXT, source_type TEXT, source_id INTEGER, provider_code TEXT, idempotency_key TEXT UNIQUE, order_no TEXT, amount REAL, currency TEXT, status INTEGER, balance_before REAL, balance_after REAL, frozen_balance_before REAL, frozen_balance_after REAL, remark TEXT, operator_id INTEGER, operator_username TEXT, completed_at DATETIME, raw_metadata TEXT, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME)`,
+		`CREATE TABLE game_bonus_records (id INTEGER PRIMARY KEY AUTOINCREMENT, site_id INTEGER, order_no TEXT, bonus_id TEXT, user_id INTEGER, source_type TEXT, source_id INTEGER, promotion_id INTEGER, bonus_type TEXT, amount REAL, currency TEXT, requirement_multiplier REAL, required_valid_bet REAL, completed_valid_bet REAL, current_wagering REAL, remaining_wagering REAL, withdrawable_amount REAL, status INTEGER, status_code TEXT, issued_at DATETIME, unlocked_at DATETIME, expires_at DATETIME, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME)`,
 	}
 	for _, statement := range statements {
 		require.NoError(t, db.Exec(statement).Error)
@@ -113,22 +113,22 @@ func promotionTestDB(t *testing.T) *gorm.DB {
 	return db
 }
 
-func seedPromotionUser(t *testing.T, db *gorm.DB, tenantID, siteID, userID uint64, country, currency string) {
+func seedPromotionUser(t *testing.T, db *gorm.DB, siteID uint64, userID uint64, country string, currency string) {
 	t.Helper()
 	require.NoError(t, db.Table("game_users").Create(map[string]any{
-		"id": userID, "tenant_id": tenantID, "site_id": siteID, "user_no": "U101", "username": "user",
+		"id": userID, "site_id": siteID, "user_no": "U101", "username": "user",
 		"phone_country_code": "+52", "phone": "10001", "country_code": country, "vip_level": 0,
 	}).Error)
 	require.NoError(t, db.Table("game_user_wallets").Create(map[string]any{
-		"tenant_id": tenantID, "site_id": siteID, "user_id": userID, "currency": currency,
+		"site_id": siteID, "user_id": userID, "currency": currency,
 		"cash_balance": 0, "bonus_balance": 0, "withdrawable_balance": 0, "frozen_balance": 0, "status": 1,
 	}).Error)
 }
 
-func seedDepositPromotion(t *testing.T, db *gorm.DB, tenantID, siteID uint64, code, stackingGroup string, budget int64) promotionRecord {
+func seedDepositPromotion(t *testing.T, db *gorm.DB, siteID uint64, code string, stackingGroup string, budget int64) promotionRecord {
 	t.Helper()
 	promotion := promotionRecord{
-		TenantID: tenantID, SiteID: siteID, ActivityCode: code, TriggerType: TriggerDepositSucceeded, ClaimMode: "AUTO",
+		SiteID: siteID, ActivityCode: code, TriggerType: TriggerDepositSucceeded, ClaimMode: "AUTO",
 		StackingGroup: stackingGroup, Countries: "MX", Currencies: "USD", StatusCode: "ACTIVE", TotalBudget: moneyInt(budget),
 		PerUserLimit: 1, RewardAmount: money("0"),
 	}
@@ -136,7 +136,7 @@ func seedDepositPromotion(t *testing.T, db *gorm.DB, tenantID, siteID uint64, co
 	return promotion
 }
 
-func assertPromotionCounts(t *testing.T, db *gorm.DB, claims, rewards, walletTransactions int64) {
+func assertPromotionCounts(t *testing.T, db *gorm.DB, claims int64, rewards int64, walletTransactions int64) {
 	t.Helper()
 	var value int64
 	require.NoError(t, db.Model(&model.GamePromotionClaim{}).Count(&value).Error)

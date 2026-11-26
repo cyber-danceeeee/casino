@@ -10,43 +10,41 @@ var _ time.Time
 
 // Tip: suggested filling in the binding rules https://github.com/go-playground/validator in request struct fields tag.
 
-
 // CreateGameGameCategoriesRequest request params
 type CreateGameGameCategoriesRequest struct {
-	CategoryKey  string `json:"categoryKey" binding:""`
-	Label  string `json:"label" binding:""`
+	CategoryKey string `json:"categoryKey" binding:""`
+	Label       string `json:"label" binding:""`
 	ShortLabel  string `json:"shortLabel" binding:""`
-	IconURL  string `json:"iconURL" binding:""`
-	Sort  int `json:"sort" binding:""`
-	Status  int `json:"status" binding:""` // 1 enabled, 2 disabled
+	IconURL     string `json:"iconURL" binding:""`
+	Sort        int    `json:"sort" binding:""`
+	Status      int    `json:"status" binding:""` // 1 enabled, 2 disabled
 }
 
 // UpdateGameGameCategoriesByIDRequest request params
 type UpdateGameGameCategoriesByIDRequest struct {
 	ID uint64 `json:"id" binding:""` // uint64 id
 
-	CategoryKey  string `json:"categoryKey" binding:""`
-	Label  string `json:"label" binding:""`
+	CategoryKey string `json:"categoryKey" binding:""`
+	Label       string `json:"label" binding:""`
 	ShortLabel  string `json:"shortLabel" binding:""`
-	IconURL  string `json:"iconURL" binding:""`
-	Sort  int `json:"sort" binding:""`
-	Status  int `json:"status" binding:""` // 1 enabled, 2 disabled
+	IconURL     string `json:"iconURL" binding:""`
+	Sort        int    `json:"sort" binding:""`
+	Status      int    `json:"status" binding:""` // 1 enabled, 2 disabled
 }
 
 // GameGameCategoriesObjDetail detail
 type GameGameCategoriesObjDetail struct {
 	ID uint64 `json:"id"` // convert to uint64 id
 
-	CategoryKey  string `json:"categoryKey"`
-	Label  string `json:"label"`
-	ShortLabel  string `json:"shortLabel"`
-	IconURL  string `json:"iconURL"`
-	Sort  int `json:"sort"`
-	Status  int `json:"status"` // 1 enabled, 2 disabled
-	CreatedAt  *time.Time `json:"createdAt"`
-	UpdatedAt  *time.Time `json:"updatedAt"`
+	CategoryKey string     `json:"categoryKey"`
+	Label       string     `json:"label"`
+	ShortLabel  string     `json:"shortLabel"`
+	IconURL     string     `json:"iconURL"`
+	Sort        int        `json:"sort"`
+	Status      int        `json:"status"` // 1 enabled, 2 disabled
+	CreatedAt   *time.Time `json:"createdAt"`
+	UpdatedAt   *time.Time `json:"updatedAt"`
 }
-
 
 // CreateGameGameCategoriesReply only for api docs
 type CreateGameGameCategoriesReply struct {

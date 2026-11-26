@@ -3,14 +3,14 @@ package fundadmin
 import (
 	"github.com/shopspring/decimal"
 
-	"casino/internal/tenancy"
+	"casino/internal/content"
 )
 
 type Actor struct {
 	ID            uint64
 	Username      string
 	Permissions   []string
-	Scope         tenancy.Scope
+	Scope         content.Scope
 	IP            string
 	UserAgent     string
 	CorrelationID string
@@ -27,7 +27,7 @@ type ListQuery struct {
 	Page     int
 	PageSize int
 	Values   map[string]string
-	Scope    tenancy.Scope
+	Scope    content.Scope
 }
 
 type WalletRow struct {

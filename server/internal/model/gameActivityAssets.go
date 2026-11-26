@@ -25,5 +25,3 @@ var GameActivityAssetsColumnNames = map[string]bool{
 	"asset_url":   true,
 	"sort":        true,
 }
-
-

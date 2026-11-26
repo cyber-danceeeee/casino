@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"casino/internal/tenancy"
+	"casino/internal/content"
 
 	"github.com/shopspring/decimal"
 )
@@ -19,14 +19,14 @@ type Actor struct {
 	IP            string
 	UserAgent     string
 	CorrelationID string
-	Scope         tenancy.Scope
+	Scope         content.Scope
 }
 
 type Query struct {
 	Page     int
 	PageSize int
 	Values   map[string]string
-	Scope    tenancy.Scope
+	Scope    content.Scope
 }
 
 type ChartSeries struct {
@@ -57,7 +57,7 @@ type ServiceError struct {
 }
 
 func (e *ServiceError) Error() string { return e.Message }
-func NewError(code, message string) error {
+func NewError(code string, message string) error {
 	return &ServiceError{Code: code, Message: message}
 }
 
@@ -124,7 +124,7 @@ func paginateRows[T any](rows []T, q Query) ([]T, int, int, int) {
 
 func decimalString(v decimal.Decimal) string { return v.Round(2).StringFixed(2) }
 
-func percentage(numerator, denominator decimal.Decimal) *string {
+func percentage(numerator decimal.Decimal, denominator decimal.Decimal) *string {
 	if denominator.IsZero() {
 		return nil
 	}

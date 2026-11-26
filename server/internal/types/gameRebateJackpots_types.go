@@ -10,43 +10,41 @@ var _ time.Time
 
 // Tip: suggested filling in the binding rules https://github.com/go-playground/validator in request struct fields tag.
 
-
 // CreateGameRebateJackpotsRequest request params
 type CreateGameRebateJackpotsRequest struct {
-	PeriodType  string `json:"periodType" binding:""`
-	PeriodStart  *time.Time `json:"periodStart" binding:""`
-	PeriodEnd  *time.Time `json:"periodEnd" binding:""`
-	JackpotAmount  string `json:"jackpotAmount" binding:""`
-	DigitText  string `json:"digitText" binding:""`
-	Status  int `json:"status" binding:""` // 1 active, 2 settled, 3 disabled
+	PeriodType    string     `json:"periodType" binding:""`
+	PeriodStart   *time.Time `json:"periodStart" binding:""`
+	PeriodEnd     *time.Time `json:"periodEnd" binding:""`
+	JackpotAmount string     `json:"jackpotAmount" binding:""`
+	DigitText     string     `json:"digitText" binding:""`
+	Status        int        `json:"status" binding:""` // 1 active, 2 settled, 3 disabled
 }
 
 // UpdateGameRebateJackpotsByIDRequest request params
 type UpdateGameRebateJackpotsByIDRequest struct {
 	ID uint64 `json:"id" binding:""` // uint64 id
 
-	PeriodType  string `json:"periodType" binding:""`
-	PeriodStart  *time.Time `json:"periodStart" binding:""`
-	PeriodEnd  *time.Time `json:"periodEnd" binding:""`
-	JackpotAmount  string `json:"jackpotAmount" binding:""`
-	DigitText  string `json:"digitText" binding:""`
-	Status  int `json:"status" binding:""` // 1 active, 2 settled, 3 disabled
+	PeriodType    string     `json:"periodType" binding:""`
+	PeriodStart   *time.Time `json:"periodStart" binding:""`
+	PeriodEnd     *time.Time `json:"periodEnd" binding:""`
+	JackpotAmount string     `json:"jackpotAmount" binding:""`
+	DigitText     string     `json:"digitText" binding:""`
+	Status        int        `json:"status" binding:""` // 1 active, 2 settled, 3 disabled
 }
 
 // GameRebateJackpotsObjDetail detail
 type GameRebateJackpotsObjDetail struct {
 	ID uint64 `json:"id"` // convert to uint64 id
 
-	PeriodType  string `json:"periodType"`
-	PeriodStart  *time.Time `json:"periodStart"`
-	PeriodEnd  *time.Time `json:"periodEnd"`
-	JackpotAmount  string `json:"jackpotAmount"`
-	DigitText  string `json:"digitText"`
-	Status  int `json:"status"` // 1 active, 2 settled, 3 disabled
-	CreatedAt  *time.Time `json:"createdAt"`
-	UpdatedAt  *time.Time `json:"updatedAt"`
+	PeriodType    string     `json:"periodType"`
+	PeriodStart   *time.Time `json:"periodStart"`
+	PeriodEnd     *time.Time `json:"periodEnd"`
+	JackpotAmount string     `json:"jackpotAmount"`
+	DigitText     string     `json:"digitText"`
+	Status        int        `json:"status"` // 1 active, 2 settled, 3 disabled
+	CreatedAt     *time.Time `json:"createdAt"`
+	UpdatedAt     *time.Time `json:"updatedAt"`
 }
-
 
 // CreateGameRebateJackpotsReply only for api docs
 type CreateGameRebateJackpotsReply struct {

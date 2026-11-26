@@ -232,7 +232,7 @@ func (h *gameSystemConfigsHandler) List(c *gin.Context) {
 
 	response.Success(c, gin.H{
 		"gameSystemConfigss": data,
-		"total":        total,
+		"total":              total,
 	})
 }
 

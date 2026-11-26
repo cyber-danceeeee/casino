@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"casino/internal/singlesite"
 	"strings"
 	"time"
 
@@ -9,31 +8,14 @@ import (
 	"github.com/go-dev-frame/sponge/pkg/gin/response"
 	"gorm.io/gorm"
 
+	"casino/internal/content"
 	"casino/internal/database"
 	"casino/internal/model"
-	"casino/internal/tenancy"
 )
 
-type h5BootstrapTenantRow struct {
-	ID                 uint64     `gorm:"column:id"`
-	TenantCode         string     `gorm:"column:tenant_code"`
-	TenantName         string     `gorm:"column:tenant_name"`
-	CountryCode        string     `gorm:"column:country_code"`
-	PackageCode        string     `gorm:"column:package_code"`
-	PlanCode           string     `gorm:"column:plan_code"`
-	DefaultCurrency    string     `gorm:"column:default_currency"`
-	DefaultLanguage    string     `gorm:"column:default_language"`
-	Timezone           string     `gorm:"column:timezone"`
-	Enabled            bool       `gorm:"column:enabled"`
-	Status             string     `gorm:"column:status"`
-	ExpiresAt          *time.Time `gorm:"column:expires_at"`
-	MaintenanceEnabled bool       `gorm:"column:maintenance_enabled"`
-	MaintenanceMessage string     `gorm:"column:maintenance_message"`
-}
-
 type h5BootstrapSiteRow struct {
-	ID                uint64     `gorm:"column:id"`
-	TenantID          uint64     `gorm:"column:tenant_id"`
+	ID uint64 `gorm:"column:id"`
+
 	SiteCode          string     `gorm:"column:site_code"`
 	SiteName          string     `gorm:"column:site_name"`
 	PrimaryDomain     string     `gorm:"column:primary_domain"`
@@ -75,10 +57,9 @@ type h5BootstrapCountryRow struct {
 
 func (h *gameGamesHandler) Bootstrap(c *gin.Context) {
 	db := database.GetDB()
-	scope := h5TenancyScope(c)
-	tenant := h5BootstrapTenant(db, scope.TenantID)
+	scope := h5ContentScope(c)
 	site := h5BootstrapSite(db, scope.SiteID)
-	countryCode := strings.ToUpper(strings.TrimSpace(h5FirstNonEmpty(c.Query("country"), site.CountryCode, tenant.CountryCode)))
+	countryCode := strings.ToUpper(strings.TrimSpace(h5FirstNonEmpty(c.Query("country"), site.CountryCode)))
 	country := h5BootstrapCountry(db, countryCode)
 
 	brandConfig := h5BootstrapJSON(site.BrandConfig)
@@ -92,19 +73,14 @@ func (h *gameGamesHandler) Bootstrap(c *gin.Context) {
 	maintenance := h5EffectiveMaintenance(c, db, scope)
 
 	providers := h5BootstrapProviders(c, db, scope)
-	languageDefault := h5FirstNonEmpty(site.DefaultLanguage, tenant.DefaultLanguage, country.DefaultLanguage, "en")
-	currencyCode := strings.ToUpper(strings.TrimSpace(h5FirstNonEmpty(site.CurrencyCode, tenant.DefaultCurrency, country.CurrencyCode)))
+	languageDefault := h5FirstNonEmpty(site.DefaultLanguage, country.DefaultLanguage, "en")
+	currencyCode := strings.ToUpper(strings.TrimSpace(h5FirstNonEmpty(site.CurrencyCode, country.CurrencyCode)))
 
 	response.Success(c, gin.H{
-		"tenantId":      tenant.ID,
+
 		"siteId":        site.ID,
 		"configVersion": h5ConfigVersion(site.ConfigVersion),
 		"publishedAt":   site.ConfigPublishedAt,
-		"tenant": gin.H{
-			"id": tenant.ID, "tenantCode": tenant.TenantCode, "tenantName": tenant.TenantName,
-			"packageCode": h5FirstNonEmpty(tenant.PackageCode, tenant.PlanCode), "planCode": tenant.PlanCode,
-			"status": tenant.Status, "expiresAt": tenant.ExpiresAt,
-		},
 		"site": gin.H{
 			"id": site.ID, "siteCode": site.SiteCode, "siteName": site.SiteName,
 			"primaryDomain": site.PrimaryDomain, "h5Domain": site.H5Domain, "status": site.Status,
@@ -125,23 +101,9 @@ func (h *gameGamesHandler) Bootstrap(c *gin.Context) {
 		"providers":   providers,
 		"features":    features,
 		"maintenance": maintenance,
-		"timezone":    h5FirstNonEmpty(site.Timezone, tenant.Timezone, country.Timezone),
+		"timezone":    h5FirstNonEmpty(site.Timezone, country.Timezone),
 		"domain":      h5RequestHost(c),
 	})
-}
-
-func h5BootstrapTenant(db interface {
-	Table(string, ...interface{}) *gorm.DB
-}, tenantID uint64) h5BootstrapTenantRow {
-	var row h5BootstrapTenantRow
-	if tenantID == 0 {
-		return row
-	}
-	_ = db.Table("game_saas_tenants").
-		Select("id,tenant_code,tenant_name,country_code,package_code,plan_code,default_currency,default_language,timezone,enabled,status,expires_at,maintenance_enabled,maintenance_message").
-		Where("id=? AND deleted_at IS NULL", tenantID).
-		Take(&row).Error
-	return row
 }
 
 func h5BootstrapSite(db interface {
@@ -151,8 +113,8 @@ func h5BootstrapSite(db interface {
 	if siteID == 0 {
 		return row
 	}
-	_ = db.Table("game_saas_sites").
-		Select("id,tenant_id,site_code,site_name,primary_domain,h5_domain,country_code,currency_code,default_language,timezone,COALESCE(CAST(brand_config AS CHAR),'') brand_config,COALESCE(CAST(theme_config AS CHAR),'') theme_config,COALESCE(CAST(feature_config AS CHAR),'') feature_config,COALESCE(CAST(maintenance_config AS CHAR),'') maintenance_config,COALESCE(CAST(seo_config AS CHAR),'') seo_config,config_version,config_published_at,enabled,status").
+	_ = db.Table("game_site_config").
+		Select("id, site_code, site_name, primary_domain, h5_domain, country_code, currency_code, default_language, timezone, COALESCE(CAST(brand_config AS CHAR), '') AS brand_config, COALESCE(CAST(theme_config AS CHAR), '') AS theme_config, COALESCE(CAST(feature_config AS CHAR), '') AS feature_config, COALESCE(CAST(maintenance_config AS CHAR), '') AS maintenance_config, COALESCE(CAST(seo_config AS CHAR), '') AS seo_config, config_version, config_published_at, enabled, status").
 		Where("id=? AND deleted_at IS NULL", siteID).
 		Take(&row).Error
 	return row
@@ -185,9 +147,9 @@ func h5BootstrapCountry(db interface {
 	return row
 }
 
-func h5BootstrapProviders(c *gin.Context, db *gorm.DB, scope tenancy.Scope) []gin.H {
+func h5BootstrapProviders(c *gin.Context, db *gorm.DB, scope content.Scope) []gin.H {
 	var rows []model.GameGameProviders
-	q := tenancy.ApplySite(db.Model(&model.GameGameProviders{}), "", scope).
+	q := content.ApplySite(db.Model(&model.GameGameProviders{}), "", scope).
 		Where("status IN ?", []int{1, 2})
 	if supported := h5SupportedGameProviderCodes(); len(supported) > 0 {
 		q = q.Where("provider_code IN ?", supported)
@@ -224,7 +186,7 @@ func h5BootstrapJSON(raw string) gin.H {
 	return gin.H{}
 }
 
-func h5MergeMaps(base, override gin.H) gin.H {
+func h5MergeMaps(base gin.H, override gin.H) gin.H {
 	out := gin.H{}
 	for key, value := range base {
 		out[key] = value
@@ -278,35 +240,13 @@ func h5NormalizeFeatures(config gin.H) gin.H {
 	return defaults
 }
 
-func h5NormalizeMaintenance(config gin.H, tenant h5BootstrapTenantRow, site h5BootstrapSiteRow) gin.H {
-	if singlesite.Active() {
-		tenant.ExpiresAt = nil
-		tenant.Enabled = true
-		tenant.Status = "ACTIVE"
-		tenant.MaintenanceEnabled = false
-		tenant.MaintenanceMessage = ""
-	}
-	enabled := tenant.MaintenanceEnabled
-	if value, ok := config["enabled"].(bool); ok && value {
-		enabled = true
-	}
-	message := h5FirstNonEmpty(h5AnyString(config, "message", ""), tenant.MaintenanceMessage)
-	if tenant.ID > 0 && tenant.ExpiresAt != nil && !tenant.ExpiresAt.After(time.Now()) {
-		enabled = true
-		message = h5FirstNonEmpty(message, "Tenant has expired")
-	}
-	if site.ID > 0 && (!site.Enabled || strings.EqualFold(site.Status, "DISABLED")) {
-		enabled = true
-		message = h5FirstNonEmpty(message, "Site is under maintenance")
-	}
-	if tenant.ID > 0 && (!tenant.Enabled || strings.EqualFold(tenant.Status, "DISABLED")) {
-		enabled = true
-		message = h5FirstNonEmpty(message, "Tenant is under maintenance")
-	}
-	return gin.H{"enabled": enabled, "message": message}
+func h5NormalizeMaintenance(config gin.H, site h5BootstrapSiteRow) gin.H {
+	enabled, _ := config["enabled"].(bool)
+	enabled = enabled || !site.Enabled || strings.EqualFold(site.Status, "DISABLED")
+	return gin.H{"enabled": enabled, "message": h5AnyString(config, "message", "")}
 }
 
-func h5AnyString(values gin.H, key, fallback string) string {
+func h5AnyString(values gin.H, key string, fallback string) string {
 	if value, ok := values[key]; ok {
 		if text, ok := value.(string); ok {
 			return strings.TrimSpace(text)

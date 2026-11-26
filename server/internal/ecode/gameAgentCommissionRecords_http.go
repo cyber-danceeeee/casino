@@ -7,7 +7,7 @@ import (
 // gameAgentCommissionRecords business-level http error codes.
 // the gameAgentCommissionRecordsNO value range is 1~999, if the same error code is used, it will cause panic.
 var (
-	gameAgentCommissionRecordsNO = 5
+	gameAgentCommissionRecordsNO       = 5
 	gameAgentCommissionRecordsName     = "gameAgentCommissionRecords"
 	gameAgentCommissionRecordsBaseCode = errcode.HCode(gameAgentCommissionRecordsNO)
 

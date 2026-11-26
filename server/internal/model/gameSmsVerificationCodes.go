@@ -1,8 +1,9 @@
 package model
 
 import (
-	"github.com/go-dev-frame/sponge/pkg/sgorm"
 	"time"
+
+	"github.com/go-dev-frame/sponge/pkg/sgorm"
 )
 
 // GameSmsVerificationCodes SMS verification codes
@@ -32,5 +33,3 @@ var GameSmsVerificationCodesColumnNames = map[string]bool{
 	"expired_at":         true,
 	"used_at":            true,
 }
-
-

@@ -8,8 +8,8 @@ import (
 )
 
 type GameDepositCallbackLogs struct {
-	sgorm.Model      `gorm:"embedded"`
-	TenantID         uint64    `gorm:"column:tenant_id" json:"tenantID"`
+	sgorm.Model `gorm:"embedded"`
+
 	SiteID           uint64    `gorm:"column:site_id" json:"siteID"`
 	DepositOrderID   uint64    `gorm:"column:deposit_order_id" json:"depositOrderID"`
 	CallbackTime     time.Time `gorm:"column:callback_time" json:"callbackTime"`
@@ -25,8 +25,8 @@ type GameDepositCallbackLogs struct {
 func (GameDepositCallbackLogs) TableName() string { return "game_deposit_callback_logs" }
 
 type GameWithdrawalApprovals struct {
-	sgorm.Model       `gorm:"embedded"`
-	TenantID          uint64 `gorm:"column:tenant_id" json:"tenantID"`
+	sgorm.Model `gorm:"embedded"`
+
 	SiteID            uint64 `gorm:"column:site_id" json:"siteID"`
 	WithdrawalOrderID uint64 `gorm:"column:withdrawal_order_id" json:"withdrawalOrderID"`
 	OperatorID        uint64 `gorm:"column:operator_id" json:"operatorID"`
@@ -42,8 +42,8 @@ type GameWithdrawalApprovals struct {
 func (GameWithdrawalApprovals) TableName() string { return "game_withdrawal_approvals" }
 
 type GameWithdrawalPayoutLogs struct {
-	sgorm.Model       `gorm:"embedded"`
-	TenantID          uint64    `gorm:"column:tenant_id" json:"tenantID"`
+	sgorm.Model `gorm:"embedded"`
+
 	SiteID            uint64    `gorm:"column:site_id" json:"siteID"`
 	WithdrawalOrderID uint64    `gorm:"column:withdrawal_order_id" json:"withdrawalOrderID"`
 	ChannelCode       string    `gorm:"column:channel_code" json:"channelCode"`
@@ -60,8 +60,8 @@ type GameWithdrawalPayoutLogs struct {
 func (GameWithdrawalPayoutLogs) TableName() string { return "game_withdrawal_payout_logs" }
 
 type GameReconciliationRecords struct {
-	sgorm.Model        `gorm:"embedded"`
-	TenantID           uint64           `gorm:"column:tenant_id" json:"tenantID"`
+	sgorm.Model `gorm:"embedded"`
+
 	SiteID             uint64           `gorm:"column:site_id" json:"siteID"`
 	ReconciliationNo   string           `gorm:"column:reconciliation_no" json:"reconciliationNo"`
 	BusinessDate       time.Time        `gorm:"column:business_date;type:date" json:"businessDate"`
@@ -85,8 +85,8 @@ type GameReconciliationRecords struct {
 func (GameReconciliationRecords) TableName() string { return "game_reconciliation_records" }
 
 type GameReconciliationDifferences struct {
-	sgorm.Model      `gorm:"embedded"`
-	TenantID         uint64           `gorm:"column:tenant_id" json:"tenantID"`
+	sgorm.Model `gorm:"embedded"`
+
 	SiteID           uint64           `gorm:"column:site_id" json:"siteID"`
 	ReconciliationID uint64           `gorm:"column:reconciliation_id" json:"reconciliationID"`
 	PlatformOrderID  string           `gorm:"column:platform_order_id" json:"platformOrderID"`
@@ -110,8 +110,8 @@ func (GameReconciliationDifferences) TableName() string {
 }
 
 type GameReconciliationLogs struct {
-	sgorm.Model      `gorm:"embedded"`
-	TenantID         uint64 `gorm:"column:tenant_id" json:"tenantID"`
+	sgorm.Model `gorm:"embedded"`
+
 	SiteID           uint64 `gorm:"column:site_id" json:"siteID"`
 	ReconciliationID uint64 `gorm:"column:reconciliation_id" json:"reconciliationID"`
 	Level            string `gorm:"column:level" json:"level"`
@@ -121,8 +121,8 @@ type GameReconciliationLogs struct {
 func (GameReconciliationLogs) TableName() string { return "game_reconciliation_logs" }
 
 type GameReconciliationResolutions struct {
-	sgorm.Model      `gorm:"embedded"`
-	TenantID         uint64 `gorm:"column:tenant_id" json:"tenantID"`
+	sgorm.Model `gorm:"embedded"`
+
 	SiteID           uint64 `gorm:"column:site_id" json:"siteID"`
 	ReconciliationID uint64 `gorm:"column:reconciliation_id" json:"reconciliationID"`
 	DifferenceID     uint64 `gorm:"column:difference_id" json:"differenceID"`

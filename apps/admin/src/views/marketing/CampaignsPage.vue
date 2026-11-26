@@ -41,17 +41,17 @@ onMounted(load);
   <div v-loading="loading" class="campaigns-page">
     <header class="page-header">
       <div>
-        <p>{{ t("tenantExperience.marketing.eyebrow") }}</p>
-        <h1>{{ t(`tenantExperience.marketing.pages.${pageMode}`) }}</h1>
+        <p>{{ t("siteExperience.marketing.eyebrow") }}</p>
+        <h1>{{ t(`siteExperience.marketing.pages.${pageMode}`) }}</h1>
         <span>{{
-          t(`tenantExperience.marketing.pageDescriptions.${pageMode}`)
+          t(`siteExperience.marketing.pageDescriptions.${pageMode}`)
         }}</span>
       </div>
     </header>
     <el-alert
       v-if="errors.length"
       type="warning"
-      :title="t('tenantExperience.dashboard.partialData')"
+      :title="t('siteExperience.dashboard.partialData')"
       :description="errors[0]"
       :closable="false"
     />
@@ -60,11 +60,11 @@ onMounted(load);
         v-model="filters.keyword"
         clearable
         :prefix-icon="Search"
-        :placeholder="t('tenantExperience.marketing.searchPlaceholder')"
+        :placeholder="t('siteExperience.marketing.searchPlaceholder')"
       /><el-select
         v-model="filters.type"
         clearable
-        :placeholder="t('tenantExperience.fields.type')"
+        :placeholder="t('siteExperience.fields.type')"
         ><el-option
           v-for="type in [
             'PROMOTION',
@@ -76,12 +76,12 @@ onMounted(load);
             'ANNOUNCEMENT',
           ]"
           :key="type"
-          :label="t(`tenantExperience.campaignTypes.${type}`)"
+          :label="t(`siteExperience.campaignTypes.${type}`)"
           :value="type" /></el-select
       ><el-select
         v-model="filters.status"
         clearable
-        :placeholder="t('tenantExperience.fields.status')"
+        :placeholder="t('siteExperience.fields.status')"
         ><el-option
           v-for="status in [
             'ACTIVE',
@@ -92,7 +92,7 @@ onMounted(load);
             'DISABLED',
           ]"
           :key="status"
-          :label="t(`tenantExperience.status.${status}`)"
+          :label="t(`siteExperience.status.${status}`)"
           :value="status" /></el-select
       ><el-button @click="reset">{{ t("common.reset") }}</el-button>
     </section>
@@ -100,30 +100,30 @@ onMounted(load);
       <el-table :data="paged" row-key="rowKey"
         ><el-table-column
           prop="code"
-          :label="t('tenantExperience.fields.campaignCode')"
+          :label="t('siteExperience.fields.campaignCode')"
           min-width="155"
           ><template #default="{ row }">{{
             row.code || "-"
           }}</template></el-table-column
         ><el-table-column
           prop="name"
-          :label="t('tenantExperience.fields.campaignName')"
+          :label="t('siteExperience.fields.campaignName')"
           min-width="210" /><el-table-column
-          :label="t('tenantExperience.fields.type')"
+          :label="t('siteExperience.fields.type')"
           width="135"
           ><template #default="{ row }">{{
-            t(`tenantExperience.campaignTypes.${row.type}`, row.type)
+            t(`siteExperience.campaignTypes.${row.type}`, row.type)
           }}</template></el-table-column
         ><el-table-column
-          :label="t('tenantExperience.fields.status')"
+          :label="t('siteExperience.fields.status')"
           width="130"
           ><template #default="{ row }"
             ><el-tag :type="statusType(row.status)" effect="plain">{{
-              t(`tenantExperience.status.${statusKey(row.status)}`, row.status)
+              t(`siteExperience.status.${statusKey(row.status)}`, row.status)
             }}</el-tag></template
           ></el-table-column
         ><el-table-column
-          :label="t('tenantExperience.fields.schedule')"
+          :label="t('siteExperience.fields.schedule')"
           min-width="190"
           ><template #default="{ row }"
             ><span>{{ formatBackendTime(row.startAt) }}</span
@@ -131,21 +131,21 @@ onMounted(load);
           ></el-table-column
         ><el-table-column
           prop="audience"
-          :label="t('tenantExperience.fields.audience')"
+          :label="t('siteExperience.fields.audience')"
           width="130" /><el-table-column
           prop="placement"
-          :label="t('tenantExperience.fields.placement')"
+          :label="t('siteExperience.fields.placement')"
           width="140" /><el-table-column
-          :label="t('tenantExperience.fields.publishVersion')"
+          :label="t('siteExperience.fields.publishVersion')"
           width="120"
           ><template #default="{ row }"
             >v{{ row.publishedVersion }}</template
           ></el-table-column
         ><el-table-column
           prop="updatedBy"
-          :label="t('tenantExperience.fields.updatedBy')"
+          :label="t('siteExperience.fields.updatedBy')"
           width="130" /><el-table-column
-          :label="t('tenantExperience.fields.updatedTime')"
+          :label="t('siteExperience.fields.updatedTime')"
           width="175"
           ><template #default="{ row }">{{
             formatBackendTime(row.updatedAt)
@@ -160,7 +160,7 @@ onMounted(load);
           ><el-empty
             :description="
               t(
-                `tenantExperience.empty.${pageMode === 'missions' ? 'missions' : pageMode === 'referral' ? 'referral' : 'campaigns'}`,
+                `siteExperience.empty.${pageMode === 'missions' ? 'missions' : pageMode === 'referral' ? 'referral' : 'campaigns'}`,
               )
             " /></template></el-table
       ><el-pagination

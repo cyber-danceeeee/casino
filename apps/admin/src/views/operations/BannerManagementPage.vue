@@ -414,7 +414,7 @@ onMounted(load);
         <el-table-column :label="t('bannerLibrary.fields.publishStatus')" width="150">
           <template #default="{ row }"><el-tag :type="row.publishStatus === 'DRAFT' ? 'warning' : 'success'">{{ t(`bannerLibrary.status.${row.publishStatus}`) }}</el-tag></template>
         </el-table-column>
-		<el-table-column :label="t('operations.fields.source')" width="130"><template #default="{ row }"><el-tag v-if="row.isFallback" type="info" effect="plain">{{ t('operations.values.platformDefault') }}</el-tag><span v-else>{{ t('operations.values.tenantCustom') }}</span></template></el-table-column>
+		<el-table-column :label="t('operations.fields.source')" width="130"><template #default="{ row }"><el-tag v-if="row.isFallback" type="info" effect="plain">{{ t('operations.values.platformDefault') }}</el-tag><span v-else>{{ t('operations.values.siteCustom') }}</span></template></el-table-column>
         <el-table-column :label="t('bannerLibrary.fields.enabled')" width="100">
           <template #default="{ row }"><el-switch :model-value="draft(row).enabled" @change="toggle(row, Boolean($event))" /></template>
         </el-table-column>

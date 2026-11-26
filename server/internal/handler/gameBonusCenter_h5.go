@@ -160,7 +160,7 @@ func h5BonusCategoryWhere(category string) (string, []any) {
 	}
 }
 
-func h5BonusCategory(sourceType, bonusType string) (string, string) {
+func h5BonusCategory(sourceType string, bonusType string) (string, string) {
 	value := strings.ToUpper(sourceType + " " + bonusType)
 	switch {
 	case strings.Contains(value, "VIP"):
@@ -174,7 +174,7 @@ func h5BonusCategory(sourceType, bonusType string) (string, string) {
 	}
 }
 
-func h5BonusSourceName(sourceName, sourceType, bonusType string) string {
+func h5BonusSourceName(sourceName string, sourceType string, bonusType string) string {
 	value := strings.TrimSpace(h5FirstNonEmpty(sourceName, bonusType, sourceType))
 	if value == "" {
 		return "Bonus"

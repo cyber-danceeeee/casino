@@ -1,51 +1,12 @@
-// Package singlesite binds one deployment to one H5 site. The IDs are legacy
-// storage keys, never a client-selectable tenant or a deployment mode switch.
+// Package singlesite defines the only H5 configuration in this installation.
 package singlesite
 
 import (
+	"casino/internal/content"
 	"strings"
-	"sync/atomic"
-
-	"casino/internal/tenancy"
 )
 
-var current atomic.Pointer[tenancy.Scope]
-
-func Scope() (tenancy.Scope, bool) {
-	value := current.Load()
-	if value == nil {
-		return tenancy.Scope{}, false
-	}
-	return *value, true
-}
-func Active() bool { _, ok := Scope(); return ok }
-
-// Bind is called only after the database initializer validates the singleton.
-func Bind(scope tenancy.Scope) {
-	if scope.TenantID == 0 || scope.SiteID == 0 {
-		panic("single-site storage keys must be positive")
-	}
-	scope.Platform = false
-	current.Store(&scope)
-}
-
-// Restore supports isolated package tests without changing production settings.
-func Restore(scope tenancy.Scope, active bool) {
-	if active {
-		Bind(scope)
-	} else {
-		current.Store(nil)
-	}
-}
-
-func SaaSPath(path string) bool {
-	for _, prefix := range []string{"/admin/tenants", "/admin/system/tenants", "/admin/system/tenant-packages", "/admin/system/tenant-deliveries", "/admin/system/platform/dashboard"} {
-		if strings.HasSuffix(path, prefix) || strings.Contains(path, prefix+"/") {
-			return true
-		}
-	}
-	return false
-}
+func Scope() (content.Scope, bool) { return content.Scope{SiteID: 1}, true }
 
 // ControlResource retains permission-controlled administration of accounts,
 // roles, country dictionaries and system settings within this one installation.

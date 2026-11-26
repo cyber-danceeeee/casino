@@ -13,10 +13,10 @@ func TestInitializeOnlySetsAnEmptyPassword(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Exec(`CREATE TABLE game_admin_accounts (id INTEGER PRIMARY KEY, username TEXT, tenant_id INTEGER, deleted_at DATETIME, password_hash TEXT, must_change_password INTEGER)`).Error; err != nil {
+	if err := db.Exec("CREATE TABLE game_admin_accounts (id INTEGER PRIMARY KEY, username TEXT, deleted_at DATETIME, password_hash TEXT, must_change_password INTEGER)").Error; err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Exec(`INSERT INTO game_admin_accounts VALUES (1,'system-admin',0,NULL,'',0)`).Error; err != nil {
+	if err := db.Exec("INSERT INTO game_admin_accounts VALUES (1, 'system-admin', NULL, '', 0)").Error; err != nil {
 		t.Fatal(err)
 	}
 	if err := initialize(db, "short"); err == nil {

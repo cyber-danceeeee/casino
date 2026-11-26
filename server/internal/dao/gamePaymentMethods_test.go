@@ -96,7 +96,7 @@ func Test_gamePaymentMethodsDao_UpdateByID(t *testing.T) {
 	// zero id error
 	err = d.IDao.(GamePaymentMethodsDao).UpdateByID(d.Ctx, &model.GamePaymentMethods{})
 	assert.Error(t, err)
-	
+
 }
 
 func Test_gamePaymentMethodsDao_GetByID(t *testing.T) {

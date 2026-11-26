@@ -232,7 +232,7 @@ func (h *gameInvitationChestConfigsHandler) List(c *gin.Context) {
 
 	response.Success(c, gin.H{
 		"gameInvitationChestConfigss": data,
-		"total":        total,
+		"total":                       total,
 	})
 }
 

@@ -9,7 +9,7 @@ type HTTPOption func(*httpOptions)
 
 type httpOptions struct {
 	isProd bool
-	tls      config.TLS
+	tls    config.TLS
 }
 
 func defaultHTTPOptions() *httpOptions {

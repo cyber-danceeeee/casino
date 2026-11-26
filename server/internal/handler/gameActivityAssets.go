@@ -232,7 +232,7 @@ func (h *gameActivityAssetsHandler) List(c *gin.Context) {
 
 	response.Success(c, gin.H{
 		"gameActivityAssetss": data,
-		"total":        total,
+		"total":               total,
 	})
 }
 

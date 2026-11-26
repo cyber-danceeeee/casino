@@ -40,7 +40,7 @@ func (s *WalletCallbackService) BeginCallbackLog(ctx context.Context, request do
 	if providerCode != "" && providerPlayerID != "" {
 		if player, err := s.repo.PlayerByProviderID(ctx, providerCode, providerPlayerID); err == nil {
 			row.UserID = player.UserID
-			row.TenantID = player.TenantID
+			row.SiteID = player.SiteID
 			row.SiteID = player.SiteID
 		}
 	}
@@ -129,7 +129,6 @@ func (s *WalletCallbackService) FinishCallbackLog(ctx context.Context, id uint64
 		"processing_result": "SUCCESS", "signature_result": "VALID", "timestamp_validation": "VALID",
 	}
 	if command != nil {
-		updates["tenant_id"] = command.TenantID
 		updates["site_id"] = command.SiteID
 		updates["operation"] = string(command.Operation)
 		updates["provider_player_id"] = command.ProviderPlayerID
@@ -147,7 +146,6 @@ func (s *WalletCallbackService) FinishCallbackLog(ctx context.Context, id uint64
 		})
 		if player, err := s.repo.PlayerByProviderID(ctx, command.ProviderCode, command.ProviderPlayerID); err == nil {
 			updates["user_id"] = player.UserID
-			updates["tenant_id"] = player.TenantID
 			updates["site_id"] = player.SiteID
 		}
 	}

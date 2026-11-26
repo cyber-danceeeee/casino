@@ -96,7 +96,7 @@ func Test_gameVipRequirementsDao_UpdateByID(t *testing.T) {
 	// zero id error
 	err = d.IDao.(GameVipRequirementsDao).UpdateByID(d.Ctx, &model.GameVipRequirements{})
 	assert.Error(t, err)
-	
+
 }
 
 func Test_gameVipRequirementsDao_GetByID(t *testing.T) {

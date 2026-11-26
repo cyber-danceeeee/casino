@@ -84,7 +84,7 @@ func (s *RiskReviewService) Detail(id uint64) (map[string]any, error) {
 	logs, _ := operationLogs(s.db, "risk_review", id)
 	return map[string]any{"overview": row, "reviewHistory": history, "internalNotes": notes, "operationLogs": logs}, nil
 }
-func (s *RiskReviewService) Create(tx *gorm.DB, businessType string, businessID, userID uint64, level, reason string, actor Actor) (uint64, error) {
+func (s *RiskReviewService) Create(tx *gorm.DB, businessType string, businessID uint64, userID uint64, level string, reason string, actor Actor) (uint64, error) {
 	row := reviewRecord{ReviewNo: generatedNo("RR"), BusinessType: businessType, BusinessID: businessID, UserID: userID, RiskLevel: level, Reason: reason, Status: "PENDING", CreatedBy: actor.ID, Version: 1}
 	if err := tx.Create(&row).Error; err != nil {
 		return 0, err
@@ -189,6 +189,6 @@ func (s *RiskReviewService) AddNote(id uint64, cmd NoteCommand, actor Actor) err
 		return audit(tx, actor, "risk:review:decision", "risk_review.note", "risk_review", id, row.UserID, nil, map[string]any{"noteID": n.ID}, "internal note added")
 	})
 }
-func addReviewHistory(tx *gorm.DB, id uint64, before, after, decision, reason, remark, tags string, actor Actor) error {
+func addReviewHistory(tx *gorm.DB, id uint64, before string, after string, decision string, reason string, remark string, tags string, actor Actor) error {
 	return tx.Create(&historyRecord{ReviewID: id, BeforeStatus: before, AfterStatus: after, Decision: decision, Reason: reason, InternalRemark: remark, RiskTags: tags, OperatorID: actor.ID, OperatorUsername: actor.Username}).Error
 }

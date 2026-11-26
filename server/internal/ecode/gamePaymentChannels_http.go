@@ -7,7 +7,7 @@ import (
 // gamePaymentChannels business-level http error codes.
 // the gamePaymentChannelsNO value range is 1~999, if the same error code is used, it will cause panic.
 var (
-	gamePaymentChannelsNO = 29
+	gamePaymentChannelsNO       = 29
 	gamePaymentChannelsName     = "gamePaymentChannels"
 	gamePaymentChannelsBaseCode = errcode.HCode(gamePaymentChannelsNO)
 

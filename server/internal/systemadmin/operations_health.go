@@ -12,6 +12,7 @@ import (
 	"casino/internal/database"
 	"casino/internal/eventbus"
 	"casino/internal/storage"
+
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -166,7 +167,7 @@ func (s *Service) rabbitMQHealth(parent context.Context) HealthComponent {
 	}
 }
 
-func (s *Service) checkHealth(parent context.Context, code, kind string, check func(context.Context) (map[string]any, error)) HealthComponent {
+func (s *Service) checkHealth(parent context.Context, code string, kind string, check func(context.Context) (map[string]any, error)) HealthComponent {
 	ctx, cancel := context.WithTimeout(parent, 3*time.Second)
 	defer cancel()
 	start := time.Now()
@@ -178,7 +179,7 @@ func (s *Service) checkHealth(parent context.Context, code, kind string, check f
 	return HealthComponent{ComponentCode: code, ComponentType: kind, Status: healthStatus(err), LatencyMS: time.Since(start).Milliseconds(), ErrorSummary: summary, LastCheckedAt: now(), Details: details}
 }
 
-func (s *Service) databaseQueueHealth(code, kind, query string, degraded, unhealthy int64) HealthComponent {
+func (s *Service) databaseQueueHealth(code string, kind string, query string, degraded int64, unhealthy int64) HealthComponent {
 	var count int64
 	start := time.Now()
 	err := s.db.Raw(query).Scan(&count).Error
@@ -211,7 +212,7 @@ func (s *Service) workerHealth() HealthComponent {
 	return HealthComponent{ComponentCode: "background-workers", ComponentType: "WORKER", Status: healthStatus(err), ErrorSummary: errorSummary(err), LastCheckedAt: now(), Details: map[string]any{"running": running}}
 }
 
-func (s *Service) externalAggregateHealth(parent context.Context, code, kind string, load func(context.Context) ([]string, error)) HealthComponent {
+func (s *Service) externalAggregateHealth(parent context.Context, code string, kind string, load func(context.Context) ([]string, error)) HealthComponent {
 	ctx, cancel := context.WithTimeout(parent, 3*time.Second)
 	defer cancel()
 	start := time.Now()
@@ -311,25 +312,25 @@ func (s *Service) storeHealthComponent(component HealthComponent) (HealthCompone
 }
 
 func (s *Service) syncHealthAlert(component HealthComponent) {
-	fingerprint := alertFingerprint("SYSTEM_HEALTH", component.ComponentCode, 0, 0)
+	fingerprint := alertFingerprint("SYSTEM_HEALTH", component.ComponentCode, 0)
 	if component.Status == "UNHEALTHY" || component.Status == "DEGRADED" {
 		severity := "WARNING"
 		if component.Status == "UNHEALTHY" {
 			severity = "CRITICAL"
 		}
-		_ = s.raiseAlert(fingerprint, 0, 0, severity, "SYSTEM_HEALTH", component.ComponentCode, component.Status+" "+component.ComponentCode, map[string]any{"error": component.ErrorSummary, "latencyMS": component.LatencyMS})
+		_ = s.raiseAlert(fingerprint, 0, severity, "SYSTEM_HEALTH", component.ComponentCode, component.Status+" "+component.ComponentCode, map[string]any{"error": component.ErrorSummary, "latencyMS": component.LatencyMS})
 	} else {
 		_ = s.db.Table("game_system_alerts").Where("fingerprint=? AND status IN ('OPEN','ACKNOWLEDGED')", fingerprint).Updates(map[string]any{"status": "RESOLVED", "resolved_at": now(), "updated_at": now()}).Error
 	}
 }
 
-func (s *Service) raiseAlert(fingerprint string, tenantID, siteID uint64, severity, alertType, source, summary string, details map[string]any) error {
-	row := map[string]any{"fingerprint": fingerprint, "tenant_id": tenantID, "site_id": siteID, "severity": severity, "alert_type": alertType, "source": source, "status": "OPEN", "occurrence_count": 1, "summary": summary, "details": marshal(redact(details)), "first_triggered_at": now(), "last_triggered_at": now(), "created_at": now(), "updated_at": now()}
+func (s *Service) raiseAlert(fingerprint string, siteID uint64, severity string, alertType string, source string, summary string, details map[string]any) error {
+	row := map[string]any{"fingerprint": fingerprint, "site_id": siteID, "severity": severity, "alert_type": alertType, "source": source, "status": "OPEN", "occurrence_count": 1, "summary": summary, "details": marshal(redact(details)), "first_triggered_at": now(), "last_triggered_at": now(), "created_at": now(), "updated_at": now()}
 	return s.db.Table("game_system_alerts").Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "fingerprint"}}, DoUpdates: clause.Assignments(map[string]any{"severity": severity, "status": "OPEN", "occurrence_count": gorm.Expr("occurrence_count+1"), "summary": summary, "details": marshal(redact(details)), "last_triggered_at": now(), "acknowledged_by": 0, "acknowledged_at": nil, "resolved_by": 0, "resolved_at": nil, "updated_at": now()})}).Create(row).Error
 }
 
-func alertFingerprint(alertType, source string, tenantID, siteID uint64) string {
-	sum := sha256.Sum256([]byte(fmt.Sprintf("%s|%s|%d|%d", alertType, source, tenantID, siteID)))
+func alertFingerprint(alertType string, source string, siteID uint64) string {
+	sum := sha256.Sum256([]byte(fmt.Sprintf("%s|%s|%d|%d", alertType, source, siteID, siteID)))
 	return hex.EncodeToString(sum[:])
 }
 
@@ -337,7 +338,7 @@ func (s *Service) ListAlerts(q Query, actor Actor) (Result, error) {
 	rows := []map[string]any{}
 	db := s.db.Table("game_system_alerts").Where("deleted_at IS NULL")
 	var err error
-	db, err = operationalScope(db, actor, value(q, "tenantID"), value(q, "siteID"))
+	db, err = operationalScope(db, actor, value(q, "siteID"))
 	if err != nil {
 		return Result{}, err
 	}
@@ -360,7 +361,7 @@ func (s *Service) alertAction(id uint64, status string, input AlertActionInput, 
 	}
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		var before map[string]any
-		db, err := operationalScope(tx.Table("game_system_alerts"), actor, "", "")
+		db, err := operationalScope(tx.Table("game_system_alerts"), actor, "")
 		if err != nil {
 			return err
 		}
@@ -397,14 +398,14 @@ func (s *Service) JobsOverview(q Query, actor Actor) (map[string]any, error) {
 	}
 	retries := []map[string]any{}
 	retryDB := s.db.Table("game_system_retry_records").Where("deleted_at IS NULL")
-	retryDB, err = operationalScope(retryDB, actor, "", "")
+	retryDB, err = operationalScope(retryDB, actor, "")
 	if err != nil {
 		return nil, err
 	}
-	_ = retryDB.Select("source_type,tenant_id,site_id,status,attempt_count,max_attempts,next_attempt_at,last_error,created_at,updated_at").Order("id DESC").Limit(200).Find(&retries).Error
+	_ = retryDB.Select("source_type, site_id, status, attempt_count, max_attempts, next_attempt_at, last_error, created_at, updated_at").Order("id DESC").Limit(200).Find(&retries).Error
 	dead := []map[string]any{}
 	deadDB := s.db.Table("event_outbox").Where("status='DEAD' AND deleted_at IS NULL")
-	deadDB, err = operationalScope(deadDB, actor, "", "")
+	deadDB, err = operationalScope(deadDB, actor, "")
 	if err != nil {
 		return nil, err
 	}
@@ -414,7 +415,7 @@ func (s *Service) JobsOverview(q Query, actor Actor) (map[string]any, error) {
 	if manager := eventbus.QueueManagerInstance(); actor.Platform && manager != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		for _, queue := range []string{eventbus.QueueLedger, eventbus.QueuePayment, eventbus.QueueProvider, eventbus.QueuePromotion, eventbus.QueueNotification, eventbus.QueueAudit, eventbus.QueueDashboard, eventbus.QueueSystemJobs} {
+		for _, queue := range []string{eventbus.QueuePayment, eventbus.QueueProvider, eventbus.QueuePromotion, eventbus.QueueNotification, eventbus.QueueAudit, eventbus.QueueSystemJobs} {
 			items, readErr := manager.DeadMessages(ctx, queue, 25)
 			if readErr == nil {
 				rabbitDead = append(rabbitDead, items...)
@@ -466,7 +467,7 @@ func (s *Service) RetryDeadLetter(eventID uint64, reason string, actor Actor) (a
 	return s.ReplayEvent(eventID, EventReplayInput{Reason: reason}, actor)
 }
 
-func (s *Service) RetryRabbitDeadLetter(queue, eventID, reason string, actor Actor) error {
+func (s *Service) RetryRabbitDeadLetter(queue string, eventID string, reason string, actor Actor) error {
 	if err := requireReason(reason); err != nil {
 		return err
 	}
@@ -483,7 +484,7 @@ func (s *Service) RetryRabbitDeadLetter(queue, eventID, reason string, actor Act
 	return audit(s.db, actor, "jobs:retry", "jobs.rabbitmq.dead_letter.retry", "rabbitmq_message", 0, nil, map[string]any{"queue": queue, "eventID": eventID}, reason)
 }
 
-func (s *Service) PurgeRabbitRetry(queue, reason string, actor Actor) (int, error) {
+func (s *Service) PurgeRabbitRetry(queue string, reason string, actor Actor) (int, error) {
 	if err := requireReason(reason); err != nil {
 		return 0, err
 	}

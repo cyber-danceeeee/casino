@@ -10,52 +10,50 @@ var _ time.Time
 
 // Tip: suggested filling in the binding rules https://github.com/go-playground/validator in request struct fields tag.
 
-
 // CreateGameHomeFeatureCardsRequest request params
 type CreateGameHomeFeatureCardsRequest struct {
-	FeatureCode  string `json:"featureCode" binding:""`
-	Title  string `json:"title" binding:""`
-	ImageURL  string `json:"imageURL" binding:""`
-	BackgroundStyle  string `json:"backgroundStyle" binding:""`
-	LinkType  string `json:"linkType" binding:""`
-	LinkURL  string `json:"linkURL" binding:""`
+	FeatureCode     string     `json:"featureCode" binding:""`
+	Title           string     `json:"title" binding:""`
+	ImageURL        string     `json:"imageURL" binding:""`
+	BackgroundStyle string     `json:"backgroundStyle" binding:""`
+	LinkType        string     `json:"linkType" binding:""`
+	LinkURL         string     `json:"linkURL" binding:""`
 	CountdownEndAt  *time.Time `json:"countdownEndAt" binding:""`
-	Sort  int `json:"sort" binding:""`
-	Status  int `json:"status" binding:""` // 1 enabled, 2 disabled
+	Sort            int        `json:"sort" binding:""`
+	Status          int        `json:"status" binding:""` // 1 enabled, 2 disabled
 }
 
 // UpdateGameHomeFeatureCardsByIDRequest request params
 type UpdateGameHomeFeatureCardsByIDRequest struct {
 	ID uint64 `json:"id" binding:""` // uint64 id
 
-	FeatureCode  string `json:"featureCode" binding:""`
-	Title  string `json:"title" binding:""`
-	ImageURL  string `json:"imageURL" binding:""`
-	BackgroundStyle  string `json:"backgroundStyle" binding:""`
-	LinkType  string `json:"linkType" binding:""`
-	LinkURL  string `json:"linkURL" binding:""`
+	FeatureCode     string     `json:"featureCode" binding:""`
+	Title           string     `json:"title" binding:""`
+	ImageURL        string     `json:"imageURL" binding:""`
+	BackgroundStyle string     `json:"backgroundStyle" binding:""`
+	LinkType        string     `json:"linkType" binding:""`
+	LinkURL         string     `json:"linkURL" binding:""`
 	CountdownEndAt  *time.Time `json:"countdownEndAt" binding:""`
-	Sort  int `json:"sort" binding:""`
-	Status  int `json:"status" binding:""` // 1 enabled, 2 disabled
+	Sort            int        `json:"sort" binding:""`
+	Status          int        `json:"status" binding:""` // 1 enabled, 2 disabled
 }
 
 // GameHomeFeatureCardsObjDetail detail
 type GameHomeFeatureCardsObjDetail struct {
 	ID uint64 `json:"id"` // convert to uint64 id
 
-	FeatureCode  string `json:"featureCode"`
-	Title  string `json:"title"`
-	ImageURL  string `json:"imageURL"`
-	BackgroundStyle  string `json:"backgroundStyle"`
-	LinkType  string `json:"linkType"`
-	LinkURL  string `json:"linkURL"`
+	FeatureCode     string     `json:"featureCode"`
+	Title           string     `json:"title"`
+	ImageURL        string     `json:"imageURL"`
+	BackgroundStyle string     `json:"backgroundStyle"`
+	LinkType        string     `json:"linkType"`
+	LinkURL         string     `json:"linkURL"`
 	CountdownEndAt  *time.Time `json:"countdownEndAt"`
-	Sort  int `json:"sort"`
-	Status  int `json:"status"` // 1 enabled, 2 disabled
-	CreatedAt  *time.Time `json:"createdAt"`
-	UpdatedAt  *time.Time `json:"updatedAt"`
+	Sort            int        `json:"sort"`
+	Status          int        `json:"status"` // 1 enabled, 2 disabled
+	CreatedAt       *time.Time `json:"createdAt"`
+	UpdatedAt       *time.Time `json:"updatedAt"`
 }
-
 
 // CreateGameHomeFeatureCardsReply only for api docs
 type CreateGameHomeFeatureCardsReply struct {

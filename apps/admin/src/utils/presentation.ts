@@ -27,7 +27,6 @@ const meaningfulIdentifierKeys = new Set([
   "releaseVersion",
   "siteCode",
   "taskNo",
-  "tenantCode",
   "transactionNo",
   "txnNo",
   "upstreamOrderNo",
@@ -46,7 +45,7 @@ export function isInternalIdentifierKey(key: string) {
     compact === "id" ||
     compact.endsWith("id") ||
     [
-      "tenantid",
+      "siteid",
       "siteid",
       "userid",
       "playerid",

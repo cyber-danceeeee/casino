@@ -235,7 +235,7 @@ func (s *RiskRuleService) Test(id uint64, cmd RuleTestCommand, actor Actor) (map
 	result, matched := s.evaluation.Evaluate(cs, as, cmd.Facts)
 	facts, _ := json.Marshal(cmd.Facts)
 	payload, _ := json.Marshal(result)
-	err := s.db.Exec("INSERT INTO game_risk_rule_test_runs(rule_id,input_facts,result,matched,operator_id,operator_username,created_at,updated_at) VALUES(?,?,?,?,?,?,NOW(3),NOW(3))", id, string(facts), string(payload), matched, actor.ID, actor.Username).Error
+	err := s.db.Exec("INSERT INTO game_risk_rule_test_runs (rule_id, input_facts, result, matched, operator_id, operator_username, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NOW(3), NOW(3))", id, string(facts), string(payload), matched, actor.ID, actor.Username).Error
 	return result, err
 }
 
@@ -258,7 +258,7 @@ func (s *RiskEvaluationService) Evaluate(cs []conditionRecord, as []actionRecord
 	}
 	return map[string]any{"matched": matched, "conditions": results, "actions": actions}, matched
 }
-func compare(actual any, op, expected string) bool {
+func compare(actual any, op string, expected string) bool {
 	a := fmt.Sprint(actual)
 	switch op {
 	case "EQUAL":

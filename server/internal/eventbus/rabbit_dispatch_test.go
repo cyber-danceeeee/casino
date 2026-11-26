@@ -8,7 +8,7 @@ import (
 	"sync"
 	"testing"
 
-	"casino/internal/tenancy"
+	"casino/internal/content"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -36,8 +36,8 @@ func TestRelayPendingUsesStandardEnvelopeAndPublisherConfirmation(t *testing.T) 
 	db := rabbitDispatchTestDB(t)
 	service := New(db)
 	record, err := service.Publish(context.Background(), Event{
-		Scope: tenancy.Scope{TenantID: 7, SiteID: 9}, TenantID: 7, SiteID: 9,
-		EventType: EventLedgerTransactionPosted, AggregateType: "ledger_transaction", AggregateID: "42",
+		Scope: content.Scope{SiteID: 9}, SiteID: 9,
+		EventType: EventWalletBalanceChanged, AggregateType: "ledger_transaction", AggregateID: "42",
 		Source: "ledger", Producer: "ledger", IdempotencyKey: "relay-envelope", RequestID: "request-1",
 		TraceID: "trace-1", CorrelationID: "correlation-1", Payload: map[string]any{"amount": "10.00"}, Metadata: map[string]any{"operatorID": 5},
 	})
@@ -45,7 +45,7 @@ func TestRelayPendingUsesStandardEnvelopeAndPublisherConfirmation(t *testing.T) 
 		t.Fatal(err)
 	}
 	publisher := &recordingPublisher{}
-	summary, err := service.RelayPending(context.Background(), publisher, []string{EventLedgerTransactionPosted}, 10)
+	summary, err := service.RelayPending(context.Background(), publisher, []string{EventWalletBalanceChanged, EventWhiteLabelConfigPublished}, 10)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +53,7 @@ func TestRelayPendingUsesStandardEnvelopeAndPublisherConfirmation(t *testing.T) 
 		t.Fatalf("unexpected relay result: %#v messages=%d", summary, len(publisher.messages))
 	}
 	message := publisher.messages[0]
-	if message.RoutingKey != "ledger.transaction.posted" || message.OutboxID != record.ID {
+	if message.RoutingKey != "wallet.balance.changed" || message.OutboxID != record.ID {
 		t.Fatalf("unexpected published message: %#v", message)
 	}
 	var envelope EventEnvelope
@@ -66,7 +66,7 @@ func TestRelayPendingUsesStandardEnvelopeAndPublisherConfirmation(t *testing.T) 
 	if fmt.Sprint(envelope.Metadata["operatorID"]) != "5" {
 		t.Fatalf("metadata missing from envelope: %#v", envelope.Metadata)
 	}
-	second, err := service.RelayPending(context.Background(), publisher, []string{EventLedgerTransactionPosted}, 10)
+	second, err := service.RelayPending(context.Background(), publisher, []string{EventWalletBalanceChanged, EventWhiteLabelConfigPublished}, 10)
 	if err != nil || second.Published != 0 || len(publisher.messages) != 1 {
 		t.Fatalf("published outbox row was relayed twice: %#v err=%v", second, err)
 	}
@@ -76,21 +76,21 @@ func TestRelayPendingDoesNotMarkPublishedWhenAdapterFails(t *testing.T) {
 	db := rabbitDispatchTestDB(t)
 	service := NewWithOptions(db, Options{MaxAttempts: 3})
 	record, err := service.Publish(context.Background(), Event{
-		Scope: tenancy.Scope{Platform: true}, EventType: EventTenantProvisioned,
-		AggregateType: "tenant", AggregateID: "8", Source: "test", IdempotencyKey: "relay-failure", Payload: map[string]any{"tenantID": 8},
+		Scope: content.Scope{Platform: true}, EventType: EventWhiteLabelConfigPublished,
+		AggregateType: "site", AggregateID: "8", Source: "test", IdempotencyKey: "relay-failure", Payload: map[string]any{},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	publisher := &recordingPublisher{err: errors.New("publisher confirm timeout")}
-	summary, err := service.RelayPending(context.Background(), publisher, []string{EventTenantProvisioned}, 10)
+	summary, err := service.RelayPending(context.Background(), publisher, []string{EventWalletBalanceChanged, EventWhiteLabelConfigPublished}, 10)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if summary.Failed != 1 {
 		t.Fatalf("publish failure was not retained: %#v", summary)
 	}
-	stored, _, err := service.Get(context.Background(), record.ID, tenancy.Scope{Platform: true})
+	stored, _, err := service.Get(context.Background(), record.ID, content.Scope{Platform: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,7 +103,7 @@ func TestRabbitDispatchSkipsDuplicateConsumerBusinessCall(t *testing.T) {
 	db := rabbitDispatchTestDB(t)
 	service := New(db)
 	record, err := service.Publish(context.Background(), Event{
-		Scope: tenancy.Scope{TenantID: 1, SiteID: 2}, TenantID: 1, SiteID: 2,
+		Scope: content.Scope{SiteID: 2}, SiteID: 2,
 		EventType: EventWalletBalanceChanged, AggregateType: "wallet", AggregateID: "3", Source: "wallet",
 		IdempotencyKey: "duplicate-consume", Payload: map[string]any{"amount": "1.00"},
 	})
@@ -113,10 +113,10 @@ func TestRabbitDispatchSkipsDuplicateConsumerBusinessCall(t *testing.T) {
 	body, _ := json.Marshal(record.Envelope)
 	calls := 0
 	registration := ConsumerRegistration{
-		Name: "wallet.projection.v1", Queue: QueueLedger, EventTypes: []string{EventWalletBalanceChanged},
+		Name: "wallet.projection.v1", Queue: QueuePayment, EventTypes: []string{EventWalletBalanceChanged},
 		Handler: func(Context) error { calls++; return nil },
 	}
-	message := DeliveryMessage{Queue: QueueLedger, RoutingKey: RoutingKey(record.EventType), Body: body, Headers: map[string]any{HeaderOutboxID: record.ID}}
+	message := DeliveryMessage{Queue: QueuePayment, RoutingKey: RoutingKey(record.EventType), Body: body, Headers: map[string]any{HeaderOutboxID: record.ID}}
 	if err := service.Dispatch(context.Background(), message, registration); err != nil {
 		t.Fatal(err)
 	}

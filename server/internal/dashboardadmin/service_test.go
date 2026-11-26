@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"casino/internal/tenancy"
+	"casino/internal/content"
 )
 
 func TestParseFilterDefaultsAndLimits(t *testing.T) {
@@ -40,19 +40,19 @@ func TestPercentChangeHandlesZero(t *testing.T) {
 	}
 }
 
-func TestDashboardScopeSQLAddsTenantAndSite(t *testing.T) {
-	where, args := dashboardScopeSQL(tenancy.Scope{TenantID: 7, SiteID: 3}, "u")
-	if where != " AND u.tenant_id=? AND u.site_id IN (0, ?)" {
+func TestDashboardScopeSQLAddsH5AndSite(t *testing.T) {
+	where, args := dashboardScopeSQL(content.Scope{SiteID: 3}, "u")
+	if where != " AND u.site_id IN (0, ?)" {
 		t.Fatalf("unexpected scope where: %s", where)
 	}
-	if !reflect.DeepEqual(args, []any{uint64(7), uint64(3)}) {
+	if !reflect.DeepEqual(args, []any{uint64(3)}) {
 		t.Fatalf("unexpected args: %#v", args)
 	}
 }
 
 func TestDashboardScopeSQLSkipsPlatformAdmin(t *testing.T) {
-	where, args := dashboardScopeSQL(tenancy.Scope{Platform: true}, "u")
+	where, args := dashboardScopeSQL(content.Scope{Platform: true}, "u")
 	if where != "" || len(args) != 0 {
-		t.Fatalf("platform scope should not add tenant filter: %q %#v", where, args)
+		t.Fatalf("platform scope should not add h5 filter: %q %#v", where, args)
 	}
 }

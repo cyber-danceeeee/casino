@@ -96,7 +96,7 @@ func Test_gameInvitesDao_UpdateByID(t *testing.T) {
 	// zero id error
 	err = d.IDao.(GameInvitesDao).UpdateByID(d.Ctx, &model.GameInvites{})
 	assert.Error(t, err)
-	
+
 }
 
 func Test_gameInvitesDao_GetByID(t *testing.T) {

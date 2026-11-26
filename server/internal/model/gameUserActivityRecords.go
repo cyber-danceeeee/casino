@@ -1,9 +1,10 @@
 package model
 
 import (
+	"time"
+
 	"github.com/go-dev-frame/sponge/pkg/sgorm"
 	"github.com/shopspring/decimal"
-	"time"
 )
 
 // GameUserActivityRecords Member activity claims
@@ -37,5 +38,3 @@ var GameUserActivityRecordsColumnNames = map[string]bool{
 	"claimed_at":   true,
 	"remark":       true,
 }
-
-

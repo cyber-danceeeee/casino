@@ -10,7 +10,6 @@ import (
 type GameOperationMusic struct {
 	sgorm.Model `gorm:"embedded"`
 
-	TenantID      uint64     `gorm:"column:tenant_id;type:bigint unsigned;not null;default:0" json:"tenantID"`
 	SiteID        uint64     `gorm:"column:site_id;type:bigint unsigned;not null;default:0" json:"siteID"`
 	Code          string     `gorm:"column:code;type:varchar(64);not null" json:"code"`
 	NameZh        string     `gorm:"column:name_zh;type:varchar(128);not null" json:"nameZh"`

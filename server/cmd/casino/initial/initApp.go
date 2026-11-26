@@ -80,7 +80,7 @@ func InitApp() {
 
 	// initializing database
 	database.InitDB()
-	if err := systemadmin.New(database.GetDB()).EnsureSingleSite(); err != nil {
+	if err := systemadmin.New(database.GetDB()).EnsureSiteConfig(); err != nil {
 		panic(err)
 	}
 	logger.Infof("[%s] was initialized", cfg.Database.Driver)

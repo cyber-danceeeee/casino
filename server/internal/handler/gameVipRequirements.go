@@ -232,7 +232,7 @@ func (h *gameVipRequirementsHandler) List(c *gin.Context) {
 
 	response.Success(c, gin.H{
 		"gameVipRequirementss": data,
-		"total":        total,
+		"total":                total,
 	})
 }
 

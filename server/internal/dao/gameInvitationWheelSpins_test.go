@@ -96,7 +96,7 @@ func Test_gameInvitationWheelSpinsDao_UpdateByID(t *testing.T) {
 	// zero id error
 	err = d.IDao.(GameInvitationWheelSpinsDao).UpdateByID(d.Ctx, &model.GameInvitationWheelSpins{})
 	assert.Error(t, err)
-	
+
 }
 
 func Test_gameInvitationWheelSpinsDao_GetByID(t *testing.T) {

@@ -103,7 +103,7 @@ func Test_gameCmsPagesHandler_Create(t *testing.T) {
 	}
 
 	t.Logf("%+v", result)
-	
+
 }
 
 func Test_gameCmsPagesHandler_DeleteByID(t *testing.T) {

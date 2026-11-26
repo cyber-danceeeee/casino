@@ -8,7 +8,7 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
-	"casino/internal/tenancy"
+	"casino/internal/content"
 )
 
 type FinancialRow struct {
@@ -29,10 +29,10 @@ type FinancialRow struct {
 	ActiveUsers      int64           `json:"activeUsers" gorm:"column:active_users"`
 }
 
-func userFactWhere(q Query, timeColumn, currencyColumn, userAlias, scopeAlias string, paymentFilter bool) (string, []any) {
+func userFactWhere(q Query, timeColumn string, currencyColumn string, userAlias string, scopeAlias string, paymentFilter bool) (string, []any) {
 	clauses := []string{timeColumn + " >= ?", timeColumn + " <= ?"}
 	args := []any{val(q, "dateFrom"), val(q, "dateTo")}
-	if q.Scope.TenantScoped() {
+	if q.Scope.SiteScoped() {
 		scopeAlias = strings.TrimSpace(scopeAlias)
 		if scopeAlias == "" || scopeAlias == timeColumn {
 			scopeAlias = strings.TrimSpace(strings.Split(timeColumn, ".")[0])
@@ -40,8 +40,6 @@ func userFactWhere(q Query, timeColumn, currencyColumn, userAlias, scopeAlias st
 		if scopeAlias == "" || scopeAlias == timeColumn {
 			scopeAlias = strings.TrimSpace(userAlias)
 		}
-		clauses = append(clauses, scopeAlias+".tenant_id = ?")
-		args = append(args, q.Scope.TenantID)
 		if q.Scope.SiteScoped() {
 			clauses = append(clauses, scopeAlias+".site_id IN (0, ?)")
 			args = append(args, q.Scope.SiteID)
@@ -86,7 +84,7 @@ func financialFacts(q Query, withPeriod bool) (string, []any, error) {
 	}
 	ww, wa := userFactWhere(q, "w.completed_at", "w.currency", "u", "w", false)
 	bw, ba := userFactWhere(q, "b.settled_at", "b.currency", "u", "b", false)
-	// Legacy bonus records have no tenant columns. Scope them through their player.
+	// Legacy bonus records have no site columns. Scope them through their player.
 	bow, boa := userFactWhere(q, "bo.issued_at", "bo.currency", "u", "u", false)
 	cw, ca := userFactWhere(q, "c.business_date", "c.currency", "u", "c", false)
 
@@ -101,7 +99,7 @@ func financialFacts(q Query, withPeriod bool) (string, []any, error) {
 	return strings.Join(branches, " UNION ALL "), args, nil
 }
 
-func financialSelect(periodSelect, groupBy string) string {
+func financialSelect(periodSelect string, groupBy string) string {
 	return `SELECT ` + periodSelect + `,currency,
 COALESCE(SUM(deposit_amount),0) deposit_amount,COALESCE(SUM(withdrawal_amount),0) withdrawal_amount,
 COALESCE(SUM(deposit_amount-withdrawal_amount),0) net_cash_flow,
@@ -223,19 +221,19 @@ func (s *FinancialReportService) Detail(q Query) (map[string]any, error) {
 }
 
 func reportScoped(db *gorm.DB, alias string, q Query) *gorm.DB {
-	return tenancy.ApplySite(db, alias, q.Scope)
+	return content.ApplySite(db, alias, q.Scope)
 }
 
 func reportScopeSQL(q Query, alias string) (string, []any) {
-	if !q.Scope.TenantScoped() {
+	if !q.Scope.SiteScoped() {
 		return "", nil
 	}
 	prefix := ""
 	if strings.TrimSpace(alias) != "" {
 		prefix = strings.TrimSpace(alias) + "."
 	}
-	where := " AND " + prefix + "tenant_id=?"
-	args := []any{q.Scope.TenantID}
+	where := ""
+	args := []any{}
 	if q.Scope.SiteScoped() {
 		where += " AND " + prefix + "site_id IN (0, ?)"
 		args = append(args, q.Scope.SiteID)
@@ -243,7 +241,7 @@ func reportScopeSQL(q Query, alias string) (string, []any) {
 	return where, args
 }
 
-func applyEqual(db *gorm.DB, column, value string) *gorm.DB {
+func applyEqual(db *gorm.DB, column string, value string) *gorm.DB {
 	if strings.TrimSpace(value) != "" {
 		return db.Where(column+" = ?", strings.TrimSpace(value))
 	}

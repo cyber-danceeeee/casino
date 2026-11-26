@@ -8,12 +8,12 @@ import (
 
 	"github.com/go-dev-frame/sponge/pkg/goredis"
 
-	"casino/internal/tenancy"
+	"casino/internal/content"
 )
 
 const keyPrefix = "casino:"
 
-// Store keeps the rolling HOT ranking in a tenant/site-scoped Redis sorted set.
+// Store keeps the rolling HOT ranking in a H5 content-scoped Redis sorted set.
 // The game ID is the sorted-set member and the score is the number of successful
 // game launches during the current business day.
 type Store struct {
@@ -24,8 +24,8 @@ func New(client *goredis.Client) *Store {
 	return &Store{client: client}
 }
 
-func (s *Store) RecordLaunch(ctx context.Context, scope tenancy.Scope, gameID uint64) error {
-	if s == nil || s.client == nil || !scope.TenantScoped() || scope.SiteID == 0 || gameID == 0 {
+func (s *Store) RecordLaunch(ctx context.Context, scope content.Scope, gameID uint64) error {
+	if s == nil || s.client == nil || !scope.SiteScoped() || scope.SiteID == 0 || gameID == 0 {
 		return nil
 	}
 
@@ -44,8 +44,8 @@ func (s *Store) RecordLaunch(ctx context.Context, scope tenancy.Scope, gameID ui
 	return s.client.Expire(ctx, key, expiresIn).Err()
 }
 
-func (s *Store) TopGameIDs(ctx context.Context, scope tenancy.Scope, now time.Time, limit int) ([]uint64, error) {
-	if s == nil || s.client == nil || !scope.TenantScoped() || scope.SiteID == 0 || limit <= 0 {
+func (s *Store) TopGameIDs(ctx context.Context, scope content.Scope, now time.Time, limit int) ([]uint64, error) {
+	if s == nil || s.client == nil || !scope.SiteScoped() || scope.SiteID == 0 || limit <= 0 {
 		return nil, nil
 	}
 	values, err := s.client.ZRevRange(ctx, Key(scope, now), 0, int64(limit)-1).Result()
@@ -62,8 +62,8 @@ func (s *Store) TopGameIDs(ctx context.Context, scope tenancy.Scope, now time.Ti
 	return ids, nil
 }
 
-func Key(scope tenancy.Scope, now time.Time) string {
-	return fmt.Sprintf("%stenant:%d:site:%d:hot:games:%s", keyPrefix, scope.TenantID, scope.SiteID, now.Format("20060102"))
+func Key(scope content.Scope, now time.Time) string {
+	return fmt.Sprintf("%ssite:%d:site:%d:hot:games:%s", keyPrefix, scope.SiteID, scope.SiteID, now.Format("20060102"))
 }
 
 func nextDay(now time.Time) time.Time {

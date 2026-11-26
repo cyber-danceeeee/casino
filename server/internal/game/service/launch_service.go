@@ -14,11 +14,11 @@ import (
 	"golang.org/x/sync/singleflight"
 	"gorm.io/gorm"
 
+	"casino/internal/content"
 	"casino/internal/game/domain"
 	"casino/internal/game/repository"
 	"casino/internal/hotranking"
 	"casino/internal/model"
-	"casino/internal/tenancy"
 )
 
 const (
@@ -52,7 +52,6 @@ type launchCountryConfig struct {
 }
 
 type LaunchRequest struct {
-	TenantID     uint64
 	SiteID       uint64
 	ProviderCode string
 	GameID       string
@@ -99,7 +98,7 @@ func (s *LaunchService) Launch(ctx context.Context, req LaunchRequest) (*domain.
 	launchTime := time.Now()
 	requestJSON := launchRequestJSON(req)
 	log := newLaunchLog(scope, req, game.ID, providerRow.ID, requestJSON, launchTime)
-	if err := tenancy.ApplySiteStrict(s.repo.DB().WithContext(ctx).Model(&model.GameGameLaunchLogs{}), "", scope).Create(log).Error; err != nil {
+	if err := content.ApplySiteStrict(s.repo.DB().WithContext(ctx).Model(&model.GameGameLaunchLogs{}), "", scope).Create(log).Error; err != nil {
 		return nil, err
 	}
 
@@ -209,9 +208,9 @@ func (s *LaunchService) Launch(ctx context.Context, req LaunchRequest) (*domain.
 	return result, nil
 }
 
-func (s *LaunchService) validateUserWalletCurrency(ctx context.Context, scope tenancy.Scope, userID uint64, currency string) error {
+func (s *LaunchService) validateUserWalletCurrency(ctx context.Context, scope content.Scope, userID uint64, currency string) error {
 	var wallet model.GameUserWallets
-	if err := tenancy.ApplySite(s.repo.DB().WithContext(ctx).Model(&model.GameUserWallets{}), "", scope).Where("user_id = ?", userID).First(&wallet).Error; err != nil {
+	if err := content.ApplySite(s.repo.DB().WithContext(ctx).Model(&model.GameUserWallets{}), "", scope).Where("user_id = ?", userID).First(&wallet).Error; err != nil {
 		return domain.NewWalletError(domain.WalletErrorPlayerNotFound, "wallet not found", err)
 	}
 	if ok, err := reconcileWalletCurrency(ctx, s.repo.DB(), scope, &wallet, currency); err != nil {
@@ -225,7 +224,7 @@ func (s *LaunchService) validateUserWalletCurrency(ctx context.Context, scope te
 func (s *LaunchService) resolveLaunchCountry(ctx context.Context, req LaunchRequest) (launchCountryConfig, error) {
 	var user model.GameUsers
 	scope := launchScope(req)
-	if err := tenancy.ApplySite(s.repo.DB().WithContext(ctx).Model(&model.GameUsers{}), "", scope).Select("id", "country_code", "language").Where("id = ? AND deleted_at IS NULL", req.UserID).Take(&user).Error; err != nil {
+	if err := content.ApplySite(s.repo.DB().WithContext(ctx).Model(&model.GameUsers{}), "", scope).Select("id", "country_code", "language").Where("id = ? AND deleted_at IS NULL", req.UserID).Take(&user).Error; err != nil {
 		return launchCountryConfig{}, domain.NewWalletError(domain.WalletErrorPlayerNotFound, "player not found", err)
 	}
 
@@ -244,14 +243,14 @@ func (s *LaunchService) resolveLaunchCountry(ctx context.Context, req LaunchRequ
 		SupportedLanguages    string `gorm:"column:supported_languages"`
 		Timezone              string `gorm:"column:timezone"`
 	}
-	countryDB := func(currentScope tenancy.Scope) *gorm.DB {
+	countryDB := func(currentScope content.Scope) *gorm.DB {
 		db := s.repo.DB().WithContext(ctx).Table("game_country_configs").Where("status=1 AND deleted_at IS NULL")
 		if currentScope.Platform {
-			return db.Where("tenant_id=0 AND site_id=0")
+			return db.Where("site_id = 0")
 		}
-		return tenancy.ApplySite(db, "", currentScope)
+		return content.ApplySite(db, "", currentScope)
 	}
-	findCountry := func(currentScope tenancy.Scope) error {
+	findCountry := func(currentScope content.Scope) error {
 		db := countryDB(currentScope)
 		query := db
 		if countryCode != "" {
@@ -268,8 +267,8 @@ func (s *LaunchService) resolveLaunchCountry(ctx context.Context, req LaunchRequ
 		return nil
 	}
 	if err := findCountry(scope); err != nil {
-		if scope.TenantScoped() && errors.Is(err, gorm.ErrRecordNotFound) {
-			if platformErr := findCountry(tenancy.Scope{Platform: true}); platformErr == nil {
+		if scope.SiteScoped() && errors.Is(err, gorm.ErrRecordNotFound) {
+			if platformErr := findCountry(content.Scope{Platform: true}); platformErr == nil {
 				err = nil
 			} else {
 				err = platformErr
@@ -320,7 +319,7 @@ func (s *LaunchService) ensureProviderPlayer(ctx context.Context, provider domai
 	}
 
 	mapping := &model.GameProviderPlayers{
-		TenantID:               scope.TenantID,
+
 		SiteID:                 scope.SiteID,
 		ProviderCode:           req.ProviderCode,
 		UserID:                 req.UserID,
@@ -359,7 +358,7 @@ func (s *LaunchService) markLaunchEntered(ctx context.Context, log *model.GameGa
 	if responseTrace == "" {
 		responseTrace = string(responseJSON)
 	}
-	err := tenancy.ApplySiteStrict(s.repo.DB().WithContext(ctx).Model(&model.GameGameLaunchLogs{}), "", tenancy.Scope{TenantID: log.TenantID, SiteID: log.SiteID}).Where("id = ?", log.ID).Updates(map[string]any{
+	err := content.ApplySiteStrict(s.repo.DB().WithContext(ctx).Model(&model.GameGameLaunchLogs{}), "", content.Scope{SiteID: log.SiteID}).Where("id = ?", log.ID).Updates(map[string]any{
 		"launch_status":            2,
 		"session_status":           sessionStatusLaunchSuccess,
 		"launch_success_time":      now,
@@ -372,21 +371,21 @@ func (s *LaunchService) markLaunchEntered(ctx context.Context, log *model.GameGa
 	if err != nil {
 		return err
 	}
-	s.recordTenantHotLaunch(ctx, log)
+	s.recordSiteHotLaunch(ctx, log)
 	return nil
 }
 
-func (s *LaunchService) recordTenantHotLaunch(ctx context.Context, log *model.GameGameLaunchLogs) {
-	if s.hotRanker == nil || log == nil || log.TenantID == 0 || log.SiteID == 0 || log.GameID == 0 {
+func (s *LaunchService) recordSiteHotLaunch(ctx context.Context, log *model.GameGameLaunchLogs) {
+	if s.hotRanker == nil || log == nil || log.SiteID == 0 || log.GameID == 0 {
 		return
 	}
 
 	// FindLaunchGame may intentionally fall back to the platform catalogue for
 	// legacy launch compatibility. Those platform rows must not enter a
-	// tenant's HOT ranking because the HOT query only exposes tenant imports.
+	// site's HOT ranking because the HOT query only exposes site imports.
 	var game model.GameGames
-	scope := tenancy.Scope{TenantID: log.TenantID, SiteID: log.SiteID}
-	if err := tenancy.ApplySite(s.repo.DB().WithContext(ctx).Model(&model.GameGames{}), "", scope).
+	scope := content.Scope{SiteID: log.SiteID}
+	if err := content.ApplySite(s.repo.DB().WithContext(ctx).Model(&model.GameGames{}), "", scope).
 		Where("id = ? AND deleted_at IS NULL", log.GameID).
 		First(&game).Error; err != nil {
 		return
@@ -397,9 +396,9 @@ func (s *LaunchService) recordTenantHotLaunch(ctx context.Context, log *model.Ga
 	_ = s.hotRanker.RecordLaunch(ctx, scope, game.ID)
 }
 
-func newLaunchLog(scope tenancy.Scope, req LaunchRequest, gameID, providerID uint64, requestJSON string, launchTime time.Time) *model.GameGameLaunchLogs {
+func newLaunchLog(scope content.Scope, req LaunchRequest, gameID uint64, providerID uint64, requestJSON string, launchTime time.Time) *model.GameGameLaunchLogs {
 	return &model.GameGameLaunchLogs{
-		TenantID:              scope.TenantID,
+
 		SiteID:                scope.SiteID,
 		UserID:                req.UserID,
 		GameID:                gameID,
@@ -426,7 +425,7 @@ func (s *LaunchService) updateLaunchConfiguration(ctx context.Context, log *mode
 	if log == nil || log.ID == 0 {
 		return nil
 	}
-	return tenancy.ApplySiteStrict(s.repo.DB().WithContext(ctx).Model(&model.GameGameLaunchLogs{}), "", tenancy.Scope{TenantID: log.TenantID, SiteID: log.SiteID}).Where("id = ?", log.ID).Updates(map[string]any{
+	return content.ApplySiteStrict(s.repo.DB().WithContext(ctx).Model(&model.GameGameLaunchLogs{}), "", content.Scope{SiteID: log.SiteID}).Where("id = ?", log.ID).Updates(map[string]any{
 		"currency":               log.Currency,
 		"language":               log.Language,
 		"country":                log.Country,
@@ -451,7 +450,7 @@ func (s *LaunchService) markLaunchFailed(ctx context.Context, log *model.GameGam
 		message = message[:500]
 	}
 	now := time.Now()
-	return tenancy.ApplySiteStrict(s.repo.DB().WithContext(ctx).Model(&model.GameGameLaunchLogs{}), "", tenancy.Scope{TenantID: log.TenantID, SiteID: log.SiteID}).Where("id = ?", log.ID).Updates(map[string]any{
+	return content.ApplySiteStrict(s.repo.DB().WithContext(ctx).Model(&model.GameGameLaunchLogs{}), "", content.Scope{SiteID: log.SiteID}).Where("id = ?", log.ID).Updates(map[string]any{
 		"launch_status":            3,
 		"session_status":           sessionStatusLaunchFailed,
 		"close_time":               now,
@@ -469,19 +468,19 @@ func launchErrorTrace(err error) (string, string) {
 	return "", ""
 }
 
-func (s *LaunchService) Heartbeat(ctx context.Context, scope tenancy.Scope, sessionID string, userID uint64) error {
+func (s *LaunchService) Heartbeat(ctx context.Context, scope content.Scope, sessionID string, userID uint64) error {
 	sessionID = strings.TrimSpace(sessionID)
 	if sessionID == "" || userID == 0 {
 		return domain.NewWalletError(domain.WalletErrorInvalidRequest, "invalid session", nil)
 	}
 	now := time.Now()
 	_ = s.closeTimedOutSessions(ctx, now)
-	return tenancy.ApplySite(s.repo.DB().WithContext(ctx).Model(&model.GameGameLaunchLogs{}), "", scope).
+	return content.ApplySite(s.repo.DB().WithContext(ctx).Model(&model.GameGameLaunchLogs{}), "", scope).
 		Where("user_id=? AND (session_id=? OR session_token=?) AND deleted_at IS NULL AND session_status IN ?", userID, sessionID, sessionID, []string{sessionStatusLaunchSuccess, sessionStatusPlaying}).
 		Updates(map[string]any{"session_status": sessionStatusPlaying, "last_heartbeat_time": now}).Error
 }
 
-func (s *LaunchService) Exit(ctx context.Context, scope tenancy.Scope, sessionID string, userID uint64, reason string) error {
+func (s *LaunchService) Exit(ctx context.Context, scope content.Scope, sessionID string, userID uint64, reason string) error {
 	sessionID = strings.TrimSpace(sessionID)
 	if sessionID == "" || userID == 0 {
 		return domain.NewWalletError(domain.WalletErrorInvalidRequest, "invalid session", nil)
@@ -489,7 +488,7 @@ func (s *LaunchService) Exit(ctx context.Context, scope tenancy.Scope, sessionID
 	reason = normalizeExitReason(reason)
 	return s.repo.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var log model.GameGameLaunchLogs
-		if err := tenancy.ApplySite(tx.Model(&model.GameGameLaunchLogs{}), "", scope).Where("user_id=? AND (session_id=? OR session_token=?) AND deleted_at IS NULL", userID, sessionID, sessionID).Take(&log).Error; err != nil {
+		if err := content.ApplySite(tx.Model(&model.GameGameLaunchLogs{}), "", scope).Where("user_id=? AND (session_id=? OR session_token=?) AND deleted_at IS NULL", userID, sessionID, sessionID).Take(&log).Error; err != nil {
 			return domain.NewWalletError(domain.WalletErrorInvalidRequest, "session not found", err)
 		}
 		if log.SessionStatus == sessionStatusClosed {
@@ -573,8 +572,8 @@ func normalizeLaunchRequest(req LaunchRequest) LaunchRequest {
 	return req
 }
 
-func launchScope(req LaunchRequest) tenancy.Scope {
-	return tenancy.Scope{TenantID: req.TenantID, SiteID: req.SiteID}
+func launchScope(req LaunchRequest) content.Scope {
+	return content.Scope{SiteID: req.SiteID}
 }
 
 func validateBasicLaunchRequest(req LaunchRequest) error {

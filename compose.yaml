@@ -76,10 +76,9 @@ services:
       MYSQL_DATABASE: game_casino
       MYSQL_PWD: ${MYSQL_PASSWORD:?请先生成环境配置}
     volumes:
-      - ./server/game_schema.sql:/migrations/base.sql:ro
-      - ./server/migrations:/migrations/sql:ro
+      - ./server/database:/database:ro
+      - migration_backups:/backups
       - ./deploy/migrate.sh:/migrations/run.sh:ro
-      - ./deploy/migrations.txt:/migrations/manifest.txt:ro
     entrypoint: ["bash", "/migrations/run.sh"]
     depends_on:
       mysql:
@@ -132,6 +131,7 @@ services:
       retries: 3
 
 volumes:
+  migration_backups:
   mysql-data:
   redis-data:
   rabbitmq-data:

@@ -27,5 +27,3 @@ var GameSupportQuestionsColumnNames = map[string]bool{
 	"sort":        true,
 	"status":      true,
 }
-
-

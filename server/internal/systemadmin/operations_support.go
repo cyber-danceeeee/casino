@@ -13,14 +13,13 @@ import (
 )
 
 type PlayerSupportRow struct {
-	ID               uint64           `json:"playerID"`
-	UserNo           string           `json:"userNo"`
-	Username         string           `json:"username"`
-	PhoneCountryCode string           `json:"phoneCountryCode"`
-	Phone            string           `json:"phone"`
-	Email            string           `json:"email"`
-	TenantID         uint64           `json:"tenantID"`
-	TenantName       string           `json:"tenantName"`
+	ID               uint64 `json:"playerID"`
+	UserNo           string `json:"userNo"`
+	Username         string `json:"username"`
+	PhoneCountryCode string `json:"phoneCountryCode"`
+	Phone            string `json:"phone"`
+	Email            string `json:"email"`
+
 	SiteID           uint64           `json:"siteID"`
 	SiteName         string           `json:"siteName"`
 	Status           int              `json:"status"`
@@ -58,7 +57,6 @@ type TimelineItem struct {
 }
 
 type SupportCaseInput struct {
-	TenantID              uint64   `json:"tenantID"`
 	SiteID                uint64   `json:"siteID"`
 	PlayerID              uint64   `json:"playerID"`
 	PlayerNo              string   `json:"playerNo"`
@@ -95,17 +93,12 @@ func (s *Service) SearchPlayers(q Query, actor Actor) (Result, error) {
 	}
 
 	rows := []PlayerSupportRow{}
-	db := s.db.Table("game_users u").Select(`u.id,u.user_no,u.username,u.phone_country_code,u.phone,u.email,u.tenant_id,t.tenant_name,u.site_id,s.site_name,u.status,u.country_code,u.vip_level,
-		COALESCE(w.currency,'') currency,COALESCE(w.cash_balance,0) available_balance,COALESCE(w.frozen_balance,0) frozen_balance,COALESCE(w.bonus_balance,0) bonus_balance,
-		u.created_at registered_at,u.registered_ip,u.last_login_at,u.last_login_ip,
-		COALESCE((SELECT wo.kyc_status FROM game_withdraw_orders wo WHERE wo.user_id=u.id AND wo.tenant_id=u.tenant_id AND wo.deleted_at IS NULL ORDER BY wo.id DESC LIMIT 1),'') kyc_status,
-		COALESCE((SELECT rp.risk_status FROM game_user_risk_profiles rp WHERE rp.user_id=u.id AND rp.tenant_id=u.tenant_id AND rp.site_id=u.site_id AND rp.deleted_at IS NULL ORDER BY rp.id DESC LIMIT 1),CASE WHEN u.risk_review_required=1 THEN 'REVIEW' ELSE 'NORMAL' END) risk_status`).
-		Joins("LEFT JOIN game_saas_tenants t ON t.id=u.tenant_id AND t.deleted_at IS NULL").
-		Joins("LEFT JOIN game_saas_sites s ON s.id=u.site_id AND s.tenant_id=u.tenant_id AND s.deleted_at IS NULL").
-		Joins("LEFT JOIN game_user_wallets w ON w.user_id=u.id AND w.tenant_id=u.tenant_id AND w.site_id=u.site_id AND w.deleted_at IS NULL").
+	db := s.db.Table("game_users u").Select("u.id, u.user_no, u.username, u.phone_country_code, u.phone, u.email, u.site_id, s.site_name, u.status, u.country_code, u.vip_level, COALESCE(w.currency, '') AS currency, COALESCE(w.cash_balance, 0) AS available_balance, COALESCE(w.frozen_balance, 0) AS frozen_balance, COALESCE(w.bonus_balance, 0) AS bonus_balance, u.created_at AS registered_at, u.registered_ip, u.last_login_at, u.last_login_ip, COALESCE((SELECT wo.kyc_status FROM game_withdraw_orders AS wo WHERE wo.user_id = u.id AND wo.deleted_at IS NULL ORDER BY wo.id DESC LIMIT 1), '') AS kyc_status, COALESCE((SELECT rp.risk_status FROM game_user_risk_profiles AS rp WHERE rp.user_id = u.id AND rp.site_id = u.site_id AND rp.deleted_at IS NULL ORDER BY rp.id DESC LIMIT 1), CASE WHEN u.risk_review_required = 1 THEN 'REVIEW' ELSE 'NORMAL' END) AS risk_status").
+		Joins("LEFT JOIN game_site_config AS s ON s.id = u.site_id AND s.deleted_at IS NULL").
+		Joins("LEFT JOIN game_user_wallets AS w ON w.user_id = u.id AND w.site_id = u.site_id AND w.deleted_at IS NULL").
 		Where("u.deleted_at IS NULL")
 	var err error
-	db, err = operationalScopeAlias(db, "u", actor, value(q, "tenantID"), value(q, "siteID"))
+	db, err = operationalScopeAlias(db, "u", actor, value(q, "siteID"))
 	if err != nil {
 		return Result{}, err
 	}
@@ -121,7 +114,7 @@ func (s *Service) SearchPlayers(q Query, actor Actor) (Result, error) {
 	return result, nil
 }
 
-func applyPlayerSearch(db *gorm.DB, searchType, term string) *gorm.DB {
+func applyPlayerSearch(db *gorm.DB, searchType string, term string) *gorm.DB {
 	contains := "%" + term + "%"
 	switch searchType {
 	case "PLAYER_NUMBER":
@@ -138,29 +131,22 @@ func applyPlayerSearch(db *gorm.DB, searchType, term string) *gorm.DB {
 	case "REGISTRATION_IP":
 		return db.Where("u.registered_ip=?", term)
 	case "EXTERNAL_PLAYER_ID":
-		return db.Where("EXISTS (SELECT 1 FROM game_provider_players pp WHERE pp.user_id=u.id AND pp.tenant_id=u.tenant_id AND pp.site_id=u.site_id AND pp.provider_player_id=? AND pp.deleted_at IS NULL)", term)
+		return db.Where("EXISTS(SELECT 1 FROM game_provider_players AS pp WHERE pp.user_id = u.id AND pp.site_id = u.site_id AND pp.provider_player_id = ? AND pp.deleted_at IS NULL)", term)
 	case "DEVICE_ID":
-		return db.Where("EXISTS (SELECT 1 FROM game_user_devices d WHERE d.user_id=u.id AND d.tenant_id=u.tenant_id AND d.site_id=u.site_id AND d.device_id=? AND d.deleted_at IS NULL)", term)
+		return db.Where("EXISTS(SELECT 1 FROM game_user_devices AS d WHERE d.user_id = u.id AND d.site_id = u.site_id AND d.device_id = ? AND d.deleted_at IS NULL)", term)
 	case "BANK_ACCOUNT":
-		return db.Where("EXISTS (SELECT 1 FROM game_withdraw_accounts a WHERE a.user_id=u.id AND a.tenant_id=u.tenant_id AND a.site_id=u.site_id AND (a.account_no=? OR a.phone=?) AND a.deleted_at IS NULL)", term, term)
+		return db.Where("EXISTS(SELECT 1 FROM game_withdraw_accounts AS a WHERE a.user_id = u.id AND a.site_id = u.site_id AND (a.account_no = ? OR a.phone = ?) AND a.deleted_at IS NULL)", term, term)
 	case "DEPOSIT_ORDER":
-		return db.Where("EXISTS (SELECT 1 FROM game_deposit_orders o WHERE o.user_id=u.id AND o.tenant_id=u.tenant_id AND o.site_id=u.site_id AND (o.order_no=? OR o.channel_order_no=?) AND o.deleted_at IS NULL)", term, term)
+		return db.Where("EXISTS(SELECT 1 FROM game_deposit_orders AS o WHERE o.user_id = u.id AND o.site_id = u.site_id AND (o.order_no = ? OR o.channel_order_no = ?) AND o.deleted_at IS NULL)", term, term)
 	case "WITHDRAWAL_ORDER":
-		return db.Where("EXISTS (SELECT 1 FROM game_withdraw_orders o WHERE o.user_id=u.id AND o.tenant_id=u.tenant_id AND o.site_id=u.site_id AND (o.order_no=? OR o.channel_order_no=?) AND o.deleted_at IS NULL)", term, term)
+		return db.Where("EXISTS(SELECT 1 FROM game_withdraw_orders AS o WHERE o.user_id = u.id AND o.site_id = u.site_id AND (o.order_no = ? OR o.channel_order_no = ?) AND o.deleted_at IS NULL)", term, term)
 	case "GAME_ROUND_ID":
-		return db.Where("EXISTS (SELECT 1 FROM game_bet_records b WHERE b.user_id=u.id AND b.tenant_id=u.tenant_id AND b.site_id=u.site_id AND b.provider_round_id=? AND b.deleted_at IS NULL)", term)
+		return db.Where("EXISTS(SELECT 1 FROM game_bet_records AS b WHERE b.user_id = u.id AND b.site_id = u.site_id AND b.provider_round_id = ? AND b.deleted_at IS NULL)", term)
 	case "PROVIDER_TRANSACTION_ID":
-		return db.Where("EXISTS (SELECT 1 FROM game_provider_transactions p WHERE p.user_id=u.id AND p.tenant_id=u.tenant_id AND p.site_id=u.site_id AND p.provider_transaction_id=? AND p.deleted_at IS NULL)", term)
+		return db.Where("EXISTS(SELECT 1 FROM game_provider_transactions AS p WHERE p.user_id = u.id AND p.site_id = u.site_id AND p.provider_transaction_id = ? AND p.deleted_at IS NULL)", term)
 	default:
 		id, _ := strconv.ParseUint(term, 10, 64)
-		return db.Where(`u.id=? OR u.user_no=? OR u.username LIKE ? OR u.phone LIKE ? OR u.email LIKE ? OR u.registered_ip=?
-			OR EXISTS (SELECT 1 FROM game_provider_players pp WHERE pp.user_id=u.id AND pp.tenant_id=u.tenant_id AND pp.site_id=u.site_id AND pp.provider_player_id=? AND pp.deleted_at IS NULL)
-			OR EXISTS (SELECT 1 FROM game_user_devices d WHERE d.user_id=u.id AND d.tenant_id=u.tenant_id AND d.site_id=u.site_id AND d.device_id=? AND d.deleted_at IS NULL)
-			OR EXISTS (SELECT 1 FROM game_withdraw_accounts a WHERE a.user_id=u.id AND a.tenant_id=u.tenant_id AND a.site_id=u.site_id AND (a.account_no=? OR a.phone=?) AND a.deleted_at IS NULL)
-			OR EXISTS (SELECT 1 FROM game_deposit_orders o WHERE o.user_id=u.id AND o.tenant_id=u.tenant_id AND o.site_id=u.site_id AND (o.order_no=? OR o.channel_order_no=?) AND o.deleted_at IS NULL)
-			OR EXISTS (SELECT 1 FROM game_withdraw_orders o WHERE o.user_id=u.id AND o.tenant_id=u.tenant_id AND o.site_id=u.site_id AND (o.order_no=? OR o.channel_order_no=?) AND o.deleted_at IS NULL)
-			OR EXISTS (SELECT 1 FROM game_provider_transactions p WHERE p.user_id=u.id AND p.tenant_id=u.tenant_id AND p.site_id=u.site_id AND (p.provider_transaction_id=? OR p.provider_round_id=?) AND p.deleted_at IS NULL)`,
-			id, term, contains, contains, contains, term, term, term, term, term, term, term, term, term, term, term)
+		return db.Where("u.id = ? OR u.user_no = ? OR u.username LIKE ? OR u.phone LIKE ? OR u.email LIKE ? OR u.registered_ip = ? OR EXISTS(SELECT 1 FROM game_provider_players AS pp WHERE pp.user_id = u.id AND pp.site_id = u.site_id AND pp.provider_player_id = ? AND pp.deleted_at IS NULL) OR EXISTS(SELECT 1 FROM game_user_devices AS d WHERE d.user_id = u.id AND d.site_id = u.site_id AND d.device_id = ? AND d.deleted_at IS NULL) OR EXISTS(SELECT 1 FROM game_withdraw_accounts AS a WHERE a.user_id = u.id AND a.site_id = u.site_id AND (a.account_no = ? OR a.phone = ?) AND a.deleted_at IS NULL) OR EXISTS(SELECT 1 FROM game_deposit_orders AS o WHERE o.user_id = u.id AND o.site_id = u.site_id AND (o.order_no = ? OR o.channel_order_no = ?) AND o.deleted_at IS NULL) OR EXISTS(SELECT 1 FROM game_withdraw_orders AS o WHERE o.user_id = u.id AND o.site_id = u.site_id AND (o.order_no = ? OR o.channel_order_no = ?) AND o.deleted_at IS NULL) OR EXISTS(SELECT 1 FROM game_provider_transactions AS p WHERE p.user_id = u.id AND p.site_id = u.site_id AND (p.provider_transaction_id = ? OR p.provider_round_id = ?) AND p.deleted_at IS NULL)", id, term, contains, contains, contains, term, term, term, term, term, term, term, term, term, term, term)
 	}
 }
 
@@ -179,26 +165,20 @@ func (s *Service) Player360(playerID uint64, actor Actor) (map[string]any, error
 	risk := []map[string]any{}
 	audits := []map[string]any{}
 	tags := []map[string]any{}
-	scope := []any{player.TenantID, player.SiteID, player.ID}
-	_ = s.db.Table("game_user_wallets").Select("id,currency,cash_balance cashBalance,bonus_balance bonusBalance,withdrawable_balance withdrawableBalance,frozen_balance frozenBalance,status,last_transaction_at lastTransactionAt").Where("tenant_id=? AND site_id=? AND user_id=? AND deleted_at IS NULL", scope...).Find(&wallets).Error
-	_ = s.db.Table("game_deposit_orders").Select("id,order_no orderNo,channel_order_no channelOrderNo,amount,paid_amount paidAmount,currency,method_code methodCode,channel_code channelCode,status,created_at createdAt,paid_at paidAt,completed_at completedAt").Where("tenant_id=? AND site_id=? AND user_id=? AND deleted_at IS NULL", scope...).Order("id DESC").Limit(100).Find(&deposits).Error
-	_ = s.db.Table("game_withdraw_orders").Select("id,order_no orderNo,channel_order_no channelOrderNo,amount,actual_amount actualAmount,currency,payment_method paymentMethod,status,audit_status auditStatus,risk_status riskStatus,kyc_status kycStatus,created_at createdAt,completed_at completedAt").Where("tenant_id=? AND site_id=? AND user_id=? AND deleted_at IS NULL", scope...).Order("id DESC").Limit(100).Find(&withdrawals).Error
-	_ = s.db.Table("game_bet_records").Select("id,bet_no betNo,provider_code providerCode,provider_round_id providerRoundID,bet_amount_minor betAmountMinor,win_amount_minor winAmountMinor,currency,bet_status status,bet_at betAt,settled_at settledAt").Where("tenant_id=? AND site_id=? AND user_id=? AND deleted_at IS NULL", scope...).Order("id DESC").Limit(100).Find(&games).Error
-	_ = s.db.Table("game_promotion_claims").Select("id,promotion_id promotionID,trigger_type triggerType,trigger_order_no triggerOrderNo,currency,reward_amount rewardAmount,status,trace_id traceID,created_at createdAt").Where("tenant_id=? AND site_id=? AND user_id=? AND deleted_at IS NULL", scope...).Order("id DESC").Limit(100).Find(&promotions).Error
-	_ = s.db.Table("game_user_login_records").Select("id,success,ip_address ipAddress,country,device_id deviceID,device_type deviceType,platform,os,browser,occurred_at occurredAt").Where("tenant_id=? AND site_id=? AND user_id=? AND deleted_at IS NULL", scope...).Order("occurred_at DESC").Limit(100).Find(&logins).Error
-	_ = s.db.Table("game_user_devices").Select("id,device_id deviceID,platform,device_model deviceModel,os,browser,first_ip firstIP,last_ip lastIP,first_seen_at firstSeenAt,last_seen_at lastSeenAt,status,trust_status trustStatus,risk_status riskStatus").Where("tenant_id=? AND site_id=? AND user_id=? AND deleted_at IS NULL", scope...).Order("last_seen_at DESC").Limit(100).Find(&devices).Error
-	_ = s.db.Table("game_user_risk_events").Select("id,event_type eventType,risk_level riskLevel,source,description,operator_username operator,created_at createdAt").Where("tenant_id=? AND site_id=? AND user_id=? AND deleted_at IS NULL", scope...).Order("id DESC").Limit(100).Find(&risk).Error
-	_ = s.db.Table("game_admin_operation_logs").Select("id,action,result,operator_username operator,reason,correlation_id requestID,created_at createdAt").Where("tenant_id=? AND site_id=? AND target_user_id=? AND deleted_at IS NULL", scope...).Order("id DESC").Limit(100).Find(&audits).Error
-	_ = s.db.Table("game_user_tag_relations r").Select("t.id,t.name,t.tag_type tagType").Joins("JOIN game_user_tags t ON t.id=r.tag_id AND t.tenant_id=r.tenant_id AND t.site_id=r.site_id AND t.deleted_at IS NULL").Where("r.tenant_id=? AND r.site_id=? AND r.user_id=? AND r.deleted_at IS NULL", scope...).Find(&tags).Error
+	scope := []any{player.SiteID, player.ID}
+	_ = s.db.Table("game_user_wallets").Select("id,currency,cash_balance cashBalance,bonus_balance bonusBalance,withdrawable_balance withdrawableBalance,frozen_balance frozenBalance,status,last_transaction_at lastTransactionAt").Where("site_id = ? AND user_id = ? AND deleted_at IS NULL", scope...).Find(&wallets).Error
+	_ = s.db.Table("game_deposit_orders").Select("id,order_no orderNo,channel_order_no channelOrderNo,amount,paid_amount paidAmount,currency,method_code methodCode,channel_code channelCode,status,created_at createdAt,paid_at paidAt,completed_at completedAt").Where("site_id = ? AND user_id = ? AND deleted_at IS NULL", scope...).Order("id DESC").Limit(100).Find(&deposits).Error
+	_ = s.db.Table("game_withdraw_orders").Select("id,order_no orderNo,channel_order_no channelOrderNo,amount,actual_amount actualAmount,currency,payment_method paymentMethod,status,audit_status auditStatus,risk_status riskStatus,kyc_status kycStatus,created_at createdAt,completed_at completedAt").Where("site_id = ? AND user_id = ? AND deleted_at IS NULL", scope...).Order("id DESC").Limit(100).Find(&withdrawals).Error
+	_ = s.db.Table("game_bet_records").Select("id,bet_no betNo,provider_code providerCode,provider_round_id providerRoundID,bet_amount_minor betAmountMinor,win_amount_minor winAmountMinor,currency,bet_status status,bet_at betAt,settled_at settledAt").Where("site_id = ? AND user_id = ? AND deleted_at IS NULL", scope...).Order("id DESC").Limit(100).Find(&games).Error
+	_ = s.db.Table("game_promotion_claims").Select("id,promotion_id promotionID,trigger_type triggerType,trigger_order_no triggerOrderNo,currency,reward_amount rewardAmount,status,trace_id traceID,created_at createdAt").Where("site_id = ? AND user_id = ? AND deleted_at IS NULL", scope...).Order("id DESC").Limit(100).Find(&promotions).Error
+	_ = s.db.Table("game_user_login_records").Select("id,success,ip_address ipAddress,country,device_id deviceID,device_type deviceType,platform,os,browser,occurred_at occurredAt").Where("site_id = ? AND user_id = ? AND deleted_at IS NULL", scope...).Order("occurred_at DESC").Limit(100).Find(&logins).Error
+	_ = s.db.Table("game_user_devices").Select("id,device_id deviceID,platform,device_model deviceModel,os,browser,first_ip firstIP,last_ip lastIP,first_seen_at firstSeenAt,last_seen_at lastSeenAt,status,trust_status trustStatus,risk_status riskStatus").Where("site_id = ? AND user_id = ? AND deleted_at IS NULL", scope...).Order("last_seen_at DESC").Limit(100).Find(&devices).Error
+	_ = s.db.Table("game_user_risk_events").Select("id,event_type eventType,risk_level riskLevel,source,description,operator_username operator,created_at createdAt").Where("site_id = ? AND user_id = ? AND deleted_at IS NULL", scope...).Order("id DESC").Limit(100).Find(&risk).Error
+	_ = s.db.Table("game_admin_operation_logs").Select("id,action,result,operator_username operator,reason,correlation_id requestID,created_at createdAt").Where("site_id = ? AND target_user_id = ? AND deleted_at IS NULL", scope...).Order("id DESC").Limit(100).Find(&audits).Error
+	_ = s.db.Table("game_user_tag_relations r").Select("t.id,t.name,t.tag_type tagType").Joins("JOIN game_user_tags AS t ON t.id = r.tag_id AND t.site_id = r.site_id AND t.deleted_at IS NULL").Where("r.site_id = ? AND r.user_id = ? AND r.deleted_at IS NULL", scope...).Find(&tags).Error
 
 	summary := map[string]any{}
-	_ = s.db.Raw(`SELECT
-		(SELECT COALESCE(SUM(paid_amount),0) FROM game_deposit_orders WHERE tenant_id=? AND site_id=? AND user_id=? AND status=2 AND deleted_at IS NULL) depositAmount,
-		(SELECT COUNT(*) FROM game_deposit_orders WHERE tenant_id=? AND site_id=? AND user_id=? AND status=2 AND deleted_at IS NULL) depositCount,
-		(SELECT COALESCE(SUM(actual_amount),0) FROM game_withdraw_orders WHERE tenant_id=? AND site_id=? AND user_id=? AND status=2 AND deleted_at IS NULL) withdrawalAmount,
-		(SELECT COUNT(*) FROM game_withdraw_orders WHERE tenant_id=? AND site_id=? AND user_id=? AND status=2 AND deleted_at IS NULL) withdrawalCount,
-		(SELECT COALESCE(SUM(bet_amount_minor),0) FROM game_bet_records WHERE tenant_id=? AND site_id=? AND user_id=? AND deleted_at IS NULL) betAmountMinor,
-		(SELECT COALESCE(SUM(win_amount_minor),0) FROM game_bet_records WHERE tenant_id=? AND site_id=? AND user_id=? AND deleted_at IS NULL) winAmountMinor`, append(append(append(append(append(scope, scope...), scope...), scope...), scope...), scope...)...).Scan(&summary).Error
+	_ = s.db.Raw("SELECT (SELECT COALESCE(SUM(paid_amount), 0) FROM game_deposit_orders WHERE site_id = ? AND user_id = ? AND status = 2 AND deleted_at IS NULL) AS depositAmount, (SELECT COUNT(*) FROM game_deposit_orders WHERE site_id = ? AND user_id = ? AND status = 2 AND deleted_at IS NULL) AS depositCount, (SELECT COALESCE(SUM(actual_amount), 0) FROM game_withdraw_orders WHERE site_id = ? AND user_id = ? AND status = 2 AND deleted_at IS NULL) AS withdrawalAmount, (SELECT COUNT(*) FROM game_withdraw_orders WHERE site_id = ? AND user_id = ? AND status = 2 AND deleted_at IS NULL) AS withdrawalCount, (SELECT COALESCE(SUM(bet_amount_minor), 0) FROM game_bet_records WHERE site_id = ? AND user_id = ? AND deleted_at IS NULL) AS betAmountMinor, (SELECT COALESCE(SUM(win_amount_minor), 0) FROM game_bet_records WHERE site_id = ? AND user_id = ? AND deleted_at IS NULL) AS winAmountMinor", append(append(append(append(append(scope, scope...), scope...), scope...), scope...), scope...)...).Scan(&summary).Error
 	maskPlayerSupport(&player, actor.Sensitive)
 	return map[string]any{"overview": player, "summary": summary, "wallets": wallets, "deposits": deposits, "withdrawals": withdrawals, "games": games, "promotions": promotions, "loginHistory": logins, "devices": devices, "risk": risk, "audit": audits, "tags": tags}, nil
 }
@@ -313,26 +293,25 @@ func (s *Service) SupportOrderDetail(kind string, id uint64, actor Actor) (map[s
 	}
 	var order map[string]any
 	db := s.db.Table(table).Where("id=? AND deleted_at IS NULL", id)
-	db, _ = operationalScope(db, actor, "", "")
+	db, _ = operationalScope(db, actor, "")
 	if err := db.Take(&order).Error; err != nil {
 		return nil, rowNotFound("support_order")
 	}
-	tenantID, _ := anyUint64(order["tenant_id"])
 	siteID, _ := anyUint64(order["site_id"])
 	playerID, _ := anyUint64(order["user_id"])
 	identifiers := supportOrderIdentifiers(order)
 	related := []map[string]any{}
 	if playerID > 0 {
-		relatedDB := s.db.Table("game_provider_transactions").Select("id,provider_code providerCode,provider_transaction_id providerTransactionID,provider_round_id providerRoundID,operation,amount_minor amountMinor,currency,status,created_at createdAt").Where("tenant_id=? AND site_id=? AND user_id=? AND deleted_at IS NULL", tenantID, siteID, playerID)
+		relatedDB := s.db.Table("game_provider_transactions").Select("id,provider_code providerCode,provider_transaction_id providerTransactionID,provider_round_id providerRoundID,operation,amount_minor amountMinor,currency,status,created_at createdAt").Where("site_id = ? AND user_id = ? AND deleted_at IS NULL", siteID, playerID)
 		if len(identifiers) > 0 {
 			relatedDB = relatedDB.Where("provider_transaction_id IN ? OR provider_round_id IN ?", identifiers, identifiers)
 		}
 		_ = relatedDB.Order("id DESC").Limit(100).Find(&related).Error
 	}
 	events := []map[string]any{}
-	_ = s.db.Table("event_outbox").Select("id,event_id eventID,event_type eventType,status,trace_id traceID,correlation_id correlationID,occurred_at occurredAt,last_error lastError").Where("tenant_id=? AND site_id=? AND (aggregate_id=? OR correlation_id IN ?) AND deleted_at IS NULL", tenantID, siteID, fmt.Sprint(id), identifiers).Order("id DESC").Limit(100).Find(&events).Error
+	_ = s.db.Table("event_outbox").Select("id,event_id eventID,event_type eventType,status,trace_id traceID,correlation_id correlationID,occurred_at occurredAt,last_error lastError").Where("site_id = ? AND (aggregate_id = ? OR correlation_id IN (?)) AND deleted_at IS NULL", siteID, fmt.Sprint(id), identifiers).Order("id DESC").Limit(100).Find(&events).Error
 	audits := []map[string]any{}
-	_ = s.db.Table("game_admin_operation_logs").Select("id,action,result,operator_username operator,reason,correlation_id requestID,created_at createdAt").Where("tenant_id=? AND site_id=? AND target_id=? AND deleted_at IS NULL", tenantID, siteID, id).Order("id DESC").Limit(100).Find(&audits).Error
+	_ = s.db.Table("game_admin_operation_logs").Select("id,action,result,operator_username operator,reason,correlation_id requestID,created_at createdAt").Where("site_id = ? AND target_id = ? AND deleted_at IS NULL", siteID, id).Order("id DESC").Limit(100).Find(&audits).Error
 	return map[string]any{
 		"orderType": kind, "order": redact(order), "statusTimeline": supportOrderStatusTimeline(order),
 		"relatedRecords": related, "events": events, "audit": audits,
@@ -390,7 +369,7 @@ func (s *Service) ListSupportCases(q Query, actor Actor) (Result, error) {
 	usersExist := s.db.Migrator().HasTable("game_users")
 	adminsExist := s.db.Migrator().HasTable("game_admin_accounts")
 	if usersExist {
-		db = db.Select("c.*,u.user_no playerNo,u.username playerUsername").Joins("LEFT JOIN game_users u ON u.id=c.player_id AND u.tenant_id=c.tenant_id AND u.deleted_at IS NULL")
+		db = db.Select("c.*,u.user_no playerNo,u.username playerUsername").Joins("LEFT JOIN game_users AS u ON u.id = c.player_id AND u.deleted_at IS NULL")
 	}
 	if usersExist && adminsExist {
 		db = db.Select("c.*,u.user_no playerNo,u.username playerUsername,a.username assignedAdminUsername").Joins("LEFT JOIN game_admin_accounts a ON a.id=c.assigned_admin_id AND a.deleted_at IS NULL")
@@ -398,7 +377,7 @@ func (s *Service) ListSupportCases(q Query, actor Actor) (Result, error) {
 		db = db.Select("c.*,a.username assignedAdminUsername").Joins("LEFT JOIN game_admin_accounts a ON a.id=c.assigned_admin_id AND a.deleted_at IS NULL")
 	}
 	var err error
-	db, err = operationalScopeAlias(db, "c", actor, value(q, "tenantID"), value(q, "siteID"))
+	db, err = operationalScopeAlias(db, "c", actor, value(q, "siteID"))
 	if err != nil {
 		return Result{}, err
 	}
@@ -421,22 +400,22 @@ func (s *Service) SupportCaseDetail(id uint64, actor Actor) (map[string]any, err
 	db := s.db.Table("game_support_cases c").Select("c.*").Where("c.id=? AND c.deleted_at IS NULL", id)
 	usersExist := s.db.Migrator().HasTable("game_users")
 	if usersExist {
-		db = db.Select("c.*,u.user_no playerNo,u.username playerUsername").Joins("LEFT JOIN game_users u ON u.id=c.player_id AND u.tenant_id=c.tenant_id AND u.deleted_at IS NULL")
+		db = db.Select("c.*,u.user_no playerNo,u.username playerUsername").Joins("LEFT JOIN game_users AS u ON u.id = c.player_id AND u.deleted_at IS NULL")
 	}
 	if usersExist && s.db.Migrator().HasTable("game_admin_accounts") {
 		db = db.Select("c.*,u.user_no playerNo,u.username playerUsername,a.username assignedAdminUsername").Joins("LEFT JOIN game_admin_accounts a ON a.id=c.assigned_admin_id AND a.deleted_at IS NULL")
 	}
-	db, _ = operationalScopeAlias(db, "c", actor, "", "")
+	db, _ = operationalScopeAlias(db, "c", actor, "")
 	if err := db.Take(&row).Error; err != nil {
 		return nil, rowNotFound("support_case")
 	}
 	notes := []map[string]any{}
-	_ = s.db.Table("game_support_case_notes").Select("id,author_id authorID,author_username authorUsername,note,created_at createdAt").Where("case_id=? AND tenant_id=? AND site_id=? AND deleted_at IS NULL", id, row["tenant_id"], row["site_id"]).Order("id ASC").Find(&notes).Error
+	_ = s.db.Table("game_support_case_notes").Select("id,author_id authorID,author_username authorUsername,note,created_at createdAt").Where("case_id = ? AND site_id = ? AND deleted_at IS NULL", id, row["site_id"]).Order("id ASC").Find(&notes).Error
 	return map[string]any{"case": row, "notes": notes}, nil
 }
 
 func (s *Service) CreateSupportCase(input SupportCaseInput, actor Actor) (uint64, error) {
-	tenantID, siteID, err := operationalTargetScope(s.db, actor, input.TenantID, input.SiteID)
+	siteID, err := operationalTargetScope(s.db, actor, input.SiteID)
 	if err != nil {
 		return 0, err
 	}
@@ -448,7 +427,7 @@ func (s *Service) CreateSupportCase(input SupportCaseInput, actor Actor) (uint64
 		input.PlayerID = player.ID
 	}
 	if input.PlayerID > 0 {
-		if _, err := s.supportPlayerInScope(input.PlayerID, tenantID, siteID); err != nil {
+		if _, err := s.supportPlayerInScope(input.PlayerID, siteID); err != nil {
 			return 0, err
 		}
 	}
@@ -465,14 +444,14 @@ func (s *Service) CreateSupportCase(input SupportCaseInput, actor Actor) (uint64
 			return nil
 		}
 		caseNo := fmt.Sprintf("SC-%s-%06d", now().Format("20060102"), now().UnixNano()%1000000)
-		row := map[string]any{"case_no": caseNo, "tenant_id": tenantID, "site_id": siteID, "player_id": input.PlayerID, "category": input.Category, "priority": input.Priority, "status": input.Status, "title": strings.TrimSpace(input.Title), "description": strings.TrimSpace(input.Description), "assigned_admin_id": input.AssignedAdminID, "created_by": actor.ID, "resolution": strings.TrimSpace(input.Resolution), "related_order_ids": strings.Join(cleanIdentifiers(input.RelatedOrderIDs), ","), "related_transaction_ids": strings.Join(cleanIdentifiers(input.RelatedTransactionIDs), ","), "idempotency_key": key, "created_at": now(), "updated_at": now()}
+		row := map[string]any{"case_no": caseNo, "site_id": siteID, "player_id": input.PlayerID, "category": input.Category, "priority": input.Priority, "status": input.Status, "title": strings.TrimSpace(input.Title), "description": strings.TrimSpace(input.Description), "assigned_admin_id": input.AssignedAdminID, "created_by": actor.ID, "resolution": strings.TrimSpace(input.Resolution), "related_order_ids": strings.Join(cleanIdentifiers(input.RelatedOrderIDs), ","), "related_transaction_ids": strings.Join(cleanIdentifiers(input.RelatedTransactionIDs), ","), "idempotency_key": key, "created_at": now(), "updated_at": now()}
 		if err := tx.Table("game_support_cases").Create(row).Error; err != nil {
 			return duplicateError(err)
 		}
 		if err := tx.Table("game_support_cases").Select("id").Where("created_by=? AND idempotency_key=?", actor.ID, key).Take(&id).Error; err != nil {
 			return err
 		}
-		return audit(tx, targetAuditActor(actor, tenantID, siteID), "support:case:write", "support.case.create", "support_case", id, nil, row, input.Reason)
+		return audit(tx, targetAuditActor(actor, siteID), "support:case:write", "support.case.create", "support_case", id, nil, row, input.Reason)
 	})
 	return id, err
 }
@@ -487,11 +466,10 @@ func (s *Service) UpdateSupportCase(id uint64, input SupportCaseInput, actor Act
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		var before map[string]any
 		db := tx.Table("game_support_cases").Clauses(clause.Locking{Strength: "UPDATE"}).Where("id=? AND deleted_at IS NULL", id)
-		db, _ = operationalScope(db, actor, "", "")
+		db, _ = operationalScope(db, actor, "")
 		if err := db.Take(&before).Error; err != nil {
 			return rowNotFound("support_case")
 		}
-		tenantID, _ := anyUint64(before["tenant_id"])
 		siteID, _ := anyUint64(before["site_id"])
 		updates := map[string]any{"category": input.Category, "priority": input.Priority, "status": input.Status, "title": strings.TrimSpace(input.Title), "description": strings.TrimSpace(input.Description), "assigned_admin_id": input.AssignedAdminID, "resolution": strings.TrimSpace(input.Resolution), "related_order_ids": strings.Join(cleanIdentifiers(input.RelatedOrderIDs), ","), "related_transaction_ids": strings.Join(cleanIdentifiers(input.RelatedTransactionIDs), ","), "updated_at": now()}
 		if input.Status == "CLOSED" {
@@ -502,7 +480,7 @@ func (s *Service) UpdateSupportCase(id uint64, input SupportCaseInput, actor Act
 		if err := tx.Table("game_support_cases").Where("id=?", id).Updates(updates).Error; err != nil {
 			return err
 		}
-		return audit(tx, targetAuditActor(actor, tenantID, siteID), "support:case:write", "support.case.update", "support_case", id, before, updates, input.Reason)
+		return audit(tx, targetAuditActor(actor, siteID), "support:case:write", "support.case.update", "support_case", id, before, updates, input.Reason)
 	})
 }
 
@@ -518,30 +496,26 @@ func (s *Service) AddSupportCaseNote(id uint64, input SupportCaseNoteInput, acto
 		return 0, err
 	}
 	row := detail["case"].(map[string]any)
-	tenantID, _ := anyUint64(row["tenant_id"])
 	siteID, _ := anyUint64(row["site_id"])
 	var noteID uint64
 	err = s.db.Transaction(func(tx *gorm.DB) error {
-		note := map[string]any{"tenant_id": tenantID, "site_id": siteID, "case_id": id, "author_id": actor.ID, "author_username": actor.Username, "note": strings.TrimSpace(input.Note), "created_at": now(), "updated_at": now()}
+		note := map[string]any{"site_id": siteID, "case_id": id, "author_id": actor.ID, "author_username": actor.Username, "note": strings.TrimSpace(input.Note), "created_at": now(), "updated_at": now()}
 		if err := tx.Table("game_support_case_notes").Create(note).Error; err != nil {
 			return err
 		}
 		if err := tx.Table("game_support_case_notes").Select("id").Where("case_id=? AND author_id=?", id, actor.ID).Order("id DESC").Take(&noteID).Error; err != nil {
 			return err
 		}
-		return audit(tx, targetAuditActor(actor, tenantID, siteID), "support:case:write", "support.case.note", "support_case", id, nil, map[string]any{"noteID": noteID}, input.Reason)
+		return audit(tx, targetAuditActor(actor, siteID), "support:case:write", "support.case.note", "support_case", id, nil, map[string]any{"noteID": noteID}, input.Reason)
 	})
 	return noteID, err
 }
 
 func (s *Service) supportPlayer(playerID uint64, actor Actor) (PlayerSupportRow, error) {
 	var row PlayerSupportRow
-	db := s.db.Table("game_users u").Select(`u.id,u.user_no,u.username,u.phone_country_code,u.phone,u.email,u.tenant_id,t.tenant_name,u.site_id,s.site_name,u.status,u.country_code,u.vip_level,
-		COALESCE(w.currency,'') currency,COALESCE(w.cash_balance,0) available_balance,COALESCE(w.frozen_balance,0) frozen_balance,COALESCE(w.bonus_balance,0) bonus_balance,u.created_at registered_at,u.registered_ip,u.last_login_at,u.last_login_ip,
-		COALESCE((SELECT wo.kyc_status FROM game_withdraw_orders wo WHERE wo.user_id=u.id AND wo.tenant_id=u.tenant_id AND wo.deleted_at IS NULL ORDER BY wo.id DESC LIMIT 1),'') kyc_status,
-		COALESCE((SELECT rp.risk_status FROM game_user_risk_profiles rp WHERE rp.user_id=u.id AND rp.tenant_id=u.tenant_id AND rp.site_id=u.site_id AND rp.deleted_at IS NULL ORDER BY rp.id DESC LIMIT 1),'NORMAL') risk_status`).
-		Joins("LEFT JOIN game_saas_tenants t ON t.id=u.tenant_id AND t.deleted_at IS NULL").Joins("LEFT JOIN game_saas_sites s ON s.id=u.site_id AND s.deleted_at IS NULL").Joins("LEFT JOIN game_user_wallets w ON w.user_id=u.id AND w.tenant_id=u.tenant_id AND w.site_id=u.site_id AND w.deleted_at IS NULL").Where("u.id=? AND u.deleted_at IS NULL", playerID)
-	db, _ = operationalScopeAlias(db, "u", actor, "", "")
+	db := s.db.Table("game_users u").Select("u.id, u.user_no, u.username, u.phone_country_code, u.phone, u.email, u.site_id, s.site_name, u.status, u.country_code, u.vip_level, COALESCE(w.currency, '') AS currency, COALESCE(w.cash_balance, 0) AS available_balance, COALESCE(w.frozen_balance, 0) AS frozen_balance, COALESCE(w.bonus_balance, 0) AS bonus_balance, u.created_at AS registered_at, u.registered_ip, u.last_login_at, u.last_login_ip, COALESCE((SELECT wo.kyc_status FROM game_withdraw_orders AS wo WHERE wo.user_id = u.id AND wo.deleted_at IS NULL ORDER BY wo.id DESC LIMIT 1), '') AS kyc_status, COALESCE((SELECT rp.risk_status FROM game_user_risk_profiles AS rp WHERE rp.user_id = u.id AND rp.site_id = u.site_id AND rp.deleted_at IS NULL ORDER BY rp.id DESC LIMIT 1), 'NORMAL') AS risk_status").
+		Joins("LEFT JOIN game_site_config s ON s.id=u.site_id AND s.deleted_at IS NULL").Joins("LEFT JOIN game_user_wallets AS w ON w.user_id = u.id AND w.site_id = u.site_id AND w.deleted_at IS NULL").Where("u.id=? AND u.deleted_at IS NULL", playerID)
+	db, _ = operationalScopeAlias(db, "u", actor, "")
 	if err := db.Take(&row).Error; err != nil {
 		return row, rowNotFound("player")
 	}
@@ -551,16 +525,16 @@ func (s *Service) supportPlayer(playerID uint64, actor Actor) (PlayerSupportRow,
 func (s *Service) supportPlayerByNumber(playerNo string, actor Actor) (PlayerSupportRow, error) {
 	var id uint64
 	db := s.db.Table("game_users u").Select("u.id").Where("u.user_no=? AND u.deleted_at IS NULL", strings.TrimSpace(playerNo))
-	db, _ = operationalScopeAlias(db, "u", actor, "", "")
+	db, _ = operationalScopeAlias(db, "u", actor, "")
 	if err := db.Take(&id).Error; err != nil {
 		return PlayerSupportRow{}, rowNotFound("player")
 	}
 	return s.supportPlayer(id, actor)
 }
 
-func (s *Service) supportPlayerInScope(playerID, tenantID, siteID uint64) (uint64, error) {
+func (s *Service) supportPlayerInScope(playerID uint64, siteID uint64) (uint64, error) {
 	var id uint64
-	db := s.db.Table("game_users").Select("id").Where("id=? AND tenant_id=? AND deleted_at IS NULL", playerID, tenantID)
+	db := s.db.Table("game_users").Select("id").Where("id = ? AND deleted_at IS NULL", playerID)
 	if siteID > 0 {
 		db = db.Where("site_id=?", siteID)
 	}
@@ -608,7 +582,7 @@ func maskIP(value string) string {
 	return maskTail(value, 4)
 }
 
-func supportTimeRange(fromValue, toValue string) (time.Time, time.Time, error) {
+func supportTimeRange(fromValue string, toValue string) (time.Time, time.Time, error) {
 	to := now()
 	from := to.Add(-30 * 24 * time.Hour)
 	var err error
@@ -716,7 +690,7 @@ func validateSupportCase(input *SupportCaseInput, create bool) error {
 	return nil
 }
 
-func (s *Service) appendLoginTimeline(items *[]TimelineItem, player PlayerSupportRow, from, to time.Time) {
+func (s *Service) appendLoginTimeline(items *[]TimelineItem, player PlayerSupportRow, from time.Time, to time.Time) {
 	if !player.RegisteredAt.Before(from) && !player.RegisteredAt.After(to) {
 		*items = append(*items, TimelineItem{ID: fmt.Sprintf("register:%d", player.ID), EventType: "REGISTER", OccurredAt: player.RegisteredAt, Status: "SUCCESS", Description: "Player account registered", DetailType: "PLAYER", DetailID: player.ID})
 	}
@@ -728,7 +702,7 @@ func (s *Service) appendLoginTimeline(items *[]TimelineItem, player PlayerSuppor
 		OccurredAt time.Time
 	}{}
 	_ = s.db.Table("game_user_login_records").Select("id,success,ip_address,device_id,occurred_at").
-		Where("tenant_id=? AND site_id=? AND user_id=? AND occurred_at BETWEEN ? AND ? AND deleted_at IS NULL", player.TenantID, player.SiteID, player.ID, from, to).
+		Where("site_id = ? AND user_id = ? AND occurred_at BETWEEN ? AND ? AND deleted_at IS NULL", player.SiteID, player.ID, from, to).
 		Order("occurred_at DESC").Limit(500).Find(&rows).Error
 	for _, row := range rows {
 		eventType, status, description := "LOGIN_FAILED", "FAILED", "Login failed"
@@ -739,7 +713,7 @@ func (s *Service) appendLoginTimeline(items *[]TimelineItem, player PlayerSuppor
 	}
 }
 
-func (s *Service) appendPaymentTimeline(items *[]TimelineItem, player PlayerSupportRow, from, to time.Time) {
+func (s *Service) appendPaymentTimeline(items *[]TimelineItem, player PlayerSupportRow, from time.Time, to time.Time) {
 	deposits := []struct {
 		ID             uint64
 		OrderNo        string
@@ -752,7 +726,7 @@ func (s *Service) appendPaymentTimeline(items *[]TimelineItem, player PlayerSupp
 		CompletedAt    *time.Time
 	}{}
 	_ = s.db.Table("game_deposit_orders").Select("id,order_no,channel_order_no,amount,currency,status,created_at,paid_at,completed_at").
-		Where("tenant_id=? AND site_id=? AND user_id=? AND created_at BETWEEN ? AND ? AND deleted_at IS NULL", player.TenantID, player.SiteID, player.ID, from, to).
+		Where("site_id = ? AND user_id = ? AND created_at BETWEEN ? AND ? AND deleted_at IS NULL", player.SiteID, player.ID, from, to).
 		Order("id DESC").Limit(500).Find(&deposits).Error
 	for _, row := range deposits {
 		*items = append(*items, TimelineItem{ID: fmt.Sprintf("deposit-created:%d", row.ID), EventType: "DEPOSIT_CREATED", OccurredAt: row.CreatedAt, Amount: row.Amount, Currency: row.Currency, BusinessOrderNo: row.OrderNo, ExternalOrderNo: row.ChannelOrderNo, Status: depositStatus(row.Status), Description: "Deposit order created", DetailType: "DEPOSIT", DetailID: row.ID})
@@ -782,7 +756,7 @@ func (s *Service) appendPaymentTimeline(items *[]TimelineItem, player PlayerSupp
 		CompletedAt    *time.Time
 	}{}
 	_ = s.db.Table("game_withdraw_orders").Select("id,order_no,channel_order_no,amount,currency,status,audit_status,created_at,reviewed_at,completed_at").
-		Where("tenant_id=? AND site_id=? AND user_id=? AND created_at BETWEEN ? AND ? AND deleted_at IS NULL", player.TenantID, player.SiteID, player.ID, from, to).
+		Where("site_id = ? AND user_id = ? AND created_at BETWEEN ? AND ? AND deleted_at IS NULL", player.SiteID, player.ID, from, to).
 		Order("id DESC").Limit(500).Find(&withdrawals).Error
 	for _, row := range withdrawals {
 		*items = append(*items, TimelineItem{ID: fmt.Sprintf("withdraw-created:%d", row.ID), EventType: "WITHDRAW_CREATED", OccurredAt: row.CreatedAt, Amount: row.Amount, Currency: row.Currency, BusinessOrderNo: row.OrderNo, ExternalOrderNo: row.ChannelOrderNo, Status: withdrawStatus(row.Status), Description: "Withdrawal order created", DetailType: "WITHDRAWAL", DetailID: row.ID})
@@ -803,7 +777,7 @@ func (s *Service) appendPaymentTimeline(items *[]TimelineItem, player PlayerSupp
 	}
 }
 
-func (s *Service) appendWalletTimeline(items *[]TimelineItem, player PlayerSupportRow, from, to time.Time) {
+func (s *Service) appendWalletTimeline(items *[]TimelineItem, player PlayerSupportRow, from time.Time, to time.Time) {
 	rows := []struct {
 		ID               uint64
 		TxnNo            string
@@ -820,7 +794,7 @@ func (s *Service) appendWalletTimeline(items *[]TimelineItem, player PlayerSuppo
 		CreatedAt        time.Time
 	}{}
 	_ = s.db.Table("game_wallet_transactions").Select("id,txn_no,external_txn_no,direction,category,provider_code,amount,currency,status,balance_before,balance_after,operator_username,created_at").
-		Where("tenant_id=? AND site_id=? AND user_id=? AND created_at BETWEEN ? AND ? AND deleted_at IS NULL", player.TenantID, player.SiteID, player.ID, from, to).
+		Where("site_id = ? AND user_id = ? AND created_at BETWEEN ? AND ? AND deleted_at IS NULL", player.SiteID, player.ID, from, to).
 		Order("id DESC").Limit(750).Find(&rows).Error
 	for _, row := range rows {
 		eventType := "WALLET_DEBIT"
@@ -837,7 +811,7 @@ func (s *Service) appendWalletTimeline(items *[]TimelineItem, player PlayerSuppo
 	}
 }
 
-func (s *Service) appendGameTimeline(items *[]TimelineItem, player PlayerSupportRow, from, to time.Time) {
+func (s *Service) appendGameTimeline(items *[]TimelineItem, player PlayerSupportRow, from time.Time, to time.Time) {
 	launches := []struct {
 		ID            uint64
 		LaunchNo      string
@@ -846,7 +820,7 @@ func (s *Service) appendGameTimeline(items *[]TimelineItem, player PlayerSupport
 		LaunchTime    *time.Time
 		CreatedAt     time.Time
 	}{}
-	_ = s.db.Table("game_game_launch_logs").Select("id,launch_no,launch_status,correlation_id,launch_time,created_at").Where("tenant_id=? AND site_id=? AND user_id=? AND created_at BETWEEN ? AND ? AND deleted_at IS NULL", player.TenantID, player.SiteID, player.ID, from, to).Order("id DESC").Limit(500).Find(&launches).Error
+	_ = s.db.Table("game_game_launch_logs").Select("id,launch_no,launch_status,correlation_id,launch_time,created_at").Where("site_id = ? AND user_id = ? AND created_at BETWEEN ? AND ? AND deleted_at IS NULL", player.SiteID, player.ID, from, to).Order("id DESC").Limit(500).Find(&launches).Error
 	for _, row := range launches {
 		at := row.CreatedAt
 		if row.LaunchTime != nil {
@@ -860,7 +834,7 @@ func (s *Service) appendGameTimeline(items *[]TimelineItem, player PlayerSupport
 		AmountMinor, BalanceBeforeMinor, BalanceAfterMinor                                int64
 		CreatedAt                                                                         time.Time
 	}{}
-	_ = s.db.Table("game_provider_transactions").Select("id,provider_code,provider_transaction_id,provider_round_id,operation,amount_minor,currency,status,balance_before_minor,balance_after_minor,created_at").Where("tenant_id=? AND site_id=? AND user_id=? AND created_at BETWEEN ? AND ? AND deleted_at IS NULL", player.TenantID, player.SiteID, player.ID, from, to).Order("id DESC").Limit(750).Find(&transactions).Error
+	_ = s.db.Table("game_provider_transactions").Select("id,provider_code,provider_transaction_id,provider_round_id,operation,amount_minor,currency,status,balance_before_minor,balance_after_minor,created_at").Where("site_id = ? AND user_id = ? AND created_at BETWEEN ? AND ? AND deleted_at IS NULL", player.SiteID, player.ID, from, to).Order("id DESC").Limit(750).Find(&transactions).Error
 	for _, row := range transactions {
 		eventType := providerTimelineEvent(row.Operation)
 		amount := decimal.NewFromInt(row.AmountMinor).Shift(-2)
@@ -870,26 +844,26 @@ func (s *Service) appendGameTimeline(items *[]TimelineItem, player PlayerSupport
 	}
 }
 
-func (s *Service) appendPromotionTimeline(items *[]TimelineItem, player PlayerSupportRow, from, to time.Time) {
+func (s *Service) appendPromotionTimeline(items *[]TimelineItem, player PlayerSupportRow, from time.Time, to time.Time) {
 	rows := []struct {
 		ID                                        uint64
 		TriggerOrderNo, Currency, Status, TraceID string
 		RewardAmount                              *decimal.Decimal
 		CreatedAt                                 time.Time
 	}{}
-	_ = s.db.Table("game_promotion_claims").Select("id,trigger_order_no,currency,reward_amount,status,trace_id,created_at").Where("tenant_id=? AND site_id=? AND user_id=? AND created_at BETWEEN ? AND ? AND deleted_at IS NULL", player.TenantID, player.SiteID, player.ID, from, to).Order("id DESC").Limit(500).Find(&rows).Error
+	_ = s.db.Table("game_promotion_claims").Select("id,trigger_order_no,currency,reward_amount,status,trace_id,created_at").Where("site_id = ? AND user_id = ? AND created_at BETWEEN ? AND ? AND deleted_at IS NULL", player.SiteID, player.ID, from, to).Order("id DESC").Limit(500).Find(&rows).Error
 	for _, row := range rows {
 		*items = append(*items, TimelineItem{ID: fmt.Sprintf("promotion:%d", row.ID), EventType: "PROMOTION_CLAIMED", OccurredAt: row.CreatedAt, Amount: row.RewardAmount, Currency: row.Currency, BusinessOrderNo: row.TriggerOrderNo, Status: row.Status, RequestID: row.TraceID, Description: "Promotion claimed", DetailType: "PROMOTION", DetailID: row.ID})
 	}
 }
 
-func (s *Service) appendRiskAuditTimeline(items *[]TimelineItem, player PlayerSupportRow, from, to time.Time) {
+func (s *Service) appendRiskAuditTimeline(items *[]TimelineItem, player PlayerSupportRow, from time.Time, to time.Time) {
 	risk := []struct {
 		ID                                                  uint64
 		EventType, RiskLevel, Description, OperatorUsername string
 		CreatedAt                                           time.Time
 	}{}
-	_ = s.db.Table("game_user_risk_events").Select("id,event_type,risk_level,description,operator_username,created_at").Where("tenant_id=? AND site_id=? AND user_id=? AND created_at BETWEEN ? AND ? AND deleted_at IS NULL", player.TenantID, player.SiteID, player.ID, from, to).Order("id DESC").Limit(500).Find(&risk).Error
+	_ = s.db.Table("game_user_risk_events").Select("id,event_type,risk_level,description,operator_username,created_at").Where("site_id = ? AND user_id = ? AND created_at BETWEEN ? AND ? AND deleted_at IS NULL", player.SiteID, player.ID, from, to).Order("id DESC").Limit(500).Find(&risk).Error
 	for _, row := range risk {
 		*items = append(*items, TimelineItem{ID: fmt.Sprintf("risk:%d", row.ID), EventType: "RISK_ACTION", OccurredAt: row.CreatedAt, Status: row.RiskLevel, Operator: row.OperatorUsername, Description: row.EventType + ": " + row.Description, DetailType: "RISK", DetailID: row.ID})
 	}
@@ -898,28 +872,28 @@ func (s *Service) appendRiskAuditTimeline(items *[]TimelineItem, player PlayerSu
 		Action, Result, OperatorUsername, Reason, CorrelationID string
 		CreatedAt                                               time.Time
 	}{}
-	_ = s.db.Table("game_admin_operation_logs").Select("id,action,result,operator_username,reason,correlation_id,created_at").Where("tenant_id=? AND site_id=? AND target_user_id=? AND created_at BETWEEN ? AND ? AND deleted_at IS NULL", player.TenantID, player.SiteID, player.ID, from, to).Order("id DESC").Limit(500).Find(&audits).Error
+	_ = s.db.Table("game_admin_operation_logs").Select("id,action,result,operator_username,reason,correlation_id,created_at").Where("site_id = ? AND target_user_id = ? AND created_at BETWEEN ? AND ? AND deleted_at IS NULL", player.SiteID, player.ID, from, to).Order("id DESC").Limit(500).Find(&audits).Error
 	for _, row := range audits {
 		*items = append(*items, TimelineItem{ID: fmt.Sprintf("audit:%d", row.ID), EventType: "ADMIN_ACTION", OccurredAt: row.CreatedAt, Status: row.Result, RequestID: row.CorrelationID, Operator: row.OperatorUsername, Description: row.Action + ": " + row.Reason, DetailType: "AUDIT", DetailID: row.ID})
 	}
 }
 
-func (s *Service) appendOrderRows(items *[]map[string]any, kind, table, internalColumn, externalColumn string, q Query, actor Actor, term string, playerID uint64, from, to time.Time) {
+func (s *Service) appendOrderRows(items *[]map[string]any, kind string, table string, internalColumn string, externalColumn string, q Query, actor Actor, term string, playerID uint64, from time.Time, to time.Time) {
 	selects := map[string]string{
-		"DEPOSIT":    "o.id,o.tenant_id tenantID,o.site_id siteID,o.user_id playerID,o.order_no orderNo,o.channel_order_no externalOrderNo,o.amount,o.currency,o.status,o.channel_code providerCode,o.created_at createdAt",
-		"WITHDRAWAL": "o.id,o.tenant_id tenantID,o.site_id siteID,o.user_id playerID,o.order_no orderNo,o.channel_order_no externalOrderNo,o.amount,o.currency,o.status,o.payment_method providerCode,o.created_at createdAt",
-		"WALLET":     "o.id,o.tenant_id tenantID,o.site_id siteID,o.user_id playerID,o.txn_no orderNo,o.external_txn_no externalOrderNo,o.amount,o.currency,o.status,o.provider_code providerCode,o.created_at createdAt",
-		"PROMOTION":  "o.id,o.tenant_id tenantID,o.site_id siteID,o.user_id playerID,o.trigger_order_no orderNo,o.trigger_event_id externalOrderNo,o.reward_amount amount,o.currency,o.status,'' providerCode,o.created_at createdAt",
+		"DEPOSIT":    "o.id, o.site_id AS siteID, o.user_id AS playerID, o.order_no AS orderNo, o.channel_order_no AS externalOrderNo, o.amount, o.currency, o.status, o.channel_code AS providerCode, o.created_at AS createdAt",
+		"WITHDRAWAL": "o.id, o.site_id AS siteID, o.user_id AS playerID, o.order_no AS orderNo, o.channel_order_no AS externalOrderNo, o.amount, o.currency, o.status, o.payment_method AS providerCode, o.created_at AS createdAt",
+		"WALLET":     "o.id, o.site_id AS siteID, o.user_id AS playerID, o.txn_no AS orderNo, o.external_txn_no AS externalOrderNo, o.amount, o.currency, o.status, o.provider_code AS providerCode, o.created_at AS createdAt",
+		"PROMOTION":  "o.id, o.site_id AS siteID, o.user_id AS playerID, o.trigger_order_no AS orderNo, o.trigger_event_id AS externalOrderNo, o.reward_amount AS amount, o.currency, o.status, '' AS providerCode, o.created_at AS createdAt",
 	}
 	rows := []map[string]any{}
 	selectSQL := selects[kind]
 	db := s.db.Table(table + " o")
 	if s.db.Migrator().HasTable("game_users") {
 		selectSQL += ",u.user_no playerNo"
-		db = db.Joins("LEFT JOIN game_users u ON u.id=o.user_id AND u.tenant_id=o.tenant_id AND u.site_id=o.site_id AND u.deleted_at IS NULL")
+		db = db.Joins("LEFT JOIN game_users AS u ON u.id = o.user_id AND u.site_id = o.site_id AND u.deleted_at IS NULL")
 	}
 	db = db.Select(selectSQL).Where("o.deleted_at IS NULL AND o.created_at BETWEEN ? AND ?", from, to)
-	db, _ = operationalScopeAlias(db, "o", actor, value(q, "tenantID"), value(q, "siteID"))
+	db, _ = operationalScopeAlias(db, "o", actor, value(q, "siteID"))
 	if term != "" {
 		db = db.Where("o."+internalColumn+"=? OR o."+externalColumn+"=?", term, term)
 	}
@@ -943,7 +917,7 @@ func (s *Service) appendOrderRows(items *[]map[string]any, kind, table, internal
 	}
 }
 
-func supportOrderStatusValue(kind, status string) any {
+func supportOrderStatusValue(kind string, status string) any {
 	status = strings.ToUpper(strings.TrimSpace(status))
 	if _, err := strconv.Atoi(status); err == nil {
 		return status
@@ -982,16 +956,16 @@ func intValue(value any) int {
 	return parsed
 }
 
-func (s *Service) appendGameOrderRows(items *[]map[string]any, q Query, actor Actor, term string, playerID uint64, from, to time.Time) {
+func (s *Service) appendGameOrderRows(items *[]map[string]any, q Query, actor Actor, term string, playerID uint64, from time.Time, to time.Time) {
 	rows := []map[string]any{}
-	selectSQL := "o.id,o.tenant_id tenantID,o.site_id siteID,o.user_id playerID,o.bet_no orderNo,o.provider_bet_transaction_id externalOrderNo,o.bet_amount_minor amountMinor,o.currency,o.bet_status status,o.provider_code providerCode,o.provider_round_id roundID,o.created_at createdAt"
+	selectSQL := "o.id, o.site_id AS siteID, o.user_id AS playerID, o.bet_no AS orderNo, o.provider_bet_transaction_id AS externalOrderNo, o.bet_amount_minor AS amountMinor, o.currency, o.bet_status AS status, o.provider_code AS providerCode, o.provider_round_id AS roundID, o.created_at AS createdAt"
 	db := s.db.Table("game_bet_records o")
 	if s.db.Migrator().HasTable("game_users") {
 		selectSQL += ",u.user_no playerNo"
-		db = db.Joins("LEFT JOIN game_users u ON u.id=o.user_id AND u.tenant_id=o.tenant_id AND u.site_id=o.site_id AND u.deleted_at IS NULL")
+		db = db.Joins("LEFT JOIN game_users AS u ON u.id = o.user_id AND u.site_id = o.site_id AND u.deleted_at IS NULL")
 	}
 	db = db.Select(selectSQL).Where("o.deleted_at IS NULL AND o.created_at BETWEEN ? AND ?", from, to)
-	db, _ = operationalScopeAlias(db, "o", actor, value(q, "tenantID"), value(q, "siteID"))
+	db, _ = operationalScopeAlias(db, "o", actor, value(q, "siteID"))
 	if term != "" {
 		db = db.Where("o.bet_no=? OR o.platform_bet_id=? OR o.provider_bet_transaction_id=? OR o.provider_win_transaction_id=? OR o.provider_round_id=?", term, term, term, term, term)
 	}
@@ -1008,16 +982,16 @@ func (s *Service) appendGameOrderRows(items *[]map[string]any, q Query, actor Ac
 	}
 }
 
-func (s *Service) appendCallbackOrderRows(items *[]map[string]any, q Query, actor Actor, term string, playerID uint64, from, to time.Time) {
+func (s *Service) appendCallbackOrderRows(items *[]map[string]any, q Query, actor Actor, term string, playerID uint64, from time.Time, to time.Time) {
 	rows := []map[string]any{}
-	selectSQL := "o.id,o.tenant_id tenantID,o.site_id siteID,o.user_id playerID,o.callback_id orderNo,o.provider_transaction_id externalOrderNo,o.amount_minor amountMinor,o.currency,o.processing_result status,o.provider_code providerCode,o.provider_round_id roundID,o.duration_ms durationMS,o.created_at createdAt"
+	selectSQL := "o.id, o.site_id AS siteID, o.user_id AS playerID, o.callback_id AS orderNo, o.provider_transaction_id AS externalOrderNo, o.amount_minor AS amountMinor, o.currency, o.processing_result AS status, o.provider_code AS providerCode, o.provider_round_id AS roundID, o.duration_ms AS durationMS, o.created_at AS createdAt"
 	db := s.db.Table("game_provider_callback_logs o")
 	if s.db.Migrator().HasTable("game_users") {
 		selectSQL += ",u.user_no playerNo"
-		db = db.Joins("LEFT JOIN game_users u ON u.id=o.user_id AND u.tenant_id=o.tenant_id AND u.site_id=o.site_id AND u.deleted_at IS NULL")
+		db = db.Joins("LEFT JOIN game_users AS u ON u.id = o.user_id AND u.site_id = o.site_id AND u.deleted_at IS NULL")
 	}
 	db = db.Select(selectSQL).Where("o.deleted_at IS NULL AND o.created_at BETWEEN ? AND ?", from, to)
-	db, _ = operationalScopeAlias(db, "o", actor, value(q, "tenantID"), value(q, "siteID"))
+	db, _ = operationalScopeAlias(db, "o", actor, value(q, "siteID"))
 	if term != "" {
 		db = db.Where("o.callback_id=? OR o.provider_transaction_id=? OR o.provider_round_id=?", term, term, term)
 	}

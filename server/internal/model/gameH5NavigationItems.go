@@ -6,11 +6,10 @@ import (
 	"github.com/go-dev-frame/sponge/pkg/sgorm"
 )
 
-// GameH5NavigationItems stores tenant-owned H5 operation entry drafts and published values.
+// GameH5NavigationItems stores H5 H5 operation entry drafts and published values.
 type GameH5NavigationItems struct {
 	sgorm.Model `gorm:"embedded"`
 
-	TenantID           uint64     `gorm:"column:tenant_id;type:bigint unsigned;not null;default:0;uniqueIndex:uk_h5_navigation_scope_code,priority:1" json:"tenantID"`
 	SiteID             uint64     `gorm:"column:site_id;type:bigint unsigned;not null;default:0;uniqueIndex:uk_h5_navigation_scope_code,priority:2" json:"siteID"`
 	PlatformSourceID   uint64     `gorm:"column:platform_source_id;type:bigint unsigned;not null;default:0;index:idx_h5_navigation_platform_source" json:"platformSourceID"`
 	MenuCode           string     `gorm:"column:menu_code;type:varchar(64);not null;uniqueIndex:uk_h5_navigation_scope_code,priority:3" json:"menuCode"`

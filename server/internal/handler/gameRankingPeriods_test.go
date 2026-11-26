@@ -103,7 +103,7 @@ func Test_gameRankingPeriodsHandler_Create(t *testing.T) {
 	}
 
 	t.Logf("%+v", result)
-	
+
 }
 
 func Test_gameRankingPeriodsHandler_DeleteByID(t *testing.T) {

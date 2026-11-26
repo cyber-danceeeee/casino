@@ -29,7 +29,7 @@ func (h *AdminAgentsHandler) GetAgent(c *gin.Context) {
 	if !ok {
 		return
 	}
-	d, e := h.service.AgentDetail(id, adminTenancyScope(c))
+	d, e := h.service.AgentDetail(id, adminContentScope(c))
 	agentWrite(c, d, e)
 }
 func (h *AdminAgentsHandler) CreateAgent(c *gin.Context) {
@@ -117,7 +117,7 @@ func (h *AdminAgentsHandler) GetChannel(c *gin.Context) {
 	if !ok {
 		return
 	}
-	d, e := h.service.ChannelDetail(id, adminTenancyScope(c))
+	d, e := h.service.ChannelDetail(id, adminContentScope(c))
 	agentWrite(c, d, e)
 }
 func (h *AdminAgentsHandler) CreateChannel(c *gin.Context) {
@@ -161,7 +161,7 @@ func (h *AdminAgentsHandler) GetPlan(c *gin.Context) {
 	if !ok {
 		return
 	}
-	d, e := h.service.PlanDetail(id, adminTenancyScope(c))
+	d, e := h.service.PlanDetail(id, adminContentScope(c))
 	agentWrite(c, d, e)
 }
 func (h *AdminAgentsHandler) CreatePlan(c *gin.Context) {
@@ -216,7 +216,7 @@ func (h *AdminAgentsHandler) GetCommission(c *gin.Context) {
 	if !ok {
 		return
 	}
-	d, e := h.service.CommissionDetail(id, adminTenancyScope(c))
+	d, e := h.service.CommissionDetail(id, adminContentScope(c))
 	agentWrite(c, d, e)
 }
 func (h *AdminAgentsHandler) ListSettlements(c *gin.Context) {
@@ -228,7 +228,7 @@ func (h *AdminAgentsHandler) GetSettlement(c *gin.Context) {
 	if !ok {
 		return
 	}
-	d, e := h.service.SettlementDetail(id, adminTenancyScope(c))
+	d, e := h.service.SettlementDetail(id, adminContentScope(c))
 	agentWrite(c, d, e)
 }
 func (h *AdminAgentsHandler) ExportSettlement(c *gin.Context) {
@@ -236,7 +236,7 @@ func (h *AdminAgentsHandler) ExportSettlement(c *gin.Context) {
 	if !ok {
 		return
 	}
-	d, e := h.service.SettlementDetail(id, adminTenancyScope(c))
+	d, e := h.service.SettlementDetail(id, adminContentScope(c))
 	agentWrite(c, d, e)
 }
 func (h *AdminAgentsHandler) GenerateSettlement(c *gin.Context) {
@@ -270,7 +270,7 @@ func (h *AdminAgentsHandler) GetWallet(c *gin.Context) {
 	if !ok {
 		return
 	}
-	d, e := h.service.WalletDetail(id, adminTenancyScope(c))
+	d, e := h.service.WalletDetail(id, adminContentScope(c))
 	agentWrite(c, d, e)
 }
 func (h *AdminAgentsHandler) ListWalletTransactions(c *gin.Context) {
@@ -317,13 +317,13 @@ func (h *AdminAgentsHandler) GetLog(c *gin.Context) {
 	if !ok {
 		return
 	}
-	d, e := h.service.LogDetail(id, adminTenancyScope(c))
+	d, e := h.service.LogDetail(id, adminContentScope(c))
 	agentWrite(c, d, e)
 }
 
 func agentActor(c *gin.Context) agentadmin.Actor {
 	a, _ := adminauth.FromContext(c)
-	return agentadmin.Actor{ID: a.ID, Username: a.Username, Scope: adminTenancyScope(c), IP: c.ClientIP(), UserAgent: c.GetHeader("User-Agent"), CorrelationID: c.GetHeader("X-Request-ID")}
+	return agentadmin.Actor{ID: a.ID, Username: a.Username, Scope: adminContentScope(c), IP: c.ClientIP(), UserAgent: c.GetHeader("User-Agent"), CorrelationID: c.GetHeader("X-Request-ID")}
 }
 func agentID(c *gin.Context) (uint64, bool) {
 	id, e := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -349,7 +349,7 @@ func agentQuery(c *gin.Context, keys []string) agentadmin.ListQuery {
 			v[k] = x
 		}
 	}
-	return agentadmin.ListQuery{Page: p, PageSize: ps, Values: v, Scope: adminTenancyScope(c)}
+	return agentadmin.ListQuery{Page: p, PageSize: ps, Values: v, Scope: adminContentScope(c)}
 }
 func agentWrite(c *gin.Context, data any, e error) {
 	if e != nil {

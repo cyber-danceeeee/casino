@@ -8,13 +8,13 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"casino/internal/content"
 	"casino/internal/model"
-	"casino/internal/tenancy"
 )
 
 func (s *Service) ListLobbySections(q ListQuery) (PageResult, error) {
 	var rows []model.GameLobbySections
-	db := tenancy.ApplySite(s.db.Model(&model.GameLobbySections{}), "", q.Scope).
+	db := content.ApplySite(s.db.Model(&model.GameLobbySections{}), "", q.Scope).
 		Where("deleted_at IS NULL")
 	db = contains(db, "section_code", q.Values["sectionCode"])
 	db = equal(db, "section_type", q.Values["sectionType"])
@@ -28,9 +28,9 @@ func (s *Service) ListLobbySections(q ListQuery) (PageResult, error) {
 	return paginate(db.Order("sort_order ASC,id ASC"), q, &rows)
 }
 
-func (s *Service) LobbySectionDetail(id uint64, scope tenancy.Scope) (model.GameLobbySections, error) {
+func (s *Service) LobbySectionDetail(id uint64, scope content.Scope) (model.GameLobbySections, error) {
 	var row model.GameLobbySections
-	err := tenancy.ApplySite(s.db.Model(&model.GameLobbySections{}), "", scope).
+	err := content.ApplySite(s.db.Model(&model.GameLobbySections{}), "", scope).
 		Where("id = ? AND deleted_at IS NULL", id).
 		Take(&row).Error
 	if err != nil {
@@ -46,7 +46,7 @@ func (s *Service) SaveLobbySection(id uint64, in LobbySectionInput, actor Actor)
 	}
 	if id > 0 {
 		var existing model.GameLobbySections
-		if err := tenancy.ApplySite(s.db.Model(&model.GameLobbySections{}), "", actor.Scope).
+		if err := content.ApplySite(s.db.Model(&model.GameLobbySections{}), "", actor.Scope).
 			Where("id = ? AND deleted_at IS NULL", id).Take(&existing).Error; err != nil {
 			return 0, notFound(err, "LOBBY_SECTION_NOT_FOUND")
 		}
@@ -56,10 +56,10 @@ func (s *Service) SaveLobbySection(id uint64, in LobbySectionInput, actor Actor)
 			CountryCode  string `gorm:"column:country_code"`
 			CurrencyCode string `gorm:"column:currency_code"`
 		}
-		if err := s.db.Table("game_saas_sites").Select("country_code,currency_code").
-			Where("id=? AND tenant_id=? AND deleted_at IS NULL", actor.Scope.SiteID, actor.Scope.TenantID).
+		if err := s.db.Table("game_site_config").Select("country_code,currency_code").
+			Where("id = ? AND deleted_at IS NULL", actor.Scope.SiteID).
 			Take(&dimensions).Error; err != nil {
-			return 0, newError("SITE_NOT_FOUND", "tenant site was not found")
+			return 0, newError("SITE_NOT_FOUND", "H5 was not found")
 		}
 		in.SupportedCountries = strings.ToUpper(strings.TrimSpace(dimensions.CountryCode))
 		in.SupportedCurrencies = strings.ToUpper(strings.TrimSpace(dimensions.CurrencyCode))
@@ -77,14 +77,14 @@ func (s *Service) SaveLobbySection(id uint64, in LobbySectionInput, actor Actor)
 		action := "create"
 		if id > 0 {
 			action = "update"
-			if err := tenancy.ApplySite(tx.Model(&model.GameLobbySections{}).Clauses(clause.Locking{Strength: "UPDATE"}), "", actor.Scope).
+			if err := content.ApplySite(tx.Model(&model.GameLobbySections{}).Clauses(clause.Locking{Strength: "UPDATE"}), "", actor.Scope).
 				Where("id = ? AND deleted_at IS NULL", id).
 				Take(&before).Error; err != nil {
 				return notFound(err, "LOBBY_SECTION_NOT_FOUND")
 			}
 		}
 		row := model.GameLobbySections{
-			TenantID:            actor.Scope.TenantID,
+
 			SiteID:              actor.Scope.SiteID,
 			SectionCode:         code,
 			SectionType:         strings.TrimSpace(in.SectionType),
@@ -108,7 +108,7 @@ func (s *Service) SaveLobbySection(id uint64, in LobbySectionInput, actor Actor)
 			}
 			id = row.ID
 		} else {
-			if err := tenancy.ApplySite(tx.Model(&model.GameLobbySections{}), "", actor.Scope).Where("id = ?", id).Updates(map[string]any{
+			if err := content.ApplySite(tx.Model(&model.GameLobbySections{}), "", actor.Scope).Where("id = ?", id).Updates(map[string]any{
 				"draft_payload":    draftPayload,
 				"publish_status":   "DRAFT",
 				"draft_updated_at": time.Now(),
@@ -166,13 +166,13 @@ func lobbySectionDraftPayload(code string, in LobbySectionInput) (string, error)
 func (s *Service) DeleteLobbySection(id uint64, reason string, actor Actor) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		var before model.GameLobbySections
-		if err := tenancy.ApplySite(tx.Model(&model.GameLobbySections{}).Clauses(clause.Locking{Strength: "UPDATE"}), "", actor.Scope).
+		if err := content.ApplySite(tx.Model(&model.GameLobbySections{}).Clauses(clause.Locking{Strength: "UPDATE"}), "", actor.Scope).
 			Where("id = ? AND deleted_at IS NULL", id).
 			Take(&before).Error; err != nil {
 			return notFound(err, "LOBBY_SECTION_NOT_FOUND")
 		}
 		now := time.Now()
-		if err := tenancy.ApplySite(tx.Model(&model.GameLobbySections{}), "", actor.Scope).
+		if err := content.ApplySite(tx.Model(&model.GameLobbySections{}), "", actor.Scope).
 			Where("id = ?", id).
 			Updates(map[string]any{"deleted_at": now, "updated_at": now}).Error; err != nil {
 			return err

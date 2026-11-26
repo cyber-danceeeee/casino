@@ -103,7 +103,7 @@ func Test_gameRebateJackpotsHandler_Create(t *testing.T) {
 	}
 
 	t.Logf("%+v", result)
-	
+
 }
 
 func Test_gameRebateJackpotsHandler_DeleteByID(t *testing.T) {

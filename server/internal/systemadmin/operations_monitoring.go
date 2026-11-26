@@ -40,7 +40,6 @@ type PaymentHealthRow struct {
 }
 
 type OperationalNoteInput struct {
-	TenantID   uint64 `json:"tenantID"`
 	SiteID     uint64 `json:"siteID"`
 	TargetType string `json:"targetType"`
 	TargetID   string `json:"targetID"`
@@ -68,7 +67,7 @@ func (s *Service) PaymentMonitor(q Query, actor Actor) (map[string]any, error) {
 	return map[string]any{"from": from, "to": to, "deposit": deposit, "withdrawal": withdrawal, "health": health}, nil
 }
 
-func (s *Service) paymentMetric(table string, deposit bool, q Query, actor Actor, from, to time.Time) (PaymentMetric, error) {
+func (s *Service) paymentMetric(table string, deposit bool, q Query, actor Actor, from time.Time, to time.Time) (PaymentMetric, error) {
 	row := struct {
 		Count        int64
 		Amount       *decimal.Decimal
@@ -89,7 +88,7 @@ func (s *Service) paymentMetric(table string, deposit bool, q Query, actor Actor
 		SUM(CASE WHEN status IN (1,6) THEN 1 ELSE 0 END) pending_count,
 		SUM(CASE WHEN %s THEN 1 ELSE 0 END) timeout_count`, amountColumn, timeoutExpression), now().Add(-30*time.Minute)).
 		Where("o.created_at BETWEEN ? AND ? AND o.deleted_at IS NULL", from, to)
-	db, _ = operationalScopeAlias(db, "o", actor, value(q, "tenantID"), value(q, "siteID"))
+	db, _ = operationalScopeAlias(db, "o", actor, value(q, "siteID"))
 	db = paymentFilters(db, q, deposit)
 	if err := db.Scan(&row).Error; err != nil {
 		return PaymentMetric{}, err
@@ -122,12 +121,12 @@ func paymentFilters(db *gorm.DB, q Query, deposit bool) *gorm.DB {
 		db = db.Where("o.payment_method=?", strings.ToUpper(value(q, "methodCode")))
 	}
 	if value(q, "country") != "" {
-		db = db.Where("EXISTS (SELECT 1 FROM game_users pu WHERE pu.id=o.user_id AND pu.tenant_id=o.tenant_id AND pu.country_code=? AND pu.deleted_at IS NULL)", strings.ToUpper(value(q, "country")))
+		db = db.Where("EXISTS(SELECT 1 FROM game_users AS pu WHERE pu.id = o.user_id AND pu.country_code = ? AND pu.deleted_at IS NULL)", strings.ToUpper(value(q, "country")))
 	}
 	return db
 }
 
-func (s *Service) paymentHealth(q Query, actor Actor, from, to time.Time) ([]PaymentHealthRow, error) {
+func (s *Service) paymentHealth(q Query, actor Actor, from time.Time, to time.Time) ([]PaymentHealthRow, error) {
 	deposits := []struct {
 		ID                             uint64
 		ChannelCode, MethodCode        string
@@ -136,7 +135,7 @@ func (s *Service) paymentHealth(q Query, actor Actor, from, to time.Time) ([]Pay
 		CompletedAt, PaidAt, ExpiredAt *time.Time
 	}{}
 	db := s.db.Table("game_deposit_orders o").Select("id,channel_code,method_code,status,created_at,completed_at,paid_at,expired_at").Where("o.created_at BETWEEN ? AND ? AND o.deleted_at IS NULL", from, to)
-	db, _ = operationalScopeAlias(db, "o", actor, value(q, "tenantID"), value(q, "siteID"))
+	db, _ = operationalScopeAlias(db, "o", actor, value(q, "siteID"))
 	db = paymentFilters(db, q, true)
 	if err := db.Order("o.id DESC").Limit(20000).Find(&deposits).Error; err != nil {
 		return nil, err
@@ -149,7 +148,7 @@ func (s *Service) paymentHealth(q Query, actor Actor, from, to time.Time) ([]Pay
 		CompletedAt   *time.Time
 	}{}
 	wdb := s.db.Table("game_withdraw_orders o").Select("id,payment_method,status,created_at,completed_at").Where("o.created_at BETWEEN ? AND ? AND o.deleted_at IS NULL", from, to)
-	wdb, _ = operationalScopeAlias(wdb, "o", actor, value(q, "tenantID"), value(q, "siteID"))
+	wdb, _ = operationalScopeAlias(wdb, "o", actor, value(q, "siteID"))
 	wdb = paymentFilters(wdb, q, false)
 	if err := wdb.Order("o.id DESC").Limit(20000).Find(&withdrawals).Error; err != nil {
 		return nil, err
@@ -196,7 +195,7 @@ func (s *Service) paymentHealth(q Query, actor Actor, from, to time.Time) ([]Pay
 		Status int
 	}{}
 	cdb := s.db.Table("game_payment_channels").Select("channel_code code,status").Where("deleted_at IS NULL")
-	cdb, _ = operationalScope(cdb, actor, value(q, "tenantID"), value(q, "siteID"))
+	cdb, _ = operationalScope(cdb, actor, value(q, "siteID"))
 	_ = cdb.Find(&configured).Error
 	for _, item := range configured {
 		for _, group := range groups {
@@ -281,34 +280,31 @@ func (s *Service) PaymentDiagnostics(kind string, id uint64, actor Actor) (map[s
 	}
 	var order map[string]any
 	db := s.db.Table(table).Where("id=? AND deleted_at IS NULL", id)
-	db, _ = operationalScope(db, actor, "", "")
+	db, _ = operationalScope(db, actor, "")
 	if err := db.Take(&order).Error; err != nil {
 		return nil, rowNotFound("payment_order")
 	}
-	tenantID, _ := anyUint64(order["tenant_id"])
 	siteID, _ := anyUint64(order["site_id"])
 	orderNo := fmt.Sprint(order["order_no"])
 	delete(order, "raw_metadata")
 	wallet := []map[string]any{}
-	_ = s.db.Table("game_wallet_transactions").Select("id,txn_no txnNo,external_txn_no externalTxnNo,direction,category,amount,currency,status,balance_before balanceBefore,balance_after balanceAfter,completed_at completedAt,created_at createdAt").Where("tenant_id=? AND site_id=? AND (order_no=? OR id=?) AND deleted_at IS NULL", tenantID, siteID, orderNo, order[walletClause]).Find(&wallet).Error
-	ledger := []map[string]any{}
-	_ = s.db.Table("ledger_transactions").Select("id,transaction_no transactionNo,event_type eventType,business_type businessType,business_order_no businessOrderNo,status,debit_amount debitAmount,credit_amount creditAmount,operator_username operator,reason,created_at createdAt").Where("tenant_id=? AND site_id=? AND business_order_no=? AND deleted_at IS NULL", tenantID, siteID, orderNo).Find(&ledger).Error
+	_ = s.db.Table("game_wallet_transactions").Select("id,txn_no txnNo,external_txn_no externalTxnNo,direction,category,amount,currency,status,balance_before balanceBefore,balance_after balanceAfter,completed_at completedAt,created_at createdAt").Where("site_id = ? AND (order_no = ? OR id = ?) AND deleted_at IS NULL", siteID, orderNo, order[walletClause]).Find(&wallet).Error
 	callbacks := []map[string]any{}
 	if kind == "DEPOSIT" {
-		_ = s.db.Table("game_deposit_callback_logs").Select("id,callback_time callbackTime,source_ip sourceIP,signature_valid signatureValid,channel_status channelStatus,processing_result processingResult,retry_count retryCount,created_at createdAt").Where("tenant_id=? AND site_id=? AND deposit_order_id=? AND deleted_at IS NULL", tenantID, siteID, id).Order("id DESC").Find(&callbacks).Error
+		_ = s.db.Table("game_deposit_callback_logs").Select("id,callback_time callbackTime,source_ip sourceIP,signature_valid signatureValid,channel_status channelStatus,processing_result processingResult,retry_count retryCount,created_at createdAt").Where("site_id = ? AND deposit_order_id = ? AND deleted_at IS NULL", siteID, id).Order("id DESC").Find(&callbacks).Error
 	} else {
-		_ = s.db.Table("game_withdrawal_payout_logs").Select("id,channel_code channelCode,request_result requestResult,channel_order_no channelOrderNo,query_result queryResult,callback_result callbackResult,retry_count retryCount,failure_reason failureReason,requested_at requestedAt,created_at createdAt").Where("tenant_id=? AND site_id=? AND withdrawal_order_id=? AND deleted_at IS NULL", tenantID, siteID, id).Order("id DESC").Find(&callbacks).Error
+		_ = s.db.Table("game_withdrawal_payout_logs").Select("id,channel_code channelCode,request_result requestResult,channel_order_no channelOrderNo,query_result queryResult,callback_result callbackResult,retry_count retryCount,failure_reason failureReason,requested_at requestedAt,created_at createdAt").Where("site_id = ? AND withdrawal_order_id = ? AND deleted_at IS NULL", siteID, id).Order("id DESC").Find(&callbacks).Error
 	}
 	events := []map[string]any{}
-	_ = s.db.Table("event_outbox").Select("id,event_id eventID,event_type eventType,status,trace_id traceID,correlation_id correlationID,occurred_at occurredAt,last_error lastError").Where("tenant_id=? AND site_id=? AND (aggregate_id=? OR correlation_id=?) AND deleted_at IS NULL", tenantID, siteID, fmt.Sprint(id), orderNo).Order("id DESC").Limit(100).Find(&events).Error
+	_ = s.db.Table("event_outbox").Select("id,event_id eventID,event_type eventType,status,trace_id traceID,correlation_id correlationID,occurred_at occurredAt,last_error lastError").Where("site_id = ? AND (aggregate_id = ? OR correlation_id = ?) AND deleted_at IS NULL", siteID, fmt.Sprint(id), orderNo).Order("id DESC").Limit(100).Find(&events).Error
 	audits := []map[string]any{}
-	_ = s.db.Table("game_admin_operation_logs").Select("id,action,result,operator_username operator,reason,correlation_id requestID,created_at createdAt").Where("tenant_id=? AND site_id=? AND (target_id=? OR correlation_id=?) AND deleted_at IS NULL", tenantID, siteID, id, orderNo).Order("id DESC").Limit(100).Find(&audits).Error
+	_ = s.db.Table("game_admin_operation_logs").Select("id,action,result,operator_username operator,reason,correlation_id requestID,created_at createdAt").Where("site_id = ? AND (target_id = ? OR correlation_id = ?) AND deleted_at IS NULL", siteID, id, orderNo).Order("id DESC").Limit(100).Find(&audits).Error
 	notes := []map[string]any{}
-	_ = s.db.Table("game_operational_notes").Select("id,note,author_username author,created_at createdAt").Where("tenant_id=? AND site_id=? AND target_type=? AND target_id=? AND deleted_at IS NULL", tenantID, siteID, "PAYMENT_"+kind, fmt.Sprint(id)).Order("id ASC").Find(&notes).Error
-	return map[string]any{"orderType": kind, "order": redact(order), "walletTransactions": wallet, "ledgerTransactions": ledger, "callbacks": callbacks, "events": events, "audit": audits, "notes": notes, "allowedActions": []string{"MARK_REVIEW", "ADD_NOTE"}}, nil
+	_ = s.db.Table("game_operational_notes").Select("id,note,author_username author,created_at createdAt").Where("site_id = ? AND target_type = ? AND target_id = ? AND deleted_at IS NULL", siteID, "PAYMENT_"+kind, fmt.Sprint(id)).Order("id ASC").Find(&notes).Error
+	return map[string]any{"orderType": kind, "order": redact(order), "walletTransactions": wallet, "callbacks": callbacks, "events": events, "audit": audits, "notes": notes, "allowedActions": []string{"MARK_REVIEW", "ADD_NOTE"}}, nil
 }
 
-func (s *Service) PaymentDiagnosticsByNumber(kind, orderNumber string, actor Actor) (map[string]any, error) {
+func (s *Service) PaymentDiagnosticsByNumber(kind string, orderNumber string, actor Actor) (map[string]any, error) {
 	kind = strings.ToUpper(strings.TrimSpace(kind))
 	orderNumber = strings.TrimSpace(orderNumber)
 	if orderNumber == "" {
@@ -326,7 +322,7 @@ func (s *Service) PaymentDiagnosticsByNumber(kind, orderNumber string, actor Act
 	db := s.db.Table(table).
 		Select("id").
 		Where("(order_no=? OR channel_order_no=?) AND deleted_at IS NULL", orderNumber, orderNumber)
-	db, _ = operationalScope(db, actor, "", "")
+	db, _ = operationalScope(db, actor, "")
 	if err := db.Take(&order).Error; err != nil {
 		return nil, rowNotFound("payment_order")
 	}
@@ -349,16 +345,15 @@ func (s *Service) MarkPaymentReview(kind string, id uint64, reason string, actor
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		var before map[string]any
 		db := tx.Table(table).Clauses(clause.Locking{Strength: "UPDATE"}).Where("id=? AND deleted_at IS NULL", id)
-		db, _ = operationalScope(db, actor, "", "")
+		db, _ = operationalScope(db, actor, "")
 		if err := db.Take(&before).Error; err != nil {
 			return rowNotFound("payment_order")
 		}
-		tenantID, _ := anyUint64(before["tenant_id"])
 		siteID, _ := anyUint64(before["site_id"])
 		if err := tx.Table(table).Where("id=?", id).Updates(updates).Error; err != nil {
 			return err
 		}
-		return audit(tx, targetAuditActor(actor, tenantID, siteID), "monitor:payment:review", "payment.mark_review", strings.ToLower(kind)+"_order", id, before, updates, reason)
+		return audit(tx, targetAuditActor(actor, siteID), "monitor:payment:review", "payment.mark_review", strings.ToLower(kind)+"_order", id, before, updates, reason)
 	})
 }
 
@@ -387,12 +382,12 @@ func (s *Service) ProviderMonitor(q Query, actor Actor) (map[string]any, error) 
 	return map[string]any{"from": from, "to": to, "list": rows}, nil
 }
 
-func (s *Service) providerHealth(code, name string, q Query, actor Actor, from, to time.Time) (map[string]any, error) {
-	tenantID := value(q, "tenantID")
+func (s *Service) providerHealth(code string, name string, q Query, actor Actor, from time.Time, to time.Time) (map[string]any, error) {
+
 	siteID := value(q, "siteID")
-	games := struct{ EnabledTenantCount, EnabledGameCount int64 }{}
-	gdb := s.db.Table("game_games g").Select("COUNT(DISTINCT g.tenant_id) enabled_tenant_count,COUNT(*) enabled_game_count").Joins("JOIN game_game_providers p ON p.id=g.provider_id AND p.deleted_at IS NULL").Where("p.provider_code=? AND g.platform_enabled=1 AND g.status=1 AND g.deleted_at IS NULL", code)
-	gdb, _ = operationalScopeAlias(gdb, "g", actor, tenantID, siteID)
+	games := struct{ EnabledSiteCount, EnabledGameCount int64 }{}
+	gdb := s.db.Table("game_games g").Select("COUNT(*) AS enabled_game_count").Joins("JOIN game_game_providers p ON p.id=g.provider_id AND p.deleted_at IS NULL").Where("p.provider_code=? AND g.platform_enabled=1 AND g.status=1 AND g.deleted_at IS NULL", code)
+	gdb, _ = operationalScopeAlias(gdb, "g", actor, siteID)
 	if country := strings.ToUpper(value(q, "country")); country != "" {
 		gdb = gdb.Where("(g.supported_countries IS NULL OR JSON_LENGTH(g.supported_countries)=0 OR JSON_CONTAINS(g.supported_countries, JSON_QUOTE(?)))", country)
 	}
@@ -406,7 +401,7 @@ func (s *Service) providerHealth(code, name string, q Query, actor Actor, from, 
 		SuccessAt *time.Time
 	}{}
 	ldb := s.db.Table("game_game_launch_logs l").Select("l.launch_status status,l.created_at,l.launch_success_time success_at").Joins("JOIN game_game_providers p ON p.id=l.provider_id AND p.deleted_at IS NULL").Where("p.provider_code=? AND l.created_at BETWEEN ? AND ? AND l.deleted_at IS NULL", code, from, to)
-	ldb, _ = operationalScopeAlias(ldb, "l", actor, tenantID, siteID)
+	ldb, _ = operationalScopeAlias(ldb, "l", actor, siteID)
 	if country := strings.ToUpper(value(q, "country")); country != "" {
 		ldb = ldb.Where("l.country=?", country)
 	}
@@ -420,12 +415,12 @@ func (s *Service) providerHealth(code, name string, q Query, actor Actor, from, 
 		CreatedAt                         time.Time
 	}{}
 	cdb := s.db.Table("game_provider_callback_logs c").Select("processing_result,signature_result,duration_ms,created_at").Where("provider_code=? AND created_at BETWEEN ? AND ? AND deleted_at IS NULL", code, from, to)
-	cdb, _ = operationalScopeAlias(cdb, "c", actor, tenantID, siteID)
+	cdb, _ = operationalScopeAlias(cdb, "c", actor, siteID)
 	if currency := strings.ToUpper(value(q, "currency")); currency != "" {
 		cdb = cdb.Where("c.currency=?", currency)
 	}
 	if country := strings.ToUpper(value(q, "country")); country != "" {
-		cdb = cdb.Where("EXISTS (SELECT 1 FROM game_users u WHERE u.id=c.user_id AND u.tenant_id=c.tenant_id AND u.site_id=c.site_id AND u.country_code=?)", country)
+		cdb = cdb.Where("EXISTS(SELECT 1 FROM game_users AS u WHERE u.id = c.user_id AND u.site_id = c.site_id AND u.country_code = ?)", country)
 	}
 	_ = cdb.Order("id DESC").Limit(10000).Find(&callbacks).Error
 	launchSuccess, launchFailure := int64(0), int64(0)
@@ -461,16 +456,16 @@ func (s *Service) providerHealth(code, name string, q Query, actor Actor, from, 
 	maintenance := int64(0)
 	mdb := s.db.Table("game_provider_maintenance").Where("provider_code=? AND enabled=1 AND (start_at IS NULL OR start_at<=?) AND (end_at IS NULL OR end_at>?) AND deleted_at IS NULL", code, now(), now())
 	if !actor.Platform {
-		mdb = mdb.Where("tenant_id=0 OR (tenant_id=? AND (site_id=0 OR site_id=?))", actor.TenantID, actor.SiteID)
-	} else if tenantID != "" {
-		mdb = mdb.Where("tenant_id=0 OR tenant_id=?", tenantID)
+		mdb = mdb
+	} else if siteID != "" {
+		mdb = mdb
 	}
 	_ = mdb.Count(&maintenance).Error
 	retryCount := int64(0)
 	rdb := s.db.Table("game_system_retry_records r").
-		Joins("JOIN game_provider_callback_logs c ON c.id=r.source_id AND c.tenant_id=r.tenant_id AND c.site_id=r.site_id AND c.deleted_at IS NULL").
+		Joins("JOIN game_provider_callback_logs AS c ON c.id = r.source_id AND c.site_id = r.site_id AND c.deleted_at IS NULL").
 		Where("r.source_type='PROVIDER_CALLBACK' AND r.status IN ('PENDING','FAILED') AND r.deleted_at IS NULL AND c.provider_code=?", code)
-	rdb, _ = operationalScopeAlias(rdb, "r", actor, tenantID, siteID)
+	rdb, _ = operationalScopeAlias(rdb, "r", actor, siteID)
 	_ = rdb.Count(&retryCount).Error
 	launchTotal := launchSuccess + launchFailure
 	callbackTotal := callbackSuccess + callbackFailure
@@ -502,7 +497,7 @@ func (s *Service) providerHealth(code, name string, q Query, actor Actor, from, 
 		}
 		average = sum / float64(len(latencies))
 	}
-	return map[string]any{"providerCode": code, "providerName": name, "enabledTenantCount": games.EnabledTenantCount, "enabledGameCount": games.EnabledGameCount, "launchSuccessRate": launchRate, "callbackSuccessRate": callbackRate, "averageLatencyMS": average, "lastSuccessfulRequest": lastSuccess, "lastFailedRequest": lastFailure, "failureCount": launchFailure + callbackFailure, "signatureFailureCount": signatureFailures, "retryQueueCount": retryCount, "maintenance": maintenance > 0, "healthStatus": status}, nil
+	return map[string]any{"providerCode": code, "providerName": name, "enabledSiteCount": games.EnabledSiteCount, "enabledGameCount": games.EnabledGameCount, "launchSuccessRate": launchRate, "callbackSuccessRate": callbackRate, "averageLatencyMS": average, "lastSuccessfulRequest": lastSuccess, "lastFailedRequest": lastFailure, "failureCount": launchFailure + callbackFailure, "signatureFailureCount": signatureFailures, "retryQueueCount": retryCount, "maintenance": maintenance > 0, "healthStatus": status}, nil
 }
 
 func (s *Service) ProviderDiagnostics(code string, q Query, actor Actor) (map[string]any, error) {
@@ -519,8 +514,8 @@ func (s *Service) ProviderDiagnostics(code string, q Query, actor Actor) (map[st
 		return nil, err
 	}
 	launches := []map[string]any{}
-	ldb := s.db.Table("game_game_launch_logs l").Select("l.id,l.tenant_id tenantID,l.site_id siteID,l.user_id playerID,l.launch_no launchNo,l.launch_status status,l.correlation_id correlationID,l.error_message errorMessage,l.created_at createdAt").Joins("JOIN game_game_providers p ON p.id=l.provider_id AND p.provider_code=? AND p.deleted_at IS NULL", code).Where("l.created_at BETWEEN ? AND ? AND l.deleted_at IS NULL", from, to)
-	ldb, _ = operationalScopeAlias(ldb, "l", actor, value(q, "tenantID"), value(q, "siteID"))
+	ldb := s.db.Table("game_game_launch_logs l").Select("l.id, l.site_id AS siteID, l.user_id AS playerID, l.launch_no AS launchNo, l.launch_status AS status, l.correlation_id AS correlationID, l.error_message AS errorMessage, l.created_at AS createdAt").Joins("JOIN game_game_providers p ON p.id=l.provider_id AND p.provider_code=? AND p.deleted_at IS NULL", code).Where("l.created_at BETWEEN ? AND ? AND l.deleted_at IS NULL", from, to)
+	ldb, _ = operationalScopeAlias(ldb, "l", actor, value(q, "siteID"))
 	if country := strings.ToUpper(value(q, "country")); country != "" {
 		ldb = ldb.Where("l.country=?", country)
 	}
@@ -529,23 +524,23 @@ func (s *Service) ProviderDiagnostics(code string, q Query, actor Actor) (map[st
 	}
 	_ = ldb.Order("l.id DESC").Limit(100).Find(&launches).Error
 	callbacks := []map[string]any{}
-	cdb := s.db.Table("game_provider_callback_logs c").Select("c.id,c.tenant_id tenantID,c.site_id siteID,c.callback_id callbackID,c.operation,c.provider_transaction_id providerTransactionID,c.provider_round_id providerRoundID,c.signature_result signatureResult,c.processing_result processingResult,c.http_status httpStatus,c.duration_ms durationMS,c.correlation_id correlationID,c.failure_reason failureReason,c.created_at createdAt").Where("c.provider_code=? AND c.created_at BETWEEN ? AND ? AND c.deleted_at IS NULL", code, from, to)
-	cdb, _ = operationalScopeAlias(cdb, "c", actor, value(q, "tenantID"), value(q, "siteID"))
+	cdb := s.db.Table("game_provider_callback_logs c").Select("c.id, c.site_id AS siteID, c.callback_id AS callbackID, c.operation, c.provider_transaction_id AS providerTransactionID, c.provider_round_id AS providerRoundID, c.signature_result AS signatureResult, c.processing_result AS processingResult, c.http_status AS httpStatus, c.duration_ms AS durationMS, c.correlation_id AS correlationID, c.failure_reason AS failureReason, c.created_at AS createdAt").Where("c.provider_code=? AND c.created_at BETWEEN ? AND ? AND c.deleted_at IS NULL", code, from, to)
+	cdb, _ = operationalScopeAlias(cdb, "c", actor, value(q, "siteID"))
 	if currency := strings.ToUpper(value(q, "currency")); currency != "" {
 		cdb = cdb.Where("c.currency=?", currency)
 	}
 	if country := strings.ToUpper(value(q, "country")); country != "" {
-		cdb = cdb.Where("EXISTS (SELECT 1 FROM game_users u WHERE u.id=c.user_id AND u.tenant_id=c.tenant_id AND u.site_id=c.site_id AND u.country_code=?)", country)
+		cdb = cdb.Where("EXISTS(SELECT 1 FROM game_users AS u WHERE u.id = c.user_id AND u.site_id = c.site_id AND u.country_code = ?)", country)
 	}
 	_ = cdb.Order("c.id DESC").Limit(200).Find(&callbacks).Error
 	transactions := []map[string]any{}
-	tdb := s.db.Table("game_provider_transactions t").Select("id,tenant_id tenantID,site_id siteID,user_id playerID,provider_transaction_id providerTransactionID,provider_round_id providerRoundID,operation,amount_minor amountMinor,currency,status,related_transaction_id relatedTransactionID,created_at createdAt").Where("provider_code=? AND created_at BETWEEN ? AND ? AND deleted_at IS NULL", code, from, to)
-	tdb, _ = operationalScopeAlias(tdb, "t", actor, value(q, "tenantID"), value(q, "siteID"))
+	tdb := s.db.Table("game_provider_transactions t").Select("id, site_id AS siteID, user_id AS playerID, provider_transaction_id AS providerTransactionID, provider_round_id AS providerRoundID, operation, amount_minor AS amountMinor, currency, status, related_transaction_id AS relatedTransactionID, created_at AS createdAt").Where("provider_code=? AND created_at BETWEEN ? AND ? AND deleted_at IS NULL", code, from, to)
+	tdb, _ = operationalScopeAlias(tdb, "t", actor, value(q, "siteID"))
 	if currency := strings.ToUpper(value(q, "currency")); currency != "" {
 		tdb = tdb.Where("t.currency=?", currency)
 	}
 	if country := strings.ToUpper(value(q, "country")); country != "" {
-		tdb = tdb.Where("EXISTS (SELECT 1 FROM game_users u WHERE u.id=t.user_id AND u.tenant_id=t.tenant_id AND u.site_id=t.site_id AND u.country_code=?)", country)
+		tdb = tdb.Where("EXISTS(SELECT 1 FROM game_users AS u WHERE u.id = t.user_id AND u.site_id = t.site_id AND u.country_code = ?)", country)
 	}
 	_ = tdb.Order("id DESC").Limit(200).Find(&transactions).Error
 
@@ -599,10 +594,10 @@ func (s *Service) ProviderDiagnostics(code string, q Query, actor Actor) (map[st
 
 	retryHistory := []map[string]any{}
 	rdb := s.db.Table("game_system_retry_records r").
-		Select("r.id,r.tenant_id tenantID,r.site_id siteID,r.source_id sourceID,r.status,r.attempt_count attemptCount,r.max_attempts maxAttempts,r.next_attempt_at nextAttemptAt,r.last_error lastError,r.created_at createdAt,r.updated_at updatedAt").
-		Joins("JOIN game_provider_callback_logs c ON c.id=r.source_id AND c.tenant_id=r.tenant_id AND c.site_id=r.site_id AND c.deleted_at IS NULL").
+		Select("r.id, r.site_id AS siteID, r.source_id AS sourceID, r.status, r.attempt_count AS attemptCount, r.max_attempts AS maxAttempts, r.next_attempt_at AS nextAttemptAt, r.last_error AS lastError, r.created_at AS createdAt, r.updated_at AS updatedAt").
+		Joins("JOIN game_provider_callback_logs AS c ON c.id = r.source_id AND c.site_id = r.site_id AND c.deleted_at IS NULL").
 		Where("r.source_type='PROVIDER_CALLBACK' AND c.provider_code=? AND r.deleted_at IS NULL", code)
-	rdb, _ = operationalScopeAlias(rdb, "r", actor, value(q, "tenantID"), value(q, "siteID"))
+	rdb, _ = operationalScopeAlias(rdb, "r", actor, value(q, "siteID"))
 	_ = rdb.Order("r.id DESC").Limit(200).Find(&retryHistory).Error
 
 	return map[string]any{
@@ -627,20 +622,20 @@ func (s *Service) AddOperationalNote(input OperationalNoteInput, actor Actor) (u
 	if strings.TrimSpace(input.Note) == "" || strings.TrimSpace(input.TargetType) == "" || strings.TrimSpace(input.TargetID) == "" {
 		return 0, NewError("INVALID_NOTE", "target and note are required")
 	}
-	tenantID, siteID, err := operationalTargetScope(s.db, actor, input.TenantID, input.SiteID)
+	siteID, err := operationalTargetScope(s.db, actor, input.SiteID)
 	if err != nil {
 		return 0, err
 	}
 	var id uint64
 	err = s.db.Transaction(func(tx *gorm.DB) error {
-		row := map[string]any{"tenant_id": tenantID, "site_id": siteID, "target_type": strings.ToUpper(input.TargetType), "target_id": strings.TrimSpace(input.TargetID), "note": strings.TrimSpace(input.Note), "author_id": actor.ID, "author_username": actor.Username, "created_at": now(), "updated_at": now()}
+		row := map[string]any{"site_id": siteID, "target_type": strings.ToUpper(input.TargetType), "target_id": strings.TrimSpace(input.TargetID), "note": strings.TrimSpace(input.Note), "author_id": actor.ID, "author_username": actor.Username, "created_at": now(), "updated_at": now()}
 		if err := tx.Table("game_operational_notes").Create(row).Error; err != nil {
 			return err
 		}
-		if err := tx.Table("game_operational_notes").Select("id").Where("tenant_id=? AND site_id=? AND author_id=?", tenantID, siteID, actor.ID).Order("id DESC").Take(&id).Error; err != nil {
+		if err := tx.Table("game_operational_notes").Select("id").Where("site_id = ? AND author_id = ?", siteID, actor.ID).Order("id DESC").Take(&id).Error; err != nil {
 			return err
 		}
-		return audit(tx, targetAuditActor(actor, tenantID, siteID), "operations:note:write", "operations.note.create", "operational_note", id, nil, map[string]any{"targetType": input.TargetType, "targetID": input.TargetID}, input.Reason)
+		return audit(tx, targetAuditActor(actor, siteID), "operations:note:write", "operations.note.create", "operational_note", id, nil, map[string]any{"targetType": input.TargetType, "targetID": input.TargetID}, input.Reason)
 	})
 	return id, err
 }

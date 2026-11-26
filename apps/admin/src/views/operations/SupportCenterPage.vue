@@ -89,7 +89,7 @@ const overviewEntries = computed(() =>
 );
 
 function persistKey() {
-  return `tenant-support:${mode.value}`;
+  return `site-support:${mode.value}`;
 }
 function restoreFilters() {
   try {
@@ -157,7 +157,7 @@ async function load() {
     ElMessage.error(
       error instanceof Error
         ? error.message
-        : t("tenantExperience.common.loadFailed"),
+        : t("siteExperience.common.loadFailed"),
     );
   } finally {
     loading.value = false;
@@ -182,7 +182,7 @@ async function openPlayer(row: OpsRecord) {
   const playerNo = String(row.userNo || row.playerNo || "");
   if (!playerNo) return;
   await router.push(`/players/${encodeURIComponent(playerNo)}`);
-  detailTitle.value = `${t("tenantExperience.support.playerNumber")}: ${playerNo}`;
+  detailTitle.value = `${t("siteExperience.support.playerNumber")}: ${playerNo}`;
   detailVisible.value = true;
   detailLoading.value = true;
   try {
@@ -192,7 +192,7 @@ async function openPlayer(row: OpsRecord) {
     ElMessage.error(
       error instanceof Error
         ? error.message
-        : t("tenantExperience.common.loadFailed"),
+        : t("siteExperience.common.loadFailed"),
     );
   } finally {
     detailLoading.value = false;
@@ -202,7 +202,7 @@ async function openOrder(row: OpsRecord) {
   detailTitle.value = String(
     row.orderNo ||
       row.externalOrderNo ||
-      t("tenantExperience.support.orderDetail"),
+      t("siteExperience.support.orderDetail"),
   );
   detailVisible.value = true;
   detailLoading.value = true;
@@ -216,7 +216,7 @@ async function openOrder(row: OpsRecord) {
     ElMessage.error(
       error instanceof Error
         ? error.message
-        : t("tenantExperience.common.loadFailed"),
+        : t("siteExperience.common.loadFailed"),
     );
   } finally {
     detailLoading.value = false;
@@ -224,7 +224,7 @@ async function openOrder(row: OpsRecord) {
 }
 async function openCase(row: OpsRecord) {
   detailTitle.value = String(
-    row.case_no || row.caseNo || t("tenantExperience.support.caseDetail"),
+    row.case_no || row.caseNo || t("siteExperience.support.caseDetail"),
   );
   detailVisible.value = true;
   detailLoading.value = true;
@@ -235,7 +235,7 @@ async function openCase(row: OpsRecord) {
     ElMessage.error(
       error instanceof Error
         ? error.message
-        : t("tenantExperience.common.loadFailed"),
+        : t("siteExperience.common.loadFailed"),
     );
   } finally {
     detailLoading.value = false;
@@ -247,15 +247,15 @@ async function createCase() {
     !caseForm.description.trim() ||
     !caseForm.reason.trim()
   ) {
-    ElMessage.warning(t("tenantExperience.validation.required"));
+    ElMessage.warning(t("siteExperience.validation.required"));
     return;
   }
   try {
     await ElMessageBox.confirm(
-      t("tenantExperience.support.caseConfirm", {
-        player: caseForm.playerNo || t("tenantExperience.support.noPlayer"),
+      t("siteExperience.support.caseConfirm", {
+        player: caseForm.playerNo || t("siteExperience.support.noPlayer"),
       }),
-      t("tenantExperience.support.createCase"),
+      t("siteExperience.support.createCase"),
       { type: "warning" },
     );
     await operationsAPI.support.createCase({
@@ -272,14 +272,14 @@ async function createCase() {
       description: "",
       reason: "",
     });
-    ElMessage.success(t("tenantExperience.support.caseCreated"));
+    ElMessage.success(t("siteExperience.support.caseCreated"));
     await load();
   } catch (error) {
     if (error !== "cancel" && error !== "close")
       ElMessage.error(
         error instanceof Error
           ? error.message
-          : t("tenantExperience.common.actionFailed"),
+          : t("siteExperience.common.actionFailed"),
       );
   }
 }
@@ -290,7 +290,7 @@ async function download(row: OpsRecord) {
     ElMessage.error(
       error instanceof Error
         ? error.message
-        : t("tenantExperience.common.actionFailed"),
+        : t("siteExperience.common.actionFailed"),
     );
   }
 }
@@ -300,11 +300,11 @@ function valueText(value: unknown) {
   return String(value);
 }
 function emptyDescription() {
-  if (isPlayerSearch.value) return t("tenantExperience.empty.players");
-  if (isTimeline.value) return t("tenantExperience.empty.timeline");
-  if (isOrders.value) return t("tenantExperience.empty.orders");
-  if (isCases.value) return t("tenantExperience.empty.cases");
-  return t("tenantExperience.empty.exports");
+  if (isPlayerSearch.value) return t("siteExperience.empty.players");
+  if (isTimeline.value) return t("siteExperience.empty.timeline");
+  if (isOrders.value) return t("siteExperience.empty.orders");
+  if (isCases.value) return t("siteExperience.empty.cases");
+  return t("siteExperience.empty.exports");
 }
 
 watch(
@@ -336,9 +336,9 @@ onMounted(async () => {
   <div class="support-page">
     <header class="page-header">
       <div>
-        <p>{{ t("tenantExperience.support.eyebrow") }}</p>
-        <h1>{{ t(`tenantExperience.support.pages.${mode}`) }}</h1>
-        <span>{{ t(`tenantExperience.support.descriptions.${mode}`) }}</span>
+        <p>{{ t("siteExperience.support.eyebrow") }}</p>
+        <h1>{{ t(`siteExperience.support.pages.${mode}`) }}</h1>
+        <span>{{ t(`siteExperience.support.descriptions.${mode}`) }}</span>
       </div>
       <div>
         <el-button :icon="Refresh" @click="load">{{
@@ -349,21 +349,21 @@ onMounted(async () => {
           type="primary"
           :icon="Plus"
           @click="createVisible = true"
-          >{{ t("tenantExperience.support.createCase") }}</el-button
+          >{{ t("siteExperience.support.createCase") }}</el-button
         >
       </div>
     </header>
     <section class="filters">
       <el-form inline>
         <template v-if="isPlayerSearch"
-          ><el-form-item :label="t('tenantExperience.support.searchBy')"
+          ><el-form-item :label="t('siteExperience.support.searchBy')"
             ><el-select v-model="query.searchType" style="width: 210px"
               ><el-option
                 v-for="item in searchTypes"
                 :key="item"
-                :label="t(`tenantExperience.support.searchTypes.${item}`)"
+                :label="t(`siteExperience.support.searchTypes.${item}`)"
                 :value="item" /></el-select></el-form-item
-          ><el-form-item :label="t('tenantExperience.support.searchValue')"
+          ><el-form-item :label="t('siteExperience.support.searchValue')"
             ><el-input
               v-model="query.keyword"
               clearable
@@ -374,21 +374,21 @@ onMounted(async () => {
               " /></el-form-item
         ></template>
         <template v-else-if="isTimeline"
-          ><el-form-item :label="t('tenantExperience.support.playerNumber')"
+          ><el-form-item :label="t('siteExperience.support.playerNumber')"
             ><el-input v-model="query.playerNo" clearable /></el-form-item
         ></template>
         <template v-else-if="isOrders"
-          ><el-form-item :label="t('tenantExperience.support.orderNumber')"
+          ><el-form-item :label="t('siteExperience.support.orderNumber')"
             ><el-input v-model="query.keyword" clearable /></el-form-item
-          ><el-form-item :label="t('tenantExperience.support.playerNumber')"
+          ><el-form-item :label="t('siteExperience.support.playerNumber')"
             ><el-input v-model="query.playerNo" clearable /></el-form-item
         ></template>
         <template v-else-if="isCases"
-          ><el-form-item :label="t('tenantExperience.support.caseNumber')"
+          ><el-form-item :label="t('siteExperience.support.caseNumber')"
             ><el-input v-model="query.keyword" clearable /></el-form-item
-          ><el-form-item :label="t('tenantExperience.support.playerNumber')"
+          ><el-form-item :label="t('siteExperience.support.playerNumber')"
             ><el-input v-model="query.playerNo" clearable /></el-form-item
-          ><el-form-item :label="t('tenantExperience.fields.status')"
+          ><el-form-item :label="t('siteExperience.fields.status')"
             ><el-select v-model="query.status" clearable
               ><el-option
                 v-for="item in [
@@ -399,16 +399,16 @@ onMounted(async () => {
                   'CLOSED',
                 ]"
                 :key="item"
-                :label="t(`tenantExperience.status.${item}`)"
+                :label="t(`siteExperience.status.${item}`)"
                 :value="item" /></el-select></el-form-item
         ></template>
         <template v-else
-          ><el-form-item :label="t('tenantExperience.fields.status')"
+          ><el-form-item :label="t('siteExperience.fields.status')"
             ><el-select v-model="query.status" clearable
               ><el-option
                 v-for="item in ['PENDING', 'RUNNING', 'SUCCESS', 'FAILED']"
                 :key="item"
-                :label="t(`tenantExperience.status.${item}`)"
+                :label="t(`siteExperience.status.${item}`)"
                 :value="item" /></el-select></el-form-item
         ></template>
         <el-form-item
@@ -431,24 +431,24 @@ onMounted(async () => {
         <template v-if="isPlayerSearch"
           ><el-table-column
             prop="userNo"
-            :label="t('tenantExperience.support.playerNumber')"
+            :label="t('siteExperience.support.playerNumber')"
             min-width="160" /><el-table-column
             prop="username"
-            :label="t('tenantExperience.fields.username')"
+            :label="t('siteExperience.fields.username')"
             min-width="135" /><el-table-column
-            :label="t('tenantExperience.fields.mobile')"
+            :label="t('siteExperience.fields.mobile')"
             min-width="150"
             ><template #default="{ row }"
               >{{ row.phoneCountryCode }} {{ row.phone }}</template
             ></el-table-column
           ><el-table-column
             prop="countryCode"
-            :label="t('tenantExperience.fields.country')"
+            :label="t('siteExperience.fields.country')"
             width="100" /><el-table-column
             prop="currency"
-            :label="t('tenantExperience.fields.currency')"
+            :label="t('siteExperience.fields.currency')"
             width="95" /><el-table-column
-            :label="t('tenantExperience.fields.availableBalance')"
+            :label="t('siteExperience.fields.availableBalance')"
             min-width="135"
             align="right"
             ><template #default="{ row }"
@@ -456,24 +456,24 @@ onMounted(async () => {
             ></el-table-column
           ><el-table-column
             prop="bonusBalance"
-            :label="t('tenantExperience.fields.bonusBalance')"
+            :label="t('siteExperience.fields.bonusBalance')"
             min-width="125"
             align="right" /><el-table-column
             prop="vipLevel"
-            :label="t('tenantExperience.fields.vipLevel')"
+            :label="t('siteExperience.fields.vipLevel')"
             width="95" /><el-table-column
-            :label="t('tenantExperience.fields.riskStatus')"
+            :label="t('siteExperience.fields.riskStatus')"
             width="125"
             ><template #default="{ row }"
               ><el-tag :type="statusType(row.riskStatus)" effect="plain">{{
                 t(
-                  `tenantExperience.status.${statusKey(row.riskStatus)}`,
+                  `siteExperience.status.${statusKey(row.riskStatus)}`,
                   row.riskStatus,
                 )
               }}</el-tag></template
             ></el-table-column
           ><el-table-column
-            :label="t('tenantExperience.fields.lastLogin')"
+            :label="t('siteExperience.fields.lastLogin')"
             min-width="170"
             ><template #default="{ row }">{{
               formatBackendTime(row.lastLoginAt)
@@ -487,39 +487,39 @@ onMounted(async () => {
         ></template>
         <template v-else-if="isTimeline"
           ><el-table-column
-            :label="t('tenantExperience.fields.event')"
+            :label="t('siteExperience.fields.event')"
             min-width="180"
             ><template #default="{ row }">{{
               t(
-                `tenantExperience.events.${statusKey(row.eventType)}`,
+                `siteExperience.events.${statusKey(row.eventType)}`,
                 row.eventType,
               )
             }}</template></el-table-column
           ><el-table-column
             prop="businessOrderNo"
-            :label="t('tenantExperience.support.businessNumber')"
+            :label="t('siteExperience.support.businessNumber')"
             min-width="190"
           /><el-table-column
             prop="amount"
-            :label="t('tenantExperience.fields.amount')"
+            :label="t('siteExperience.fields.amount')"
             width="120"
           /><el-table-column
             prop="currency"
-            :label="t('tenantExperience.fields.currency')"
+            :label="t('siteExperience.fields.currency')"
             width="90"
           /><el-table-column
-            :label="t('tenantExperience.fields.status')"
+            :label="t('siteExperience.fields.status')"
             width="130"
             ><template #default="{ row }"
               ><el-tag :type="statusType(row.status)" effect="plain">{{
                 t(
-                  `tenantExperience.status.${statusKey(row.status)}`,
+                  `siteExperience.status.${statusKey(row.status)}`,
                   row.status,
                 )
               }}</el-tag></template
             ></el-table-column
           ><el-table-column
-            :label="t('tenantExperience.fields.time')"
+            :label="t('siteExperience.fields.time')"
             width="175"
             ><template #default="{ row }">{{
               formatBackendTime(row.occurredAt)
@@ -529,44 +529,44 @@ onMounted(async () => {
         <template v-else-if="isOrders"
           ><el-table-column
             prop="orderNo"
-            :label="t('tenantExperience.support.orderNumber')"
+            :label="t('siteExperience.support.orderNumber')"
             min-width="190" /><el-table-column
             prop="externalOrderNo"
-            :label="t('tenantExperience.support.upstreamNumber')"
+            :label="t('siteExperience.support.upstreamNumber')"
             min-width="190" /><el-table-column
             prop="playerNo"
-            :label="t('tenantExperience.support.playerNumber')"
+            :label="t('siteExperience.support.playerNumber')"
             min-width="150" /><el-table-column
-            :label="t('tenantExperience.fields.type')"
+            :label="t('siteExperience.fields.type')"
             width="135"
             ><template #default="{ row }">{{
               t(
-                `tenantExperience.orderTypes.${statusKey(row.orderType)}`,
+                `siteExperience.orderTypes.${statusKey(row.orderType)}`,
                 row.orderType,
               )
             }}</template></el-table-column
           ><el-table-column
             prop="providerCode"
-            :label="t('tenantExperience.fields.provider')"
+            :label="t('siteExperience.fields.provider')"
             width="130" /><el-table-column
             prop="amount"
-            :label="t('tenantExperience.fields.amount')"
+            :label="t('siteExperience.fields.amount')"
             width="120" /><el-table-column
             prop="currency"
-            :label="t('tenantExperience.fields.currency')"
+            :label="t('siteExperience.fields.currency')"
             width="90" /><el-table-column
-            :label="t('tenantExperience.fields.status')"
+            :label="t('siteExperience.fields.status')"
             width="125"
             ><template #default="{ row }"
               ><el-tag :type="statusType(row.status)" effect="plain">{{
                 t(
-                  `tenantExperience.status.${statusKey(row.status)}`,
+                  `siteExperience.status.${statusKey(row.status)}`,
                   row.status,
                 )
               }}</el-tag></template
             ></el-table-column
           ><el-table-column
-            :label="t('tenantExperience.fields.createdTime')"
+            :label="t('siteExperience.fields.createdTime')"
             width="175"
             ><template #default="{ row }">{{
               formatBackendTime(row.createdAt)
@@ -581,40 +581,40 @@ onMounted(async () => {
         <template v-else-if="isCases"
           ><el-table-column
             prop="case_no"
-            :label="t('tenantExperience.support.caseNumber')"
+            :label="t('siteExperience.support.caseNumber')"
             min-width="175" /><el-table-column
             prop="title"
-            :label="t('tenantExperience.fields.title')"
+            :label="t('siteExperience.fields.title')"
             min-width="200" /><el-table-column
             prop="playerNo"
-            :label="t('tenantExperience.support.playerNumber')"
+            :label="t('siteExperience.support.playerNumber')"
             min-width="150" /><el-table-column
-            :label="t('tenantExperience.fields.priority')"
+            :label="t('siteExperience.fields.priority')"
             width="110"
             ><template #default="{ row }"
               ><el-tag :type="statusType(row.priority)" effect="plain">{{
                 t(
-                  `tenantExperience.priority.${statusKey(row.priority)}`,
+                  `siteExperience.priority.${statusKey(row.priority)}`,
                   row.priority,
                 )
               }}</el-tag></template
             ></el-table-column
           ><el-table-column
-            :label="t('tenantExperience.fields.status')"
+            :label="t('siteExperience.fields.status')"
             width="140"
             ><template #default="{ row }"
               ><el-tag :type="statusType(row.status)" effect="plain">{{
                 t(
-                  `tenantExperience.status.${statusKey(row.status)}`,
+                  `siteExperience.status.${statusKey(row.status)}`,
                   row.status,
                 )
               }}</el-tag></template
             ></el-table-column
           ><el-table-column
             prop="assignedAdminUsername"
-            :label="t('tenantExperience.fields.assignee')"
+            :label="t('siteExperience.fields.assignee')"
             width="140" /><el-table-column
-            :label="t('tenantExperience.fields.updatedTime')"
+            :label="t('siteExperience.fields.updatedTime')"
             width="175"
             ><template #default="{ row }">{{
               formatBackendTime(row.updated_at || row.updatedAt)
@@ -629,26 +629,26 @@ onMounted(async () => {
         <template v-else
           ><el-table-column
             prop="taskNo"
-            :label="t('tenantExperience.support.exportNumber')"
+            :label="t('siteExperience.support.exportNumber')"
             min-width="210" /><el-table-column
             prop="exportType"
-            :label="t('tenantExperience.fields.type')"
+            :label="t('siteExperience.fields.type')"
             min-width="150" /><el-table-column
             prop="rowCount"
-            :label="t('tenantExperience.fields.records')"
+            :label="t('siteExperience.fields.records')"
             width="110" /><el-table-column
-            :label="t('tenantExperience.fields.status')"
+            :label="t('siteExperience.fields.status')"
             width="125"
             ><template #default="{ row }"
               ><el-tag :type="statusType(row.status)" effect="plain">{{
                 t(
-                  `tenantExperience.status.${statusKey(row.status)}`,
+                  `siteExperience.status.${statusKey(row.status)}`,
                   row.status,
                 )
               }}</el-tag></template
             ></el-table-column
           ><el-table-column
-            :label="t('tenantExperience.fields.createdTime')"
+            :label="t('siteExperience.fields.createdTime')"
             width="175"
             ><template #default="{ row }">{{
               formatBackendTime(row.createdAt)
@@ -667,7 +667,7 @@ onMounted(async () => {
               v-if="isPlayerSearch || isOrders"
               type="primary"
               @click="reset"
-              >{{ t("tenantExperience.common.clearFilters") }}</el-button
+              >{{ t("siteExperience.common.clearFilters") }}</el-button
             ></el-empty
           ></template
         > </el-table
@@ -690,7 +690,7 @@ onMounted(async () => {
         <section v-if="overviewEntries.length" class="detail-grid">
           <div v-for="[key, value] in overviewEntries" :key="key">
             <span>{{
-              t(`tenantExperience.detailKeys.${key}`, humanizeBusinessKey(key))
+              t(`siteExperience.detailKeys.${key}`, humanizeBusinessKey(key))
             }}</span
             ><strong>{{ valueText(value) }}</strong>
           </div>
@@ -700,7 +700,7 @@ onMounted(async () => {
             v-for="[key, value] in detailTabs"
             :key="key"
             :label="
-              t(`tenantExperience.detailTabs.${key}`, humanizeBusinessKey(key))
+              t(`siteExperience.detailTabs.${key}`, humanizeBusinessKey(key))
             "
             ><el-table
               v-if="Array.isArray(value)"
@@ -712,7 +712,7 @@ onMounted(async () => {
                 :prop="column"
                 :label="
                   t(
-                    `tenantExperience.detailKeys.${column}`,
+                    `siteExperience.detailKeys.${column}`,
                     humanizeBusinessKey(column),
                   )
                 "
@@ -723,7 +723,7 @@ onMounted(async () => {
               <div v-for="[field, item] in businessEntries(value)" :key="field">
                 <span>{{
                   t(
-                    `tenantExperience.detailKeys.${field}`,
+                    `siteExperience.detailKeys.${field}`,
                     humanizeBusinessKey(field),
                   )
                 }}</span
@@ -737,15 +737,15 @@ onMounted(async () => {
 
     <el-dialog
       v-model="createVisible"
-      :title="t('tenantExperience.support.createCase')"
+      :title="t('siteExperience.support.createCase')"
       width="min(640px,94vw)"
       destroy-on-close
       ><el-form label-position="top"
-        ><el-form-item :label="t('tenantExperience.support.playerNumber')"
+        ><el-form-item :label="t('siteExperience.support.playerNumber')"
           ><el-input v-model="caseForm.playerNo" /></el-form-item
         ><el-row :gutter="14"
           ><el-col :span="12"
-            ><el-form-item :label="t('tenantExperience.fields.category')"
+            ><el-form-item :label="t('siteExperience.fields.category')"
               ><el-select v-model="caseForm.category"
                 ><el-option
                   v-for="item in [
@@ -759,26 +759,26 @@ onMounted(async () => {
                     'OTHER',
                   ]"
                   :key="item"
-                  :label="t(`tenantExperience.caseCategories.${item}`)"
+                  :label="t(`siteExperience.caseCategories.${item}`)"
                   :value="item" /></el-select></el-form-item></el-col
           ><el-col :span="12"
-            ><el-form-item :label="t('tenantExperience.fields.priority')"
+            ><el-form-item :label="t('siteExperience.fields.priority')"
               ><el-select v-model="caseForm.priority"
                 ><el-option
                   v-for="item in ['LOW', 'NORMAL', 'HIGH', 'URGENT']"
                   :key="item"
-                  :label="t(`tenantExperience.priority.${item}`)"
+                  :label="t(`siteExperience.priority.${item}`)"
                   :value="item" /></el-select></el-form-item></el-col></el-row
-        ><el-form-item :label="t('tenantExperience.fields.title')" required
+        ><el-form-item :label="t('siteExperience.fields.title')" required
           ><el-input v-model="caseForm.title" /></el-form-item
         ><el-form-item
-          :label="t('tenantExperience.fields.description')"
+          :label="t('siteExperience.fields.description')"
           required
           ><el-input
             v-model="caseForm.description"
             type="textarea"
             :rows="4" /></el-form-item
-        ><el-form-item :label="t('tenantExperience.fields.reason')" required
+        ><el-form-item :label="t('siteExperience.fields.reason')" required
           ><el-input
             v-model="caseForm.reason"
             type="textarea" /></el-form-item></el-form
@@ -787,7 +787,7 @@ onMounted(async () => {
           t("common.cancel")
         }}</el-button
         ><el-button type="primary" @click="createCase">{{
-          t("tenantExperience.support.createCase")
+          t("siteExperience.support.createCase")
         }}</el-button></template
       ></el-dialog
     >

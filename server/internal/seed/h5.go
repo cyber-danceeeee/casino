@@ -224,7 +224,7 @@ func seedDepositConfig(db *gorm.DB) error {
 		{MethodID: methodIDByCode["easypaisa"], ChannelCode: "tarspay-ep", Name: "tarspay ep", CountryCode: "PK", CurrencyCode: "PKR", FeeRate: money("0"), MinAmount: money("100"), MaxAmount: money("50000"), Sort: 1, Status: 1},
 		{MethodID: methodIDByCode["easypaisa"], ChannelCode: "sodapay-ep", Name: "sodapay ep", CountryCode: "PK", CurrencyCode: "PKR", FeeRate: money("0"), MinAmount: money("100"), MaxAmount: money("50000"), Sort: 2, Status: 1},
 	}
-	if err := upsert(db, &channels, []string{"tenant_id", "site_id", "country_code", "currency_code", "channel_code"}, []string{"method_id", "name", "fee_rate", "min_amount", "max_amount", "sort", "status"}); err != nil {
+	if err := upsert(db, &channels, []string{"site_id", "country_code", "currency_code", "channel_code"}, []string{"method_id", "name", "fee_rate", "min_amount", "max_amount", "sort", "status"}); err != nil {
 		return err
 	}
 	if err := db.Model(&model.GamePaymentChannels{}).

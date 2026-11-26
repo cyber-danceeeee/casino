@@ -40,7 +40,6 @@ func (r ProviderCallbackRequest) QueryValue(key string) string {
 }
 
 type WalletCommand struct {
-	TenantID              uint64
 	SiteID                uint64
 	ProviderCode          string
 	Operation             WalletOperation

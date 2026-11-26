@@ -181,7 +181,6 @@ const router = createRouter({
     { path: "/login", name: "admin-login", component: () => import("@/views/auth/AdminLogin.vue"),
       meta: { title: "Administrator Login", i18nKey: "auth.loginTitle", public: true } },
     { path: "/platform/login", redirect: "/login" },
-    { path: "/tenant/login", redirect: "/login" },
     { path: "/system/sites", redirect: "/system/brand" },
     {
       path: "/",
@@ -222,7 +221,7 @@ const router = createRouter({
 		  path: "players/:playerNo",
 		  name: "player-business-detail",
 		  component: () => import("@/views/operations/SupportCenterPage.vue"),
-		  meta: { title: "Player Detail", i18nKey: "tenantExperience.support.playerDetail", moduleKey: "support-player-search", navigationPath: "/support/players" },
+		  meta: { title: "Player Detail", i18nKey: "siteExperience.support.playerDetail", moduleKey: "support-player-search", navigationPath: "/support/players" },
 		},
         ...moduleRoutes,
       ],

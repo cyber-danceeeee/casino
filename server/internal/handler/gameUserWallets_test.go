@@ -103,7 +103,7 @@ func Test_gameUserWalletsHandler_Create(t *testing.T) {
 	}
 
 	t.Logf("%+v", result)
-	
+
 }
 
 func Test_gameUserWalletsHandler_DeleteByID(t *testing.T) {

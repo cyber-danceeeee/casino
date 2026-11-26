@@ -24,7 +24,6 @@ import (
 	"casino/docs"
 	"casino/internal/config"
 	"casino/internal/handler"
-	"casino/internal/singlesite"
 	"casino/internal/storage"
 )
 
@@ -51,13 +50,6 @@ func NewRouter() *gin.Engine {
 	}
 
 	r.Use(gin.Recovery())
-	r.Use(func(c *gin.Context) {
-		if singlesite.Active() && (singlesite.SaaSPath(c.Request.URL.Path) || (c.Request.Method == "POST" && strings.HasSuffix(c.Request.URL.Path, "/admin/system/sites")) || (c.Request.Method == "DELETE" && strings.Contains(c.Request.URL.Path, "/admin/system/sites/"))) {
-			c.AbortWithStatus(http.StatusNotFound)
-			return
-		}
-		c.Next()
-	})
 	r.Use(middleware.Cors())
 
 	if config.Get().HTTP.Timeout > 0 {
@@ -142,7 +134,6 @@ func NewRouter() *gin.Engine {
 	// register routers, middleware support
 	r.Use(generatedCRUDGuard("/api/v1"))
 	registerRouters(r, "/api/v1", apiV1RouterFns)
-	registerWhiteLabelStaticRoutes(r)
 	// if you have other group routes you can add them here
 	// example:
 	//    registerRouters(r, "/api/v2", apiV2RouteFns, middleware.Auth())
@@ -171,64 +162,6 @@ func registerStaticAssetRoutes(r *gin.Engine) {
 	}
 	r.GET("/static/*filepath", handler)
 	r.HEAD("/static/*filepath", handler)
-}
-
-func registerWhiteLabelStaticRoutes(r *gin.Engine) {
-	r.GET("/wl-test/h5", serveWhiteLabelH5)
-	r.HEAD("/wl-test/h5", serveWhiteLabelH5)
-	r.GET("/wl-test/h5/*filepath", serveWhiteLabelH5)
-	r.HEAD("/wl-test/h5/*filepath", serveWhiteLabelH5)
-	r.GET("/wl-test/admin", serveWhiteLabelAdmin)
-	r.HEAD("/wl-test/admin", serveWhiteLabelAdmin)
-	r.GET("/wl-test/admin/*filepath", serveWhiteLabelAdmin)
-	r.HEAD("/wl-test/admin/*filepath", serveWhiteLabelAdmin)
-	if config.Get().App.Env != "prod" {
-		r.GET("/", serveWhiteLabelH5)
-		r.HEAD("/", serveWhiteLabelH5)
-		r.GET("/admin", serveWhiteLabelAdmin)
-		r.HEAD("/admin", serveWhiteLabelAdmin)
-		r.GET("/admin/*filepath", serveWhiteLabelAdmin)
-		r.HEAD("/admin/*filepath", serveWhiteLabelAdmin)
-	}
-	r.NoRoute(func(c *gin.Context) {
-		if shouldServeWhiteLabelShell(c) {
-			if strings.HasPrefix(c.Request.URL.Path, "/wl-test/admin") || (config.Get().App.Env != "prod" && strings.HasPrefix(c.Request.URL.Path, "/admin")) {
-				serveWhiteLabelAdmin(c)
-				return
-			}
-			serveWhiteLabelH5(c)
-			return
-		}
-		c.Status(http.StatusNotFound)
-	})
-}
-
-func shouldServeWhiteLabelShell(c *gin.Context) bool {
-	if c.Request.Method != http.MethodGet && c.Request.Method != http.MethodHead {
-		return false
-	}
-	path := c.Request.URL.Path
-	if strings.HasPrefix(path, "/api/") || strings.HasPrefix(path, "/static/") ||
-		path == "/health" || strings.HasPrefix(path, "/health/") || path == "/ping" || path == "/codes" || path == "/metrics" ||
-		strings.HasPrefix(path, "/swagger/") {
-		return false
-	}
-	if strings.HasPrefix(path, "/wl-test/h5") || strings.HasPrefix(path, "/wl-test/admin") {
-		return true
-	}
-	if config.Get().App.Env == "prod" {
-		return false
-	}
-	accept := c.GetHeader("Accept")
-	return accept == "" || strings.Contains(accept, "text/html") || strings.Contains(accept, "*/*")
-}
-
-func serveWhiteLabelH5(c *gin.Context) {
-	c.File(filepath.Join(config.StaticDir(), "wl", "h5", "index.html"))
-}
-
-func serveWhiteLabelAdmin(c *gin.Context) {
-	c.File(filepath.Join(config.StaticDir(), "wl", "admin", "index.html"))
 }
 
 func proxyStaticAsset(c *gin.Context, assetRef string) {

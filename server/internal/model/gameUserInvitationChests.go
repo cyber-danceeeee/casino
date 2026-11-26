@@ -1,8 +1,9 @@
 package model
 
 import (
-	"github.com/go-dev-frame/sponge/pkg/sgorm"
 	"time"
+
+	"github.com/go-dev-frame/sponge/pkg/sgorm"
 )
 
 // GameUserInvitationChests Member invitation chests
@@ -28,5 +29,3 @@ var GameUserInvitationChestsColumnNames = map[string]bool{
 	"status":           true,
 	"opened_at":        true,
 }
-
-

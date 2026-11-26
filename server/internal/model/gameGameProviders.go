@@ -8,7 +8,6 @@ import (
 type GameGameProviders struct {
 	sgorm.Model `gorm:"embedded"` // embed id and time
 
-	TenantID            uint64 `gorm:"column:tenant_id;type:bigint(20) unsigned;default:0;not null" json:"tenantID"`
 	SiteID              uint64 `gorm:"column:site_id;type:bigint(20) unsigned;default:0;not null" json:"siteID"`
 	ProviderCode        string `gorm:"column:provider_code;type:varchar(64);not null" json:"providerCode"`
 	Name                string `gorm:"column:name;type:varchar(128);not null" json:"name"`
@@ -27,11 +26,11 @@ type GameGameProviders struct {
 
 // GameGameProvidersColumnNames Whitelist for custom query fields to prevent sql injection attacks
 var GameGameProvidersColumnNames = map[string]bool{
-	"id":                   true,
-	"created_at":           true,
-	"updated_at":           true,
-	"deleted_at":           true,
-	"tenant_id":            true,
+	"id":         true,
+	"created_at": true,
+	"updated_at": true,
+	"deleted_at": true,
+
 	"site_id":              true,
 	"provider_code":        true,
 	"name":                 true,

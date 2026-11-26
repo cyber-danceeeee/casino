@@ -7,7 +7,7 @@ import (
 // gameGameLaunchLogs business-level http error codes.
 // the gameGameLaunchLogsNO value range is 1~999, if the same error code is used, it will cause panic.
 var (
-	gameGameLaunchLogsNO = 18
+	gameGameLaunchLogsNO       = 18
 	gameGameLaunchLogsName     = "gameGameLaunchLogs"
 	gameGameLaunchLogsBaseCode = errcode.HCode(gameGameLaunchLogsNO)
 

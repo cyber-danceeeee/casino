@@ -1,7 +1,6 @@
 package systemadmin
 
 import (
-	"casino/internal/singlesite"
 	"strings"
 	"time"
 
@@ -121,13 +120,6 @@ var adminMenuCatalog = []menuCatalogGroup{
 		{Code: "backup-center", NameZh: "备份中心", NameEn: "Backup Center", Path: "/ops/backups"},
 	}},
 	{Code: "system", NameZh: "系统管理", NameEn: "System Management", Sort: 900, Children: []menuCatalogItem{
-		{Code: "tenants", NameZh: "租户管理", NameEn: "Tenant Management", Path: "/system/tenants"},
-		{Code: "create-brand", NameZh: "创建品牌", NameEn: "Create Brand", Path: "/platform/tenants/create"},
-		{Code: "brand-deliveries", NameZh: "品牌交付记录", NameEn: "Brand Deliveries", Path: "/platform/tenants/deliveries"},
-		{Code: "sites", NameZh: "站点管理", NameEn: "Site Management", Path: "/system/sites"},
-		{Code: "tenant-domains", NameZh: "域名管理", NameEn: "Domain Management", Path: "/platform/tenants/domains"},
-		{Code: "tenant-packages", NameZh: "租户套餐", NameEn: "Tenant Packages", Path: "/platform/tenants/packages"},
-		{Code: "tenant-audit", NameZh: "租户审计", NameEn: "Tenant Audit", Path: "/platform/tenants/audit"},
 		{Code: "brand-config", NameZh: "品牌配置", NameEn: "Brand Config", Path: "/system/brand"},
 		{Code: "system-admins", NameZh: "管理员管理", NameEn: "Administrator Management", Path: "/system/admins"},
 		{Code: "system-roles", NameZh: "角色管理", NameEn: "Role Management", Path: "/system/roles"},
@@ -175,7 +167,7 @@ var defaultAdminMenuIcons = map[string]string{
 	"payment-monitor": "CreditCard", "provider-monitor": "Odometer", "maintenance-center": "Warning",
 	"release-center": "UploadFilled", "system-health": "FirstAidKit", "jobs-retries": "Timer",
 	"alert-center": "Bell", "backup-center": "FolderOpened",
-	"system": "Setting", "tenants": "OfficeBuilding", "brand-deliveries": "Tickets", "tenant-domains": "Link", "tenant-packages": "Box", "tenant-audit": "DocumentChecked", "sites": "Platform", "brand-config": "Brush", "system-admins": "UserFilled", "system-roles": "Avatar",
+	"system": "Setting", "brand-config": "Brush", "system-admins": "UserFilled", "system-roles": "Avatar",
 	"system-permissions": "Key", "system-departments": "OfficeBuilding", "system-menus": "Menu",
 	"system-configs": "SetUp", "system-countries": "Position", "system-audit-logs": "DocumentChecked",
 	"system-login-logs": "Clock", "system-tasks": "Timer", "system-monitoring": "Odometer",
@@ -232,12 +224,7 @@ func (s *Service) EnsureMenuCatalog() error {
 		if err := ensureDefaultMenuIcons(tx, current); err != nil {
 			return err
 		}
-		return tx.Exec(`
-			INSERT INTO game_admin_role_menus (role_id, menu_id, created_at, updated_at, deleted_at)
-			SELECT r.id, m.id, NOW(3), NOW(3), NULL
-			FROM game_admin_roles r CROSS JOIN game_admin_menus m
-			WHERE r.code='super-admin' AND r.deleted_at IS NULL AND m.deleted_at IS NULL
-			ON DUPLICATE KEY UPDATE deleted_at=NULL, updated_at=VALUES(updated_at)`).Error
+		return tx.Exec("INSERT INTO game_admin_role_menus (role_id, menu_id, created_at, updated_at, deleted_at) SELECT r.id, m.id, NOW(3), NOW(3), NULL FROM game_admin_roles AS r CROSS JOIN game_admin_menus AS m WHERE r.code = 'super-admin' AND r.deleted_at IS NULL AND m.deleted_at IS NULL ON DUPLICATE KEY UPDATE deleted_at = NULL, updated_at = VALUES(updated_at)").Error
 	})
 }
 
@@ -341,75 +328,10 @@ func menuIconCodes() []string {
 	return codes
 }
 
-var platformOnlyMenuCodes = map[string]bool{
-	"tenants": true, "create-brand": true, "brand-deliveries": true, "tenant-domains": true,
-	"tenant-packages": true, "tenant-audit": true, "game-sync": true, "provider-callback-logs": true,
-	"provider-reconciliation": true, "provider-report": true, "system-admins": true,
-	"system-roles": true, "system-permissions": true, "system-departments": true,
-	"system-menus": true, "system-configs": true, "system-countries": true,
-	"system-tasks": true, "system-monitoring": true,
-	"system-health": true, "jobs-retries": true, "alert-center": true, "backup-center": true,
-}
-
-var tenantOnlyMenuCodes = map[string]bool{
-	"user-list": true, "login-records": true, "device-management": true, "risk-users": true,
-	"wallet-accounts": true, "wallet-ledgers": true, "manual-adjustments": true,
-	"deposit-orders": true, "withdrawal-orders": true, "financial-reconciliation": true,
-	"deposit-methods": true, "deposit-channels": true, "deposit-amount-options": true,
-	"lobby-sections": true, "game-launch-records": true, "bet-records": true,
-	"rollback-records": true, "abnormal-bets": true, "banners": true, "announcements": true,
-	"activities": true, "vip": true, "push-messages": true, "popups": true, "music": true,
-	"social-links": true, "h5-navigation": true, "vouchers": true, "risk-dashboard": true,
-	"risk-rules": true, "risk-events": true, "review-queue": true, "user-associations": true,
-	"blacklist": true, "withdrawal-risk": true, "risk-operation-logs": true, "agent-list": true,
-	"agent-hierarchy": true, "channel-management": true, "commission-plans": true,
-	"commission-records": true, "agent-settlements": true, "agent-wallets": true,
-	"agent-operation-logs": true, "financial-report": true, "game-report": true,
-	"user-report": true, "channel-report": true, "agent-report": true, "promotion-report": true,
-	"brand-config": true,
-}
-
-func menuAllowedForPortal(code string, platform bool) bool {
-	if platform {
-		return !tenantOnlyMenuCodes[code]
-	}
-	return !platformOnlyMenuCodes[code]
-}
-
-func filterNavigationPortal(rows []NavigationRow, platform bool) []NavigationRow {
-	allowedIDs := map[uint64]bool{}
-	for _, row := range rows {
-		if row.RoutePath != "" && menuAllowedForPortal(row.Code, platform) {
-			allowedIDs[row.ID] = true
-			if row.ParentID != nil {
-				allowedIDs[*row.ParentID] = true
-			}
-		}
-	}
-	filtered := make([]NavigationRow, 0, len(rows))
-	for _, row := range rows {
-		if allowedIDs[row.ID] {
-			filtered = append(filtered, row)
-		}
-	}
-	return filtered
-}
-
 func (s *Service) Navigation(actor Actor, superAdmin bool) (map[string]any, error) {
 	rows := []NavigationRow{}
 	if err := s.db.Table("game_admin_menus").Select("id,parent_id,code,route_path,icon").Where("enabled=1 AND visible=1 AND deleted_at IS NULL").Order("sort_order,id").Find(&rows).Error; err != nil {
 		return nil, err
-	}
-	if singlesite.Active() {
-		filtered := make([]NavigationRow, 0, len(rows))
-		for _, row := range rows {
-			if singleSiteMenuAllowed(row.Code, row.RoutePath) {
-				filtered = append(filtered, row)
-			}
-		}
-		rows = filtered
-	} else {
-		rows = filterNavigationPortal(rows, actor.Platform)
 	}
 	if superAdmin {
 		return map[string]any{"list": rows}, nil
@@ -437,12 +359,4 @@ func (s *Service) Navigation(actor Actor, superAdmin bool) (map[string]any, erro
 		}
 	}
 	return map[string]any{"list": filtered}, nil
-}
-
-func singleSiteMenuAllowed(code, path string) bool {
-	switch code {
-	case "tenants", "sites", "create-brand", "brand-deliveries", "tenant-domains", "tenant-packages", "tenant-audit", "platform-dashboard":
-		return false
-	}
-	return !strings.HasPrefix(path, "/platform/") && path != "/system/tenants" && path != "/system/sites" && !strings.Contains(path, "/tenant-")
 }

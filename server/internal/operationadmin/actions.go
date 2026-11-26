@@ -10,11 +10,11 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"casino/internal/content"
 	"casino/internal/model"
 	"casino/internal/notificationaudience"
 	"casino/internal/notificationchannel"
 	"casino/internal/operationdefaults"
-	"casino/internal/tenancy"
 )
 
 type bonusRow struct {
@@ -76,10 +76,10 @@ func (s *Service) GetBonus(id uint64) (map[string]any, error) {
 	if row.PromotionID > 0 {
 		_ = s.db.First(&source, row.PromotionID).Error
 	}
-	logs, _ := s.operationLogs("bonus", id, tenancy.Scope{})
+	logs, _ := s.operationLogs("bonus", id, content.Scope{})
 	return map[string]any{"overview": row, "wageringProgress": map[string]any{"currentWagering": row.CurrentWagering, "requiredWagering": row.RequiredValidBet, "remainingWagering": row.RemainingWagering, "withdrawableAmount": row.WithdrawableAmount}, "relatedBets": bets, "rewardSource": source, "statusHistory": history, "operationLogs": logs}, nil
 }
-func (s *Service) TransitionBonus(id uint64, target, permission, reason string, actor Actor) error {
+func (s *Service) TransitionBonus(id uint64, target string, permission string, reason string, actor Actor) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		var row bonusRow
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id=? AND deleted_at IS NULL", id).First(&row).Error; err != nil {
@@ -166,19 +166,19 @@ func (s *Service) changeBonusWallet(tx *gorm.DB, row bonusRow, credit bool, acto
 
 func (s *Service) ListVIPLevels(q ListQuery) (PageResult, error) {
 	var rows []vipRecord
-	db := tenancy.ApplySite(s.db.Model(&vipRecord{}), "", q.Scope).Where("deleted_at IS NULL")
+	db := content.ApplySite(s.db.Model(&vipRecord{}), "", q.Scope).Where("deleted_at IS NULL")
 	db = equal(db, "level_no", q.Values["level"])
 	db = contains(db, "code", q.Values["code"])
-	if !q.Scope.TenantScoped() {
+	if !q.Scope.SiteScoped() {
 		db = boolFilter(db, "enabled", q.Values["enabled"])
 	}
-	if !q.Scope.TenantScoped() {
+	if !q.Scope.SiteScoped() {
 		result, err := page(db.Order("sort_order,level_no"), q, &rows)
 		if err != nil {
 			return result, err
 		}
 		for i := range rows {
-			tenancy.ApplySite(s.db.Table("game_users"), "", q.Scope).Where("vip_level=? AND deleted_at IS NULL", rows[i].LevelNo).Count(&rows[i].UserCount)
+			content.ApplySite(s.db.Table("game_users"), "", q.Scope).Where("vip_level=? AND deleted_at IS NULL", rows[i].LevelNo).Count(&rows[i].UserCount)
 			signVIPAssets(&rows[i])
 		}
 		result.List = rows
@@ -191,7 +191,7 @@ func (s *Service) ListVIPLevels(q ListQuery) (PageResult, error) {
 	}
 	for i := range rows {
 		rows[i].Metadata = operationdefaults.Metadata{CanEdit: true, CanDelete: true, Visible: rows[i].Enabled}
-		tenancy.ApplySite(s.db.Table("game_users"), "", q.Scope).Where("vip_level=? AND deleted_at IS NULL", rows[i].LevelNo).Count(&rows[i].UserCount)
+		content.ApplySite(s.db.Table("game_users"), "", q.Scope).Where("vip_level=? AND deleted_at IS NULL", rows[i].LevelNo).Count(&rows[i].UserCount)
 		signVIPAssets(&rows[i])
 	}
 	result.List = rows
@@ -209,15 +209,11 @@ func (s *Service) ListVIPUsers(q ListQuery) (PageResult, error) {
 	}
 	vipJoin := "LEFT JOIN game_vip_levels v ON v.level_no=u.vip_level AND v.deleted_at IS NULL"
 	vipJoinArgs := []any{}
-	if q.Scope.TenantScoped() {
-		vipJoin += " AND v.tenant_id = ?"
-		vipJoinArgs = append(vipJoinArgs, q.Scope.TenantID)
-	}
 	if q.Scope.SiteScoped() {
 		vipJoin += " AND v.site_id IN (0, ?)"
 		vipJoinArgs = append(vipJoinArgs, q.Scope.SiteID)
 	}
-	db := tenancy.ApplySite(s.db.Table("game_users u"), "u", q.Scope).
+	db := content.ApplySite(s.db.Table("game_users u"), "u", q.Scope).
 		Select("u.id,u.user_no,u.username,u.vip_level,COALESCE(v.name_en,v.name,'') level_name,u.updated_at").
 		Joins(vipJoin, vipJoinArgs...).
 		Where("u.deleted_at IS NULL")
@@ -227,9 +223,9 @@ func (s *Service) ListVIPUsers(q ListQuery) (PageResult, error) {
 	db = equal(db, "u.vip_level", q.Values["level"])
 	return page(db.Order("u.id DESC"), q, &rows)
 }
-func (s *Service) GetVIPLevel(id uint64, scope tenancy.Scope) (map[string]any, error) {
+func (s *Service) GetVIPLevel(id uint64, scope content.Scope) (map[string]any, error) {
 	var row vipRecord
-	if err := tenancy.ApplySite(s.db.Model(&vipRecord{}), "", scope).Where("id=? AND deleted_at IS NULL", id).First(&row).Error; err != nil {
+	if err := content.ApplySite(s.db.Model(&vipRecord{}), "", scope).Where("id=? AND deleted_at IS NULL", id).First(&row).Error; err != nil {
 		return nil, notFound(err, "VIP_LEVEL_NOT_FOUND")
 	}
 	row.Metadata = operationdefaults.Metadata{CanEdit: true, CanDelete: true, Visible: row.Enabled}
@@ -237,9 +233,9 @@ func (s *Service) GetVIPLevel(id uint64, scope tenancy.Scope) (map[string]any, e
 	var benefits []model.GameVIPBenefit
 	var users []map[string]any
 	var adjustments []model.GameVIPAdjustmentLog
-	tenancy.ApplySite(s.db.Model(&model.GameVIPBenefit{}), "", scope).Where("vip_level_id=? AND deleted_at IS NULL", id).Order("sort_order,id").Find(&benefits)
-	tenancy.ApplySite(s.db.Table("game_users"), "", scope).Select("id,user_no,username,vip_level,updated_at").Where("vip_level=? AND deleted_at IS NULL", row.LevelNo).Limit(100).Scan(&users)
-	tenancy.ApplySite(s.db.Model(&model.GameVIPAdjustmentLog{}), "", scope).Where("before_level=? OR after_level=?", row.LevelNo, row.LevelNo).Order("id DESC").Limit(100).Find(&adjustments)
+	content.ApplySite(s.db.Model(&model.GameVIPBenefit{}), "", scope).Where("vip_level_id=? AND deleted_at IS NULL", id).Order("sort_order,id").Find(&benefits)
+	content.ApplySite(s.db.Table("game_users"), "", scope).Select("id,user_no,username,vip_level,updated_at").Where("vip_level=? AND deleted_at IS NULL", row.LevelNo).Limit(100).Scan(&users)
+	content.ApplySite(s.db.Model(&model.GameVIPAdjustmentLog{}), "", scope).Where("before_level=? OR after_level=?", row.LevelNo, row.LevelNo).Order("id DESC").Limit(100).Find(&adjustments)
 	logs, _ := s.operationLogs("vip_level", id, scope)
 	return map[string]any{"overview": row, "benefits": benefits, "users": users, "adjustmentLogs": adjustments, "operationLogs": logs}, nil
 }
@@ -273,7 +269,7 @@ func (s *Service) SaveVIPLevel(id uint64, in VIPLevelInput, actor Actor) (uint64
 		var before vipRecord
 		action := "create"
 		if id > 0 {
-			if err := tenancy.ApplySite(tx.Model(&vipRecord{}), "", actor.Scope).Where("id=? AND deleted_at IS NULL", id).First(&before).Error; err != nil {
+			if err := content.ApplySite(tx.Model(&vipRecord{}), "", actor.Scope).Where("id=? AND deleted_at IS NULL", id).First(&before).Error; err != nil {
 				return notFound(err, "VIP_LEVEL_NOT_FOUND")
 			}
 			action = "update"
@@ -307,13 +303,13 @@ func (s *Service) SaveVIPLevel(id uint64, in VIPLevelInput, actor Actor) (uint64
 		if name == "" {
 			name = nameZh
 		}
-		row := vipRecord{ID: id, TenantID: actor.Scope.TenantID, SiteID: actor.Scope.SiteID, LevelNo: in.Level, Code: strings.TrimSpace(in.Code), Name: name, NameZh: nameZh, NameEn: nameEn, IconURL: icon, RequiredExperience: in.RequiredExperience, RequiredDeposit: &requiredDeposit, RequiredValidBet: &requiredBet, WithdrawalLimit: &withdrawal, CashbackRate: &cashback, BirthdayReward: &birthday, MonthlyReward: &monthly, SortOrder: in.SortOrder, Status: operationStatus(in.Enabled), Enabled: in.Enabled}
+		row := vipRecord{ID: id, SiteID: actor.Scope.SiteID, LevelNo: in.Level, Code: strings.TrimSpace(in.Code), Name: name, NameZh: nameZh, NameEn: nameEn, IconURL: icon, RequiredExperience: in.RequiredExperience, RequiredDeposit: &requiredDeposit, RequiredValidBet: &requiredBet, WithdrawalLimit: &withdrawal, CashbackRate: &cashback, BirthdayReward: &birthday, MonthlyReward: &monthly, SortOrder: in.SortOrder, Status: operationStatus(in.Enabled), Enabled: in.Enabled}
 		if id == 0 {
 			if err := tx.Create(&row).Error; err != nil {
 				return err
 			}
 			id = row.ID
-		} else if err := tenancy.ApplySite(tx.Model(&vipRecord{}), "", actor.Scope).Where("id=?", id).Select(
+		} else if err := content.ApplySite(tx.Model(&vipRecord{}), "", actor.Scope).Where("id=?", id).Select(
 			"level_no", "code", "name", "name_zh", "name_en", "icon_url", "required_experience",
 			"required_deposit", "required_valid_bet", "withdrawal_limit", "cashback_rate",
 			"birthday_reward", "monthly_reward", "sort_order", "status", "enabled",
@@ -321,7 +317,7 @@ func (s *Service) SaveVIPLevel(id uint64, in VIPLevelInput, actor Actor) (uint64
 			return err
 		}
 		now := time.Now()
-		if err := tenancy.ApplySite(tx.Table("game_vip_benefits"), "", actor.Scope).Where("vip_level_id = ?", id).Updates(map[string]any{"deleted_at": now, "updated_at": now}).Error; err != nil {
+		if err := content.ApplySite(tx.Table("game_vip_benefits"), "", actor.Scope).Where("vip_level_id = ?", id).Updates(map[string]any{"deleted_at": now, "updated_at": now}).Error; err != nil {
 			return err
 		}
 		for _, b := range in.Benefits {
@@ -329,11 +325,11 @@ func (s *Service) SaveVIPLevel(id uint64, in VIPLevelInput, actor Actor) (uint64
 			if e != nil {
 				return e
 			}
-			if err := tx.Create(&model.GameVIPBenefit{TenantID: actor.Scope.TenantID, SiteID: actor.Scope.SiteID, VIPLevelID: id, BenefitCode: b.BenefitCode, NameZh: b.NameZh, NameEn: b.NameEn, BenefitValue: &v, ValueUnit: b.ValueUnit, Enabled: b.Enabled, SortOrder: b.SortOrder}).Error; err != nil {
+			if err := tx.Create(&model.GameVIPBenefit{SiteID: actor.Scope.SiteID, VIPLevelID: id, BenefitCode: b.BenefitCode, NameZh: b.NameZh, NameEn: b.NameEn, BenefitValue: &v, ValueUnit: b.ValueUnit, Enabled: b.Enabled, SortOrder: b.SortOrder}).Error; err != nil {
 				return err
 			}
 		}
-		if err := tenancy.ApplySite(tx.Model(&vipRecord{}), "", actor.Scope).Where("id=?", id).First(&row).Error; err != nil {
+		if err := content.ApplySite(tx.Model(&vipRecord{}), "", actor.Scope).Where("id=?", id).First(&row).Error; err != nil {
 			return err
 		}
 		return audit(tx, actor, "operation:vip:update", action, "vip_level", id, before, row, "")
@@ -343,26 +339,26 @@ func (s *Service) SaveVIPLevel(id uint64, in VIPLevelInput, actor Actor) (uint64
 func (s *Service) AdjustVIP(userID uint64, in VIPAdjustCommand, actor Actor) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		var user model.GameUsers
-		if err := tenancy.ApplySite(tx.Model(&model.GameUsers{}), "", actor.Scope).Clauses(clause.Locking{Strength: "UPDATE"}).Where("id=? AND deleted_at IS NULL", userID).First(&user).Error; err != nil {
+		if err := content.ApplySite(tx.Model(&model.GameUsers{}), "", actor.Scope).Clauses(clause.Locking{Strength: "UPDATE"}).Where("id=? AND deleted_at IS NULL", userID).First(&user).Error; err != nil {
 			return notFound(err, "USER_NOT_FOUND")
 		}
 		var level vipRecord
-		if err := tenancy.ApplySite(tx.Model(&vipRecord{}), "", actor.Scope).Where("level_no=? AND enabled=1 AND deleted_at IS NULL", in.Level).First(&level).Error; err != nil {
+		if err := content.ApplySite(tx.Model(&vipRecord{}), "", actor.Scope).Where("level_no=? AND enabled=1 AND deleted_at IS NULL", in.Level).First(&level).Error; err != nil {
 			return notFound(err, "VIP_LEVEL_NOT_FOUND")
 		}
 		if user.VipLevel == in.Level {
 			return nil
 		}
 		before := user.VipLevel
-		if err := tenancy.ApplySite(tx.Model(&model.GameUsers{}), "", actor.Scope).Where("id=?", userID).Update("vip_level", in.Level).Error; err != nil {
+		if err := content.ApplySite(tx.Model(&model.GameUsers{}), "", actor.Scope).Where("id=?", userID).Update("vip_level", in.Level).Error; err != nil {
 			return err
 		}
 		now := time.Now()
 		zero := decimal.Zero
-		if err := tx.Create(&model.GameUserVipLogs{TenantID: actor.Scope.TenantID, SiteID: actor.Scope.SiteID, UserID: userID, OldLevelNo: before, NewLevelNo: in.Level, Reason: "manual_adjustment", DepositAmount: &zero, ValidBetAmount: &zero, RewardAmount: &zero, ChangedAt: &now}).Error; err != nil {
+		if err := tx.Create(&model.GameUserVipLogs{SiteID: actor.Scope.SiteID, UserID: userID, OldLevelNo: before, NewLevelNo: in.Level, Reason: "manual_adjustment", DepositAmount: &zero, ValidBetAmount: &zero, RewardAmount: &zero, ChangedAt: &now}).Error; err != nil {
 			return err
 		}
-		if err := tx.Create(&model.GameVIPAdjustmentLog{TenantID: actor.Scope.TenantID, SiteID: actor.Scope.SiteID, UserID: userID, BeforeLevel: before, AfterLevel: in.Level, OperatorID: actor.ID, OperatorUsername: actor.Username, Reason: in.Reason}).Error; err != nil {
+		if err := tx.Create(&model.GameVIPAdjustmentLog{SiteID: actor.Scope.SiteID, UserID: userID, BeforeLevel: before, AfterLevel: in.Level, OperatorID: actor.ID, OperatorUsername: actor.Username, Reason: in.Reason}).Error; err != nil {
 			return err
 		}
 		return audit(tx, actor, "operation:vip:adjust", "adjust", "vip_user", userID, map[string]any{"level": before}, map[string]any{"level": in.Level}, in.Reason)
@@ -373,7 +369,7 @@ func (s *Service) AdjustVIPByNumber(playerNo string, in VIPAdjustCommand, actor 
 	var user struct {
 		ID uint64 `gorm:"column:id"`
 	}
-	if err := tenancy.ApplySite(s.db.Table("game_users"), "", actor.Scope).
+	if err := content.ApplySite(s.db.Table("game_users"), "", actor.Scope).
 		Select("id").
 		Where("user_no=? AND deleted_at IS NULL", strings.TrimSpace(playerNo)).
 		Take(&user).Error; err != nil {
@@ -384,7 +380,7 @@ func (s *Service) AdjustVIPByNumber(playerNo string, in VIPAdjustCommand, actor 
 
 func (s *Service) ListPromoCodes(q ListQuery) (PageResult, error) {
 	var rows []model.GamePromoCode
-	db := tenancy.ApplySite(s.db.Model(&model.GamePromoCode{}), "", q.Scope).Where("deleted_at IS NULL")
+	db := content.ApplySite(s.db.Model(&model.GamePromoCode{}), "", q.Scope).Where("deleted_at IS NULL")
 	db = contains(db, "code", q.Values["code"])
 	db = equal(db, "promotion_id", q.Values["promotionID"])
 	db = equal(db, "reward_type", q.Values["rewardType"])
@@ -394,27 +390,27 @@ func (s *Service) ListPromoCodes(q ListQuery) (PageResult, error) {
 	db = rangeFilter(db, "expires_at", q.Values["expirationFrom"], q.Values["expirationTo"])
 	return page(db.Order("id DESC"), q, &rows)
 }
-func (s *Service) GetPromoCode(id uint64, scope tenancy.Scope) (map[string]any, error) {
+func (s *Service) GetPromoCode(id uint64, scope content.Scope) (map[string]any, error) {
 	var row model.GamePromoCode
-	if err := tenancy.ApplySite(s.db.Model(&model.GamePromoCode{}), "", scope).Where("id=? AND deleted_at IS NULL", id).First(&row).Error; err != nil {
+	if err := content.ApplySite(s.db.Model(&model.GamePromoCode{}), "", scope).Where("id=? AND deleted_at IS NULL", id).First(&row).Error; err != nil {
 		return nil, notFound(err, "PROMO_CODE_NOT_FOUND")
 	}
 	var usage []model.GamePromoCodeRedemption
-	tenancy.ApplySite(s.db.Model(&model.GamePromoCodeRedemption{}), "", scope).Where("promo_code_id=? AND deleted_at IS NULL", id).Order("id DESC").Limit(200).Find(&usage)
+	content.ApplySite(s.db.Model(&model.GamePromoCodeRedemption{}), "", scope).Where("promo_code_id=? AND deleted_at IS NULL", id).Order("id DESC").Limit(200).Find(&usage)
 	logs, _ := s.operationLogs("promo_code", id, scope)
 	return map[string]any{"overview": row, "usageRecords": usage, "operationLogs": logs}, nil
 }
 
 func (s *Service) ListPromoCodeUsage(id uint64, q ListQuery) (PageResult, error) {
 	var codeCount int64
-	if err := tenancy.ApplySite(s.db.Model(&model.GamePromoCode{}), "", q.Scope).Where("id=? AND deleted_at IS NULL", id).Count(&codeCount).Error; err != nil {
+	if err := content.ApplySite(s.db.Model(&model.GamePromoCode{}), "", q.Scope).Where("id=? AND deleted_at IS NULL", id).Count(&codeCount).Error; err != nil {
 		return PageResult{}, err
 	}
 	if codeCount == 0 {
 		return PageResult{}, newError("PROMO_CODE_NOT_FOUND", "record not found")
 	}
 	var rows []model.GamePromoCodeRedemption
-	db := tenancy.ApplySite(s.db.Model(&model.GamePromoCodeRedemption{}), "", q.Scope).Where("promo_code_id=? AND deleted_at IS NULL", id)
+	db := content.ApplySite(s.db.Model(&model.GamePromoCodeRedemption{}), "", q.Scope).Where("promo_code_id=? AND deleted_at IS NULL", id)
 	return page(db.Order("id DESC"), q, &rows)
 }
 func (s *Service) SavePromoCode(id uint64, in PromoCodeInput, actor Actor) (uint64, error) {
@@ -432,26 +428,26 @@ func (s *Service) SavePromoCode(id uint64, in PromoCodeInput, actor Actor) (uint
 		permission := "operation:promo-code:create"
 		used := uint(0)
 		if id > 0 {
-			if err := tenancy.ApplySite(tx.Model(&model.GamePromoCode{}), "", actor.Scope).Where("id=? AND deleted_at IS NULL", id).First(&before).Error; err != nil {
+			if err := content.ApplySite(tx.Model(&model.GamePromoCode{}), "", actor.Scope).Where("id=? AND deleted_at IS NULL", id).First(&before).Error; err != nil {
 				return notFound(err, "PROMO_CODE_NOT_FOUND")
 			}
 			action = "update"
 			permission = "operation:promo-code:update"
 			used = before.UsedCount
 		}
-		row := model.GamePromoCode{ID: id, TenantID: actor.Scope.TenantID, SiteID: actor.Scope.SiteID, Code: in.Code, PromotionID: in.PromotionID, RewardType: in.RewardType, RewardValue: &value, Currency: in.Currency, TotalUsageLimit: in.TotalUsageLimit, UsedCount: used, PerUserLimit: in.PerUserLimit, Countries: in.Countries, NewUsersOnly: in.NewUsersOnly, Enabled: in.Enabled, StartAt: in.StartTime, ExpiresAt: in.ExpiresAt}
+		row := model.GamePromoCode{ID: id, SiteID: actor.Scope.SiteID, Code: in.Code, PromotionID: in.PromotionID, RewardType: in.RewardType, RewardValue: &value, Currency: in.Currency, TotalUsageLimit: in.TotalUsageLimit, UsedCount: used, PerUserLimit: in.PerUserLimit, Countries: in.Countries, NewUsersOnly: in.NewUsersOnly, Enabled: in.Enabled, StartAt: in.StartTime, ExpiresAt: in.ExpiresAt}
 		if id == 0 {
 			if err := tx.Create(&row).Error; err != nil {
 				return err
 			}
 			id = row.ID
-		} else if err := tenancy.ApplySite(tx.Model(&model.GamePromoCode{}), "", actor.Scope).Where("id=?", id).Select(
+		} else if err := content.ApplySite(tx.Model(&model.GamePromoCode{}), "", actor.Scope).Where("id=?", id).Select(
 			"code", "promotion_id", "reward_type", "reward_value", "currency", "total_usage_limit",
 			"per_user_limit", "countries", "new_users_only", "enabled", "start_at", "expires_at",
 		).Updates(row).Error; err != nil {
 			return err
 		}
-		if err := tenancy.ApplySite(tx.Model(&model.GamePromoCode{}), "", actor.Scope).Where("id=?", id).First(&row).Error; err != nil {
+		if err := content.ApplySite(tx.Model(&model.GamePromoCode{}), "", actor.Scope).Where("id=?", id).First(&row).Error; err != nil {
 			return err
 		}
 		return audit(tx, actor, permission, action, "promo_code", id, before, row, "")
@@ -460,7 +456,7 @@ func (s *Service) SavePromoCode(id uint64, in PromoCodeInput, actor Actor) (uint
 }
 func (s *Service) DeletePromoCode(id uint64, actor Actor) error {
 	var count int64
-	tenancy.ApplySite(s.db.Model(&model.GamePromoCodeRedemption{}), "", actor.Scope).Where("promo_code_id=?", id).Count(&count)
+	content.ApplySite(s.db.Model(&model.GamePromoCodeRedemption{}), "", actor.Scope).Where("promo_code_id=?", id).Count(&count)
 	if count > 0 {
 		return newError("PROMO_CODE_IN_USE", "promo code with usage records cannot be deleted")
 	}
@@ -476,14 +472,14 @@ func (s *Service) RedeemPromoCode(in RedeemPromoCodeCommand) (*model.GamePromoCo
 		if err := tx.Where("id=? AND deleted_at IS NULL", in.UserID).First(&user).Error; err != nil {
 			return notFound(err, "USER_NOT_FOUND")
 		}
-		scope := tenancy.Scope{TenantID: user.TenantID, SiteID: user.SiteID}
-		if err := tenancy.ApplySite(tx.Model(&model.GamePromoCodeRedemption{}), "", scope).Where("idempotency_key=?", in.IdempotencyKey).First(&result).Error; err == nil {
+		scope := content.Scope{SiteID: user.SiteID}
+		if err := content.ApplySite(tx.Model(&model.GamePromoCodeRedemption{}), "", scope).Where("idempotency_key=?", in.IdempotencyKey).First(&result).Error; err == nil {
 			return nil
 		} else if err != gorm.ErrRecordNotFound {
 			return err
 		}
 		var code model.GamePromoCode
-		if err := tenancy.ApplySite(tx.Model(&model.GamePromoCode{}), "", scope).Clauses(clause.Locking{Strength: "UPDATE"}).Where("code=? AND deleted_at IS NULL", strings.ToUpper(strings.TrimSpace(in.Code))).First(&code).Error; err != nil {
+		if err := content.ApplySite(tx.Model(&model.GamePromoCode{}), "", scope).Clauses(clause.Locking{Strength: "UPDATE"}).Where("code=? AND deleted_at IS NULL", strings.ToUpper(strings.TrimSpace(in.Code))).First(&code).Error; err != nil {
 			return notFound(err, "PROMO_CODE_NOT_FOUND")
 		}
 		now := time.Now()
@@ -498,7 +494,7 @@ func (s *Service) RedeemPromoCode(in RedeemPromoCodeCommand) (*model.GamePromoCo
 		}
 		if code.NewUsersOnly {
 			var completedDeposits int64
-			if err := tenancy.ApplySite(tx.Model(&model.GameDepositOrders{}), "", scope).Where("user_id=? AND completed_at IS NOT NULL AND deleted_at IS NULL", in.UserID).Count(&completedDeposits).Error; err != nil {
+			if err := content.ApplySite(tx.Model(&model.GameDepositOrders{}), "", scope).Where("user_id=? AND completed_at IS NOT NULL AND deleted_at IS NULL", in.UserID).Count(&completedDeposits).Error; err != nil {
 				return err
 			}
 			if completedDeposits > 0 {
@@ -506,14 +502,14 @@ func (s *Service) RedeemPromoCode(in RedeemPromoCodeCommand) (*model.GamePromoCo
 			}
 		}
 		var userCount int64
-		if err := tenancy.ApplySite(tx.Model(&model.GamePromoCodeRedemption{}), "", scope).Where("promo_code_id=? AND user_id=? AND status='COMPLETED'", code.ID, in.UserID).Count(&userCount).Error; err != nil {
+		if err := content.ApplySite(tx.Model(&model.GamePromoCodeRedemption{}), "", scope).Where("promo_code_id=? AND user_id=? AND status='COMPLETED'", code.ID, in.UserID).Count(&userCount).Error; err != nil {
 			return err
 		}
 		if uint(userCount) >= code.PerUserLimit {
 			return newError("PROMO_CODE_USER_LIMIT_REACHED", "promo code user limit reached")
 		}
 		var wallet model.GameUserWallets
-		if err := tenancy.ApplySite(tx.Model(&model.GameUserWallets{}), "", scope).Clauses(clause.Locking{Strength: "UPDATE"}).Where("user_id=? AND deleted_at IS NULL", in.UserID).First(&wallet).Error; err != nil {
+		if err := content.ApplySite(tx.Model(&model.GameUserWallets{}), "", scope).Clauses(clause.Locking{Strength: "UPDATE"}).Where("user_id=? AND deleted_at IS NULL", in.UserID).First(&wallet).Error; err != nil {
 			return notFound(err, "WALLET_NOT_FOUND")
 		}
 		if !strings.EqualFold(wallet.Currency, code.Currency) {
@@ -537,24 +533,24 @@ func (s *Service) RedeemPromoCode(in RedeemPromoCodeCommand) (*model.GamePromoCo
 			before = *wallet.BonusBalance
 		}
 		after := before.Add(amount)
-		if err := tenancy.ApplySite(tx.Model(&model.GameUserWallets{}), "", scope).Where("id=?", wallet.ID).Updates(map[string]any{walletField: after, "last_transaction_at": now}).Error; err != nil {
+		if err := content.ApplySite(tx.Model(&model.GameUserWallets{}), "", scope).Where("id=?", wallet.ID).Updates(map[string]any{walletField: after, "last_transaction_at": now}).Error; err != nil {
 			return err
 		}
 		key := "promo:" + in.IdempotencyKey
-		txn := model.GameWalletTransactions{TenantID: scope.TenantID, SiteID: scope.SiteID, TxnNo: generatedCode("PROMO"), UserID: in.UserID, WalletID: wallet.ID, WalletType: walletType, Direction: "credit", Category: "promo_code", SourceType: "promo_code", SourceID: code.ID, IdempotencyKey: &key, OrderNo: code.Code, Amount: &amount, Currency: code.Currency, Status: 1, BalanceBefore: &before, BalanceAfter: &after, FrozenBalanceBefore: wallet.FrozenBalance, FrozenBalanceAfter: wallet.FrozenBalance, Remark: "promo code redemption", CompletedAt: &now, RawMetadata: "{}"}
+		txn := model.GameWalletTransactions{SiteID: scope.SiteID, TxnNo: generatedCode("PROMO"), UserID: in.UserID, WalletID: wallet.ID, WalletType: walletType, Direction: "credit", Category: "promo_code", SourceType: "promo_code", SourceID: code.ID, IdempotencyKey: &key, OrderNo: code.Code, Amount: &amount, Currency: code.Currency, Status: 1, BalanceBefore: &before, BalanceAfter: &after, FrozenBalanceBefore: wallet.FrozenBalance, FrozenBalanceAfter: wallet.FrozenBalance, Remark: "promo code redemption", CompletedAt: &now, RawMetadata: "{}"}
 		if err := tx.Create(&txn).Error; err != nil {
 			return err
 		}
-		result = model.GamePromoCodeRedemption{TenantID: scope.TenantID, SiteID: scope.SiteID, PromoCodeID: code.ID, UserID: in.UserID, IdempotencyKey: in.IdempotencyKey, RewardType: code.RewardType, RewardValue: &amount, Currency: code.Currency, WalletTransactionID: txn.ID, Status: "COMPLETED"}
+		result = model.GamePromoCodeRedemption{SiteID: scope.SiteID, PromoCodeID: code.ID, UserID: in.UserID, IdempotencyKey: in.IdempotencyKey, RewardType: code.RewardType, RewardValue: &amount, Currency: code.Currency, WalletTransactionID: txn.ID, Status: "COMPLETED"}
 		if err := tx.Create(&result).Error; err != nil {
 			return err
 		}
-		return tenancy.ApplySite(tx.Model(&model.GamePromoCode{}), "", scope).Where("id=?", code.ID).Update("used_count", gorm.Expr("used_count + 1")).Error
+		return content.ApplySite(tx.Model(&model.GamePromoCode{}), "", scope).Where("id=?", code.ID).Update("used_count", gorm.Expr("used_count + 1")).Error
 	})
 	return &result, err
 }
 
-func containsCode(csv, value string) bool {
+func containsCode(csv string, value string) bool {
 	csv = strings.TrimSpace(csv)
 	if csv == "" {
 		return true
@@ -569,7 +565,7 @@ func containsCode(csv, value string) bool {
 
 func (s *Service) ListNotifications(q ListQuery) (PageResult, error) {
 	var rows []model.GameNotification
-	db := tenancy.ApplySite(s.db.Model(&model.GameNotification{}), "", q.Scope).Where("deleted_at IS NULL")
+	db := content.ApplySite(s.db.Model(&model.GameNotification{}), "", q.Scope).Where("deleted_at IS NULL")
 	db = contains(db, "notification_id", q.Values["notificationID"])
 	db = contains(db, "title_zh", q.Values["title"])
 	if channel := strings.ToUpper(strings.TrimSpace(q.Values["channel"])); channel != "" {
@@ -582,7 +578,7 @@ func (s *Service) ListNotifications(q ListQuery) (PageResult, error) {
 	return page(db.Order("id DESC"), q, &rows)
 }
 
-func (s *Service) NotificationAudienceOptions(audienceType, keyword, selected string, scope tenancy.Scope) ([]NotificationAudienceOption, error) {
+func (s *Service) NotificationAudienceOptions(audienceType string, keyword string, selected string, scope content.Scope) ([]NotificationAudienceOption, error) {
 	switch strings.ToUpper(strings.TrimSpace(audienceType)) {
 	case "SELECTED_USERS":
 		type userOption struct {
@@ -595,7 +591,7 @@ func (s *Service) NotificationAudienceOptions(audienceType, keyword, selected st
 			VIPLevel         uint
 		}
 		var rows []userOption
-		query := tenancy.ApplySite(s.db.Table("game_users"), "", scope).
+		query := content.ApplySite(s.db.Table("game_users"), "", scope).
 			Select("id,user_no,username,nickname,phone_country_code,phone,vip_level").
 			Where("deleted_at IS NULL")
 		if values := notificationaudience.Values(selected); len(values) > 0 {
@@ -628,7 +624,7 @@ func (s *Service) NotificationAudienceOptions(audienceType, keyword, selected st
 			NameEn string
 		}
 		var rows []vipOption
-		if err := tenancy.ApplySite(s.db.Table("game_vip_levels"), "", scope).
+		if err := content.ApplySite(s.db.Table("game_vip_levels"), "", scope).
 			Select("level_no AS level,name_zh,name_en").
 			Where("deleted_at IS NULL AND status=1").
 			Order("level_no ASC").Scan(&rows).Error; err != nil {
@@ -646,7 +642,7 @@ func (s *Service) NotificationAudienceOptions(audienceType, keyword, selected st
 			TagType string
 		}
 		var rows []tagOption
-		query := tenancy.ApplySite(s.db.Table("game_user_tags"), "", scope).
+		query := content.ApplySite(s.db.Table("game_user_tags"), "", scope).
 			Select("id,name,tag_type").
 			Where("deleted_at IS NULL")
 		if values := notificationaudience.Values(selected); len(values) > 0 {
@@ -672,15 +668,15 @@ func (s *Service) NotificationAudienceOptions(audienceType, keyword, selected st
 	}
 }
 
-func (s *Service) GetNotification(id uint64, scope tenancy.Scope) (map[string]any, error) {
+func (s *Service) GetNotification(id uint64, scope content.Scope) (map[string]any, error) {
 	var row model.GameNotification
-	if err := tenancy.ApplySite(s.db.Model(&model.GameNotification{}), "", scope).Where("id=? AND deleted_at IS NULL", id).First(&row).Error; err != nil {
+	if err := content.ApplySite(s.db.Model(&model.GameNotification{}), "", scope).Where("id=? AND deleted_at IS NULL", id).First(&row).Error; err != nil {
 		return nil, notFound(err, "NOTIFICATION_NOT_FOUND")
 	}
 	var jobs []model.GameNotificationJob
-	tenancy.ApplySite(s.db.Model(&model.GameNotificationJob{}), "", scope).Where("notification_id=? AND deleted_at IS NULL", id).Order("id DESC").Find(&jobs)
+	content.ApplySite(s.db.Model(&model.GameNotificationJob{}), "", scope).Where("notification_id=? AND deleted_at IS NULL", id).Order("id DESC").Find(&jobs)
 	var deliveries []model.GameNotificationDelivery
-	tenancy.ApplySite(s.db.Model(&model.GameNotificationDelivery{}), "", scope).Where("notification_id=? AND deleted_at IS NULL", id).Order("id DESC").Limit(200).Find(&deliveries)
+	content.ApplySite(s.db.Model(&model.GameNotificationDelivery{}), "", scope).Where("notification_id=? AND deleted_at IS NULL", id).Order("id DESC").Limit(200).Find(&deliveries)
 	logs, _ := s.operationLogs("notification", id, scope)
 	return map[string]any{"basicInformation": row, "chineseContent": map[string]any{"title": row.TitleZh, "content": row.ContentZh}, "englishContent": map[string]any{"title": row.TitleEn, "content": row.ContentEn}, "audience": map[string]any{"type": row.AudienceType, "value": row.AudienceValue, "targetUserCount": row.TargetUserCount}, "schedule": map[string]any{"scheduledAt": row.ScheduledAt, "sentAt": row.SentAt}, "sendingResults": map[string]any{"successCount": row.SuccessCount, "failureCount": row.FailureCount, "jobs": jobs, "deliveries": deliveries}, "operationLogs": logs}, nil
 }
@@ -699,7 +695,7 @@ func (s *Service) SaveNotification(id uint64, in NotificationInput, actor Actor)
 		status := "DRAFT"
 		notificationID := generatedCode("NTF")
 		if id > 0 {
-			if err := tenancy.ApplySite(tx.Model(&model.GameNotification{}), "", actor.Scope).Where("id=? AND deleted_at IS NULL", id).First(&before).Error; err != nil {
+			if err := content.ApplySite(tx.Model(&model.GameNotification{}), "", actor.Scope).Where("id=? AND deleted_at IS NULL", id).First(&before).Error; err != nil {
 				return notFound(err, "NOTIFICATION_NOT_FOUND")
 			}
 			if before.Status == "SENDING" || before.Status == "SENT" {
@@ -710,18 +706,18 @@ func (s *Service) SaveNotification(id uint64, in NotificationInput, actor Actor)
 			status = before.Status
 			notificationID = before.NotificationID
 		}
-		row := model.GameNotification{ID: id, TenantID: actor.Scope.TenantID, SiteID: actor.Scope.SiteID, NotificationID: notificationID, TitleZh: in.TitleZh, TitleEn: in.TitleEn, ContentZh: in.ContentZh, ContentEn: in.ContentEn, Channel: in.Channel, AudienceType: in.AudienceType, AudienceValue: in.AudienceValue, Status: status, ScheduledAt: in.ScheduledAt}
+		row := model.GameNotification{ID: id, SiteID: actor.Scope.SiteID, NotificationID: notificationID, TitleZh: in.TitleZh, TitleEn: in.TitleEn, ContentZh: in.ContentZh, ContentEn: in.ContentEn, Channel: in.Channel, AudienceType: in.AudienceType, AudienceValue: in.AudienceValue, Status: status, ScheduledAt: in.ScheduledAt}
 		if id == 0 {
 			if err := tx.Create(&row).Error; err != nil {
 				return err
 			}
 			id = row.ID
-		} else if err := tenancy.ApplySite(tx.Model(&model.GameNotification{}), "", actor.Scope).Where("id=?", id).Select(
+		} else if err := content.ApplySite(tx.Model(&model.GameNotification{}), "", actor.Scope).Where("id=?", id).Select(
 			"title_zh", "title_en", "content_zh", "content_en", "channel", "audience_type", "audience_value", "scheduled_at",
 		).Updates(row).Error; err != nil {
 			return err
 		}
-		if err := tenancy.ApplySite(tx.Model(&model.GameNotification{}), "", actor.Scope).Where("id=?", id).First(&row).Error; err != nil {
+		if err := content.ApplySite(tx.Model(&model.GameNotification{}), "", actor.Scope).Where("id=?", id).First(&row).Error; err != nil {
 			return err
 		}
 		return audit(tx, actor, permission, action, "notification", id, before, row, "")
@@ -733,7 +729,7 @@ func audienceValues(value string) []string {
 }
 
 func notificationAudienceCount(tx *gorm.DB, row model.GameNotification) (int64, error) {
-	scope := tenancy.Scope{TenantID: row.TenantID, SiteID: row.SiteID}
+	scope := content.Scope{SiteID: row.SiteID}
 	if err := validateNotificationAudience(tx, row.AudienceType, row.AudienceValue, scope); err != nil {
 		return 0, err
 	}
@@ -748,7 +744,7 @@ func notificationAudienceCount(tx *gorm.DB, row model.GameNotification) (int64, 
 	return count, nil
 }
 
-func validateNotificationAudience(tx *gorm.DB, audienceType, audienceValue string, scope tenancy.Scope) error {
+func validateNotificationAudience(tx *gorm.DB, audienceType string, audienceValue string, scope content.Scope) error {
 	_, err := notificationaudience.UsersScoped(tx, scope, audienceType, audienceValue)
 	if errors.Is(err, notificationaudience.ErrAudienceRequired) {
 		return newError("NOTIFICATION_AUDIENCE_REQUIRED", err.Error())
@@ -762,7 +758,7 @@ func validateNotificationAudience(tx *gorm.DB, audienceType, audienceValue strin
 func (s *Service) QueueNotification(id uint64, scheduled *time.Time, reason string, actor Actor) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		var row model.GameNotification
-		if err := tenancy.ApplySite(tx.Model(&model.GameNotification{}), "", actor.Scope).Clauses(clause.Locking{Strength: "UPDATE"}).Where("id=? AND deleted_at IS NULL", id).First(&row).Error; err != nil {
+		if err := content.ApplySite(tx.Model(&model.GameNotification{}), "", actor.Scope).Clauses(clause.Locking{Strength: "UPDATE"}).Where("id=? AND deleted_at IS NULL", id).First(&row).Error; err != nil {
 			return notFound(err, "NOTIFICATION_NOT_FOUND")
 		}
 		if row.Status == "SENT" || row.Status == "SENDING" {
@@ -781,14 +777,14 @@ func (s *Service) QueueNotification(id uint64, scheduled *time.Time, reason stri
 			status = "SENDING"
 		}
 		key := fmt.Sprintf("notification:%d:%d", id, time.Now().UnixNano())
-		job := model.GameNotificationJob{TenantID: row.TenantID, SiteID: row.SiteID, NotificationID: id, JobType: "SEND", Status: "PENDING", ScheduledAt: when, IdempotencyKey: key}
+		job := model.GameNotificationJob{SiteID: row.SiteID, NotificationID: id, JobType: "SEND", Status: "PENDING", ScheduledAt: when, IdempotencyKey: key}
 		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&job).Error; err != nil {
 			return err
 		}
 		row.Status = status
 		row.ScheduledAt = when
 		row.TargetUserCount = uint(targetUserCount)
-		if err := tenancy.ApplySite(tx.Model(&model.GameNotification{}), "", actor.Scope).Where("id=?", id).Updates(map[string]any{"status": status, "scheduled_at": when, "target_user_count": row.TargetUserCount}).Error; err != nil {
+		if err := content.ApplySite(tx.Model(&model.GameNotification{}), "", actor.Scope).Where("id=?", id).Updates(map[string]any{"status": status, "scheduled_at": when, "target_user_count": row.TargetUserCount}).Error; err != nil {
 			return err
 		}
 		return audit(tx, actor, "operation:notification:send", "queue", "notification", id, before, row, reason)
@@ -797,7 +793,7 @@ func (s *Service) QueueNotification(id uint64, scheduled *time.Time, reason stri
 func (s *Service) CancelNotification(id uint64, reason string, actor Actor) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		var row model.GameNotification
-		if err := tenancy.ApplySite(tx.Model(&model.GameNotification{}), "", actor.Scope).Clauses(clause.Locking{Strength: "UPDATE"}).Where("id=? AND deleted_at IS NULL", id).First(&row).Error; err != nil {
+		if err := content.ApplySite(tx.Model(&model.GameNotification{}), "", actor.Scope).Clauses(clause.Locking{Strength: "UPDATE"}).Where("id=? AND deleted_at IS NULL", id).First(&row).Error; err != nil {
 			return notFound(err, "NOTIFICATION_NOT_FOUND")
 		}
 		if row.Status == "CANCELLED" {
@@ -808,10 +804,10 @@ func (s *Service) CancelNotification(id uint64, reason string, actor Actor) erro
 		}
 		before := row
 		row.Status = "CANCELLED"
-		if err := tenancy.ApplySite(tx.Model(&model.GameNotification{}), "", actor.Scope).Where("id=?", id).Update("status", row.Status).Error; err != nil {
+		if err := content.ApplySite(tx.Model(&model.GameNotification{}), "", actor.Scope).Where("id=?", id).Update("status", row.Status).Error; err != nil {
 			return err
 		}
-		if err := tenancy.ApplySite(tx.Model(&model.GameNotificationJob{}), "", actor.Scope).Where("notification_id=? AND status='PENDING'", id).Update("status", "CANCELLED").Error; err != nil {
+		if err := content.ApplySite(tx.Model(&model.GameNotificationJob{}), "", actor.Scope).Where("notification_id=? AND status='PENDING'", id).Update("status", "CANCELLED").Error; err != nil {
 			return err
 		}
 		return audit(tx, actor, "operation:notification:cancel", "cancel", "notification", id, before, row, reason)
@@ -819,7 +815,7 @@ func (s *Service) CancelNotification(id uint64, reason string, actor Actor) erro
 }
 func (s *Service) DeleteNotification(id uint64, actor Actor) error {
 	var row model.GameNotification
-	if err := tenancy.ApplySite(s.db.Model(&model.GameNotification{}), "", actor.Scope).Where("id=? AND deleted_at IS NULL", id).First(&row).Error; err != nil {
+	if err := content.ApplySite(s.db.Model(&model.GameNotification{}), "", actor.Scope).Where("id=? AND deleted_at IS NULL", id).First(&row).Error; err != nil {
 		return notFound(err, "NOTIFICATION_NOT_FOUND")
 	}
 	if row.Status != "DRAFT" && row.Status != "CANCELLED" {

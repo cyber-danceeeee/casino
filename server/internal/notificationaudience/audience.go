@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strings"
 
-	"casino/internal/tenancy"
+	"casino/internal/content"
 
 	"gorm.io/gorm"
 )
@@ -28,14 +28,14 @@ func Values(value string) []string {
 }
 
 // Users returns an aliased game_users query (alias u) for an audience.
-func Users(db *gorm.DB, audienceType, audienceValue string) (*gorm.DB, error) {
-	return UsersScoped(db, tenancy.Scope{}, audienceType, audienceValue)
+func Users(db *gorm.DB, audienceType string, audienceValue string) (*gorm.DB, error) {
+	return UsersScoped(db, content.Scope{}, audienceType, audienceValue)
 }
 
-// UsersScoped returns an aliased game_users query constrained to a tenant/site.
-func UsersScoped(db *gorm.DB, scope tenancy.Scope, audienceType, audienceValue string) (*gorm.DB, error) {
+// UsersScoped returns an aliased game_users query constrained to a H5 content.
+func UsersScoped(db *gorm.DB, scope content.Scope, audienceType string, audienceValue string) (*gorm.DB, error) {
 	values := Values(audienceValue)
-	users := tenancy.ApplySite(db.Table("game_users AS u"), "u", scope).Where("u.deleted_at IS NULL")
+	users := content.ApplySite(db.Table("game_users AS u"), "u", scope).Where("u.deleted_at IS NULL")
 	typ := strings.ToUpper(strings.TrimSpace(audienceType))
 	if typ != "ALL_USERS" && len(values) == 0 {
 		return nil, ErrAudienceRequired
@@ -49,8 +49,8 @@ func UsersScoped(db *gorm.DB, scope tenancy.Scope, audienceType, audienceValue s
 		users = users.Joins("JOIN game_user_tag_relations AS utr ON utr.user_id=u.id AND utr.deleted_at IS NULL").
 			Joins("JOIN game_user_tags AS ut ON ut.id=utr.tag_id AND ut.deleted_at IS NULL").
 			Where("ut.id IN ? OR ut.name IN ?", values, values).Distinct("u.id")
-		users = tenancy.ApplySite(users, "utr", scope)
-		users = tenancy.ApplySite(users, "ut", scope)
+		users = content.ApplySite(users, "utr", scope)
+		users = content.ApplySite(users, "ut", scope)
 	case "VIP_LEVEL":
 		users = users.Where("u.vip_level IN ?", values)
 	case "COUNTRY":
@@ -60,7 +60,7 @@ func UsersScoped(db *gorm.DB, scope tenancy.Scope, audienceType, audienceValue s
 	case "RISK_STATUS":
 		users = users.Joins("JOIN game_user_risk_profiles AS urp ON urp.user_id=u.id AND urp.deleted_at IS NULL").
 			Where("urp.risk_status IN ?", values).Distinct("u.id")
-		users = tenancy.ApplySite(users, "urp", scope)
+		users = content.ApplySite(users, "urp", scope)
 	default:
 		return nil, ErrUnsupportedAudience
 	}

@@ -8,7 +8,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"casino/internal/tenancy"
+	"casino/internal/content"
 )
 
 const (
@@ -35,14 +35,13 @@ type RegisterRewardConfigInput struct {
 }
 
 type systemConfigRow struct {
-	TenantID    uint64     `gorm:"column:tenant_id"`
 	SiteID      uint64     `gorm:"column:site_id"`
 	ConfigKey   string     `gorm:"column:config_key"`
 	ConfigValue string     `gorm:"column:config_value"`
 	UpdatedAt   *time.Time `gorm:"column:updated_at"`
 }
 
-func (s *Service) GetRegisterRewardConfig(scope tenancy.Scope) (RegisterRewardConfig, error) {
+func (s *Service) GetRegisterRewardConfig(scope content.Scope) (RegisterRewardConfig, error) {
 	rows, err := s.systemConfigRows([]string{
 		registerRewardEnabledKey,
 		registerRewardMinAmountKey,
@@ -118,17 +117,17 @@ func (s *Service) SaveRegisterRewardConfig(in RegisterRewardConfigInput, actor A
 	})
 }
 
-func (s *Service) systemConfigRows(keys []string, scope tenancy.Scope) ([]systemConfigRow, error) {
+func (s *Service) systemConfigRows(keys []string, scope content.Scope) ([]systemConfigRow, error) {
 	var rows []systemConfigRow
-	err := tenancy.ApplySite(s.db.Table("game_system_configs"), "", scope).
-		Select("tenant_id,site_id,config_key,config_value,updated_at").
+	err := content.ApplySite(s.db.Table("game_system_configs"), "", scope).
+		Select("site_id, config_key, config_value, updated_at").
 		Where("config_key IN ? AND deleted_at IS NULL", keys).
 		Order("site_id ASC,id ASC").
 		Find(&rows).Error
 	return rows, err
 }
 
-func upsertRegisterRewardConfig(tx *gorm.DB, scope tenancy.Scope, key, value string) error {
+func upsertRegisterRewardConfig(tx *gorm.DB, scope content.Scope, key string, value string) error {
 	meta := registerRewardConfigMeta(key)
 	now := time.Now()
 	values := map[string]any{
@@ -145,14 +144,14 @@ func upsertRegisterRewardConfig(tx *gorm.DB, scope tenancy.Scope, key, value str
 		"status":         1,
 		"updated_at":     now,
 	}
-	result := tenancy.ApplySiteStrict(tx.Table("game_system_configs"), "", scope).
+	result := content.ApplySiteStrict(tx.Table("game_system_configs"), "", scope).
 		Where("config_key = ? AND deleted_at IS NULL", key).
 		Updates(values)
 	if result.Error != nil || result.RowsAffected > 0 {
 		return result.Error
 	}
 	insert := map[string]any{
-		"tenant_id":        scope.TenantID,
+
 		"site_id":          scope.SiteID,
 		"config_key":       key,
 		"name_zh":          meta.nameZh,
@@ -213,7 +212,7 @@ func boolConfigValue(value bool) string {
 	return "false"
 }
 
-func configDecimalString(value, fallback string, places int32) string {
+func configDecimalString(value string, fallback string, places int32) string {
 	parsed, err := decimal.NewFromString(strings.TrimSpace(value))
 	if err != nil || parsed.IsNegative() {
 		parsed, _ = decimal.NewFromString(fallback)

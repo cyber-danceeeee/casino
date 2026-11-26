@@ -9,9 +9,9 @@ import (
 	"github.com/go-dev-frame/sponge/pkg/gin/response"
 	"gorm.io/gorm"
 
+	"casino/internal/content"
 	"casino/internal/database"
 	"casino/internal/model"
-	"casino/internal/tenancy"
 )
 
 type gameActivityActionRequest struct {
@@ -20,10 +20,10 @@ type gameActivityActionRequest struct {
 
 func (h *gameActivityEventsHandler) Offers(c *gin.Context) {
 	db := database.GetDB()
-	scope := h5TenancyScope(c)
+	scope := h5ContentScope(c)
 	var events []model.GameActivityEvents
 	now := time.Now()
-	_ = tenancy.ApplySite(db.Model(&model.GameActivityEvents{}), "", scope).
+	_ = content.ApplySite(db.Model(&model.GameActivityEvents{}), "", scope).
 		Where("status = ? AND status_code = 'ACTIVE'", 1).
 		Where("start_at IS NULL OR start_at <= ?", now).
 		Where("end_at IS NULL OR end_at >= ?", now).
@@ -38,7 +38,7 @@ func (h *gameActivityEventsHandler) Offers(c *gin.Context) {
 	}
 
 	var vipLevels []model.GameVipLevels
-	_ = tenancy.ApplySite(db.Model(&model.GameVipLevels{}), "", scope).
+	_ = content.ApplySite(db.Model(&model.GameVipLevels{}), "", scope).
 		Where("status = ?", 1).
 		Order("level_no ASC").
 		Find(&vipLevels).Error
@@ -54,7 +54,7 @@ func (h *gameActivityEventsHandler) Offers(c *gin.Context) {
 func (h *gameActivityEventsHandler) GetByIDOrSlug(c *gin.Context) {
 	value := strings.TrimSpace(c.Param("id"))
 	db := database.GetDB()
-	scope := h5TenancyScope(c)
+	scope := h5ContentScope(c)
 	activity, err := h5FindActivePromotion(db, scope, value, time.Now())
 	if err != nil {
 		h5Error(c, 404, "promotion not found")
@@ -74,11 +74,11 @@ func (h *gameActivityEventsHandler) GetByIDOrSlug(c *gin.Context) {
 	_ = db.Where("activity_id = ? AND status = ?", activity.ID, 1).Order("sort ASC, id ASC").Find(&rewardRules).Error
 	var engineConditions []model.GamePromotionParticipationRule
 	_ = db.Model(&model.GamePromotionParticipationRule{}).
-		Where("tenant_id=? AND site_id IN (0, ?)", activity.TenantID, activity.SiteID).
+		Where("site_id IN (0, ?)", activity.SiteID).
 		Where("promotion_id=? AND enabled=1 AND deleted_at IS NULL", activity.ID).Order("sort_order,id").Find(&engineConditions).Error
 	var engineRewards []model.GamePromotionRewardRule
 	_ = db.Model(&model.GamePromotionRewardRule{}).
-		Where("tenant_id=? AND site_id IN (0, ?)", activity.TenantID, activity.SiteID).
+		Where("site_id IN (0, ?)", activity.SiteID).
 		Where("promotion_id=? AND enabled=1 AND deleted_at IS NULL", activity.ID).Order("sort_order,id").Find(&engineRewards).Error
 
 	response.Success(c, gin.H{
@@ -163,7 +163,7 @@ func (h *gameActivityEventsHandler) Action(c *gin.Context) {
 	}
 
 	db := database.GetDB()
-	scope := h5TenancyScope(c)
+	scope := h5ContentScope(c)
 	activity, err := h5FindActivePromotion(db, scope, slug, time.Now())
 	if err != nil {
 		h5Error(c, 404, "promotion not found")
@@ -185,7 +185,7 @@ func (h *gameActivityEventsHandler) Action(c *gin.Context) {
 	response.Success(c, gin.H{"slug": slug, "action": action, "state": state})
 }
 
-func h5FindActivePromotion(db *gorm.DB, scope tenancy.Scope, value string, now time.Time) (model.GameActivityEvents, error) {
+func h5FindActivePromotion(db *gorm.DB, scope content.Scope, value string, now time.Time) (model.GameActivityEvents, error) {
 	var activity model.GameActivityEvents
 	base := func(query *gorm.DB) *gorm.DB {
 		return query.
@@ -193,7 +193,7 @@ func h5FindActivePromotion(db *gorm.DB, scope tenancy.Scope, value string, now t
 			Where("start_at IS NULL OR start_at<=?", now).
 			Where("end_at IS NULL OR end_at>=?", now)
 	}
-	query := base(tenancy.ApplySite(db.Model(&model.GameActivityEvents{}), "", scope))
+	query := base(content.ApplySite(db.Model(&model.GameActivityEvents{}), "", scope))
 	if id, err := strconv.ParseUint(value, 10, 64); err == nil {
 		query = query.Where("id=?", id)
 	} else {
@@ -203,15 +203,15 @@ func h5FindActivePromotion(db *gorm.DB, scope tenancy.Scope, value string, now t
 	return activity, err
 }
 
-func h5PromotionState(c *gin.Context, db *gorm.DB, scope tenancy.Scope, activity model.GameActivityEvents) gin.H {
+func h5PromotionState(c *gin.Context, db *gorm.DB, scope content.Scope, activity model.GameActivityEvents) gin.H {
 	state := gin.H{"claimable": false, "claimMode": activity.ClaimMode, "triggerType": activity.TriggerType, "claimed": false}
 	user, _, ok := h5AuthenticatedUser(db, c)
 	if !ok {
 		return state
 	}
-	scope = h5UserTenancyScope(db, user.ID, scope)
+	scope = h5UserContentScope(db, user.ID, scope)
 	var claims []model.GamePromotionClaim
-	_ = tenancy.ApplySite(db.Model(&model.GamePromotionClaim{}), "", scope).
+	_ = content.ApplySite(db.Model(&model.GamePromotionClaim{}), "", scope).
 		Where("promotion_id=? AND user_id=? AND status='COMPLETED' AND deleted_at IS NULL", activity.ID, user.ID).
 		Order("id DESC").Limit(20).Find(&claims).Error
 	state["claimed"] = len(claims) > 0
@@ -238,7 +238,7 @@ func h5PromotionAudience(c *gin.Context, db *gorm.DB, siteID uint64) (string, st
 	return country, currency, language
 }
 
-func h5PromotionCSVContains(csv, value string) bool {
+func h5PromotionCSVContains(csv string, value string) bool {
 	if strings.TrimSpace(csv) == "" || strings.TrimSpace(value) == "" {
 		return true
 	}

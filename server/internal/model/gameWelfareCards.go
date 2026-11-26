@@ -9,7 +9,6 @@ import (
 type GameWelfareCards struct {
 	sgorm.Model `gorm:"embedded"` // embed id and time
 
-	TenantID     uint64           `gorm:"column:tenant_id;type:bigint(20) unsigned;default:0;not null" json:"tenantID"`
 	SiteID       uint64           `gorm:"column:site_id;type:bigint(20) unsigned;default:0;not null" json:"siteID"`
 	CardCode     string           `gorm:"column:card_code;type:varchar(64);not null" json:"cardCode"`
 	Title        string           `gorm:"column:title;type:varchar(128);not null" json:"title"`
@@ -22,11 +21,11 @@ type GameWelfareCards struct {
 
 // GameWelfareCardsColumnNames Whitelist for custom query fields to prevent sql injection attacks
 var GameWelfareCardsColumnNames = map[string]bool{
-	"id":            true,
-	"created_at":    true,
-	"updated_at":    true,
-	"deleted_at":    true,
-	"tenant_id":     true,
+	"id":         true,
+	"created_at": true,
+	"updated_at": true,
+	"deleted_at": true,
+
 	"site_id":       true,
 	"card_code":     true,
 	"title":         true,

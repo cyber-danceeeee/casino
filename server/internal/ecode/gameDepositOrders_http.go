@@ -7,7 +7,7 @@ import (
 // gameDepositOrders business-level http error codes.
 // the gameDepositOrdersNO value range is 1~999, if the same error code is used, it will cause panic.
 var (
-	gameDepositOrdersNO = 15
+	gameDepositOrdersNO       = 15
 	gameDepositOrdersName     = "gameDepositOrders"
 	gameDepositOrdersBaseCode = errcode.HCode(gameDepositOrdersNO)
 

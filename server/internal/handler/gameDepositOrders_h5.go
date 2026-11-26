@@ -53,7 +53,7 @@ func (h *gameDepositOrdersHandler) CreateWalletDeposit(c *gin.Context) {
 		h5Error(c, http.StatusUnauthorized, "authentication required")
 		return
 	}
-	scope := h5UserTenancyScope(db, user.ID, h5TenancyScope(c))
+	scope := h5UserContentScope(db, user.ID, h5ContentScope(c))
 	if blocked, code, message := h5MaintenanceBlocked(c, db, scope); blocked {
 		h5MachineError(c, http.StatusServiceUnavailable, code, message)
 		return
@@ -75,7 +75,7 @@ func (h *gameDepositOrdersHandler) CreateWalletDeposit(c *gin.Context) {
 		voucherID = selection.Voucher.ID
 	}
 	order := &model.GameDepositOrders{
-		TenantID:            scope.TenantID,
+
 		SiteID:              scope.SiteID,
 		OrderNo:             h5OrderNo("D"),
 		UserID:              user.ID,
@@ -103,16 +103,15 @@ func (h *gameDepositOrdersHandler) CreateWalletDeposit(c *gin.Context) {
 
 func h5DepositConfigQuery(c *gin.Context) depositconfig.ConfigQuery {
 	db := database.GetDB()
-	scope := h5TenancyScope(c)
+	scope := h5ContentScope(c)
 	userID := uint64(0)
 	if user, _, ok := h5AuthenticatedUser(db, c); ok {
 		userID = user.ID
-		scope = h5UserTenancyScope(db, user.ID, scope)
+		scope = h5UserContentScope(db, user.ID, scope)
 	}
-	tenant := h5BootstrapTenant(db, scope.TenantID)
 	site := h5BootstrapSite(db, scope.SiteID)
-	country := strings.ToUpper(strings.TrimSpace(h5FirstNonEmpty(site.CountryCode, tenant.CountryCode, c.Query("country"), "PK")))
-	currency := strings.ToUpper(strings.TrimSpace(h5FirstNonEmpty(site.CurrencyCode, tenant.DefaultCurrency, c.Query("currency"), "PKR")))
+	country := strings.ToUpper(strings.TrimSpace(h5FirstNonEmpty(site.CountryCode, c.Query("country"), "PK")))
+	currency := strings.ToUpper(strings.TrimSpace(h5FirstNonEmpty(site.CurrencyCode, c.Query("currency"), "PKR")))
 	return depositconfig.ConfigQuery{
 		UserID: userID, Scope: scope, Country: country, Currency: currency,
 		MethodCode: c.Query("methodCode"), Language: c.DefaultQuery("language", "en"), Amount: c.Query("amount"),

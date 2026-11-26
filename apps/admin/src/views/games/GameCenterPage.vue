@@ -592,13 +592,13 @@ function tableCellValue(row: RecordValue, key: string) {
 }
 function isPlatformDefaultCategoryRecord(row: RecordValue) {
   if (row.isPlatformDefault === true || row.platformDefault === true) return true;
-  return Number(row.tenantID || 0) === 0 && Number(row.siteID || 0) === 0;
+  return Number(row.siteID || 0) === 0;
 }
 function isPlatformDefaultCategory(row: RecordValue) {
   return moduleKey.value === "game-categories" && isPlatformDefaultCategoryRecord(row);
 }
 function categoryOwnershipLabel(row: RecordValue) {
-  return t(isPlatformDefaultCategory(row) ? "gameCenter.values.platform_category" : "gameCenter.values.tenant_category");
+  return t(isPlatformDefaultCategory(row) ? "gameCenter.values.platform_category" : "gameCenter.values.site_category");
 }
 function categoryOwnershipTagType(row: RecordValue) {
   return isPlatformDefaultCategory(row) ? "info" : "success";
@@ -606,11 +606,11 @@ function categoryOwnershipTagType(row: RecordValue) {
 const tableRows = computed(() => {
   return rows.value;
 });
-const tenantCategoryOptions = computed(() =>
+const siteCategoryOptions = computed(() =>
   categories.value.filter((row) => !isPlatformDefaultCategoryRecord(row)),
 );
 const assignableCategoryOptions = computed(() =>
-  isPlatform.value ? categories.value : tenantCategoryOptions.value,
+  isPlatform.value ? categories.value : siteCategoryOptions.value,
 );
 function gameDetailConfigObject(key: string) {
   const value = detail.value[key];
@@ -1922,16 +1922,16 @@ function selectedCandidateType() {
   );
 }
 function mergeCandidateTypeOptions(
-  tenantOptions: ProviderGameTypeOption[],
+  siteOptions: ProviderGameTypeOption[],
   catalogOptions: ProviderGameTypeOption[],
 ) {
   const merged = new Map<string, ProviderGameTypeOption>();
   for (const option of catalogOptions) {
     merged.set(candidateTypeKey(option), option);
   }
-  for (const option of tenantOptions) {
-    // Prefer the tenant count because the candidate list only contains
-    // games already imported into the current tenant.
+  for (const option of siteOptions) {
+    // Prefer the site count because the candidate list only contains
+    // games already imported into the current site.
     merged.set(candidateTypeKey(option), option);
   }
   return Array.from(merged.values()).sort((left, right) => {
@@ -1985,20 +1985,20 @@ async function changeCandidateProvider() {
       fetchProviderOptionGameTypes(candidateForm.providerCode),
       fetchImportableProviderGameTypes(candidateForm.providerCode),
     ]);
-    const tenantOptions =
+    const siteOptions =
       results[0].status === "fulfilled" ? results[0].value : [];
     const catalogOptions =
       results[1].status === "fulfilled" ? results[1].value : [];
-    const tenantResult = results[0];
+    const siteResult = results[0];
     const catalogResult = results[1];
     if (
-      tenantResult.status === "rejected" &&
+      siteResult.status === "rejected" &&
       catalogResult.status === "rejected"
     ) {
-      throw tenantResult.reason;
+      throw siteResult.reason;
     }
     candidateTypeOptions.value = mergeCandidateTypeOptions(
-      tenantOptions,
+      siteOptions,
       catalogOptions,
     );
   } catch (error) {

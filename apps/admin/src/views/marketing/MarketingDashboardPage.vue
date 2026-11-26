@@ -67,53 +67,53 @@ onMounted(load);
   <div v-loading="loading" class="marketing-dashboard">
     <header class="page-header">
       <div>
-        <p>{{ t("tenantExperience.marketing.eyebrow") }}</p>
-        <h1>{{ t("tenantExperience.marketing.title") }}</h1>
-        <span>{{ t("tenantExperience.marketing.description") }}</span>
+        <p>{{ t("siteExperience.marketing.eyebrow") }}</p>
+        <h1>{{ t("siteExperience.marketing.title") }}</h1>
+        <span>{{ t("siteExperience.marketing.description") }}</span>
       </div>
       <el-button type="primary" @click="router.push('/marketing/campaigns')">{{
-        t("tenantExperience.marketing.viewCampaigns")
+        t("siteExperience.marketing.viewCampaigns")
       }}</el-button>
     </header>
     <el-alert
       v-if="errors.length"
       type="warning"
-      :title="t('tenantExperience.dashboard.partialData')"
+      :title="t('siteExperience.dashboard.partialData')"
       :description="errors[0]"
       :closable="false"
       show-icon
     />
     <section class="metric-grid">
       <article v-for="metric in metrics" :key="metric.key">
-        <span>{{ t(`tenantExperience.marketing.metrics.${metric.key}`) }}</span
+        <span>{{ t(`siteExperience.marketing.metrics.${metric.key}`) }}</span
         ><strong>{{ metric.value }}</strong>
       </article>
     </section>
     <section class="recent">
       <header>
-        <h2>{{ t("tenantExperience.marketing.recent") }}</h2>
+        <h2>{{ t("siteExperience.marketing.recent") }}</h2>
       </header>
       <el-table :data="items.slice(0, 10)" row-key="rowKey"
         ><el-table-column
           prop="name"
-          :label="t('tenantExperience.fields.campaignName')"
+          :label="t('siteExperience.fields.campaignName')"
           min-width="210"
         /><el-table-column
-          :label="t('tenantExperience.fields.type')"
+          :label="t('siteExperience.fields.type')"
           width="135"
           ><template #default="{ row }">{{
-            t(`tenantExperience.campaignTypes.${row.type}`, row.type)
+            t(`siteExperience.campaignTypes.${row.type}`, row.type)
           }}</template></el-table-column
         ><el-table-column
-          :label="t('tenantExperience.fields.status')"
+          :label="t('siteExperience.fields.status')"
           width="130"
           ><template #default="{ row }"
             ><el-tag :type="statusType(row.status)" effect="plain">{{
-              t(`tenantExperience.status.${statusKey(row.status)}`, row.status)
+              t(`siteExperience.status.${statusKey(row.status)}`, row.status)
             }}</el-tag></template
           ></el-table-column
         ><el-table-column
-          :label="t('tenantExperience.fields.updatedTime')"
+          :label="t('siteExperience.fields.updatedTime')"
           width="175"
           ><template #default="{ row }">{{
             formatBackendTime(row.updatedAt)
@@ -125,11 +125,11 @@ onMounted(load);
             }}</el-button></template
           ></el-table-column
         ><template #empty
-          ><el-empty :description="t('tenantExperience.empty.campaigns')"
+          ><el-empty :description="t('siteExperience.empty.campaigns')"
             ><el-button
               type="primary"
               @click="router.push('/operations/activities')"
-              >{{ t("tenantExperience.marketing.createPromotion") }}</el-button
+              >{{ t("siteExperience.marketing.createPromotion") }}</el-button
             ></el-empty
           ></template
         ></el-table

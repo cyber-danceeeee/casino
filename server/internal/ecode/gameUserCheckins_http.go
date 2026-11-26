@@ -7,7 +7,7 @@ import (
 // gameUserCheckins business-level http error codes.
 // the gameUserCheckinsNO value range is 1~999, if the same error code is used, it will cause panic.
 var (
-	gameUserCheckinsNO = 43
+	gameUserCheckinsNO       = 43
 	gameUserCheckinsName     = "gameUserCheckins"
 	gameUserCheckinsBaseCode = errcode.HCode(gameUserCheckinsNO)
 

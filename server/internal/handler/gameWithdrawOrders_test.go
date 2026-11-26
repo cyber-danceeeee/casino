@@ -103,7 +103,7 @@ func Test_gameWithdrawOrdersHandler_Create(t *testing.T) {
 	}
 
 	t.Logf("%+v", result)
-	
+
 }
 
 func Test_gameWithdrawOrdersHandler_DeleteByID(t *testing.T) {

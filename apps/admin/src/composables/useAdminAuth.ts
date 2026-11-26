@@ -43,7 +43,6 @@ export function useAdminAuth() {
         id: actor.id,
         username: actor.username,
         displayName: actor.displayName || actor.username,
-        tenantID: actor.tenantID,
         siteID: actor.siteID,
         defaultSiteID: actor.defaultSiteID,
         adminType: actor.adminType,

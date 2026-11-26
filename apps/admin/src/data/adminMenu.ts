@@ -1,7 +1,6 @@
 import type { Component } from "vue";
 import {
   Avatar,
-  Box,
   Brush,
   Checked,
   ChatLineSquare,
@@ -589,20 +588,6 @@ export const menuGroups: MenuGroup[] = [
     icon: Setting,
     children: [
       {
-        key: "tenants",
-        label: "租户管理",
-        i18nKey: "menu.system.tenants",
-        path: "/system/tenants",
-        icon: OfficeBuilding,
-      },
-      {
-        key: "sites",
-        label: "站点管理",
-        i18nKey: "menu.system.sites",
-        path: "/system/sites",
-        icon: Platform,
-      },
-      {
         key: "admins",
         label: "管理员管理",
         i18nKey: "menu.system.admins",
@@ -683,34 +668,6 @@ export const menuGroups: MenuGroup[] = [
   },
 ];
 
-export const createBrandItem: MenuItem = {
-  key: "create-brand",
-  label: "创建品牌",
-  i18nKey: "portal.createBrand",
-  path: "/platform/tenants/create",
-  icon: Present,
-};
-
-export const brandDeliveriesItem: MenuItem = {
-  key: "brand-deliveries", label: "品牌交付记录", i18nKey: "tenantCenter.menu.deliveries",
-  path: "/platform/tenants/deliveries", icon: Tickets,
-};
-
-export const tenantDomainsItem: MenuItem = {
-  key: "tenant-domains", label: "域名管理", i18nKey: "tenantCenter.menu.domains",
-  path: "/platform/tenants/domains", icon: Link,
-};
-
-export const tenantPackagesItem: MenuItem = {
-  key: "tenant-packages", label: "租户套餐", i18nKey: "tenantCenter.menu.packages",
-  path: "/platform/tenants/packages", icon: Box,
-};
-
-export const tenantAuditItem: MenuItem = {
-  key: "tenant-audit", label: "租户审计", i18nKey: "tenantCenter.menu.audit",
-  path: "/platform/tenants/audit", icon: DocumentChecked,
-};
-
 export const popupComponentsItem: MenuItem = {
   key: "popup-components", label: "弹窗组件", i18nKey: "popupComponents.menu",
   path: "/platform/resources/popup-components", icon: Files,
@@ -734,28 +691,22 @@ const supportItems: MenuItem[] = [
   { key: "support-exports", label: "导出记录", i18nKey: "opsV1.support.pages.support-exports", path: "/support/exports", icon: Download },
 ];
 
-const tenantSupportItems = supportItems.filter((item) =>
-	["support-player-search", "support-order-search", "support-cases", "support-exports"].includes(item.key),
-);
-
-const tenantExperienceItems: MenuItem[] = [
-	{ key: "player-tags", label: "玩家标签", i18nKey: "tenantExperience.menu.playerTags", path: "/players/tags", navigationPath: "/users/list", icon: Collection },
-	{ key: "game-operations", label: "游戏运营", i18nKey: "tenantExperience.menu.gameOperations", path: "/games/operations", navigationPath: "/games/list", icon: Operation },
-	{ key: "marketing-dashboard", label: "营销总览", i18nKey: "tenantExperience.menu.marketingDashboard", path: "/marketing", navigationPath: "/operations/activities", icon: DataAnalysis },
-	{ key: "campaigns", label: "活动总览", i18nKey: "tenantExperience.menu.campaigns", path: "/marketing/campaigns", navigationPath: "/operations/activities", icon: Promotion },
-	{ key: "missions", label: "任务", i18nKey: "tenantExperience.menu.missions", path: "/marketing/missions", navigationPath: "/operations/activities", icon: Checked },
-	{ key: "referral", label: "推荐奖励", i18nKey: "tenantExperience.menu.referral", path: "/marketing/referral", navigationPath: "/operations/activities", icon: Share },
-	{ key: "brand-overview", label: "品牌概览", i18nKey: "tenantExperience.menu.brandOverview", path: "/brand/overview", navigationPath: "/system/brand", icon: DataBoard },
-	{ key: "brand-theme", label: "主题", i18nKey: "tenantExperience.menu.theme", path: "/brand/theme", navigationPath: "/system/brand", icon: Brush },
-	{ key: "brand-seo", label: "SEO", i18nKey: "tenantExperience.menu.seo", path: "/brand/seo", navigationPath: "/system/brand", icon: Search },
-	{ key: "brand-domain", label: "域名", i18nKey: "tenantExperience.menu.domain", path: "/brand/domain", navigationPath: "/system/brand", icon: Link },
-	{ key: "brand-region", label: "国家与币种", i18nKey: "tenantExperience.menu.countryCurrency", path: "/brand/region", navigationPath: "/system/brand", icon: Position },
-	{ key: "brand-languages", label: "语言", i18nKey: "tenantExperience.menu.languages", path: "/brand/languages", navigationPath: "/system/brand", icon: Message },
-	{ key: "brand-preview", label: "预览", i18nKey: "tenantExperience.menu.preview", path: "/brand/preview", navigationPath: "/system/brand", icon: Monitor },
-	{ key: "brand-publish", label: "发布", i18nKey: "tenantExperience.menu.publish", path: "/brand/publish", navigationPath: "/system/brand", icon: UploadFilled },
+const siteExperienceItems: MenuItem[] = [
+	{ key: "player-tags", label: "玩家标签", i18nKey: "siteExperience.menu.playerTags", path: "/players/tags", navigationPath: "/users/list", icon: Collection },
+	{ key: "game-operations", label: "游戏运营", i18nKey: "siteExperience.menu.gameOperations", path: "/games/operations", navigationPath: "/games/list", icon: Operation },
+	{ key: "marketing-dashboard", label: "营销总览", i18nKey: "siteExperience.menu.marketingDashboard", path: "/marketing", navigationPath: "/operations/activities", icon: DataAnalysis },
+	{ key: "campaigns", label: "活动总览", i18nKey: "siteExperience.menu.campaigns", path: "/marketing/campaigns", navigationPath: "/operations/activities", icon: Promotion },
+	{ key: "missions", label: "任务", i18nKey: "siteExperience.menu.missions", path: "/marketing/missions", navigationPath: "/operations/activities", icon: Checked },
+	{ key: "referral", label: "推荐奖励", i18nKey: "siteExperience.menu.referral", path: "/marketing/referral", navigationPath: "/operations/activities", icon: Share },
+	{ key: "brand-overview", label: "品牌概览", i18nKey: "siteExperience.menu.brandOverview", path: "/brand/overview", navigationPath: "/system/brand", icon: DataBoard },
+	{ key: "brand-theme", label: "主题", i18nKey: "siteExperience.menu.theme", path: "/brand/theme", navigationPath: "/system/brand", icon: Brush },
+	{ key: "brand-seo", label: "SEO", i18nKey: "siteExperience.menu.seo", path: "/brand/seo", navigationPath: "/system/brand", icon: Search },
+	{ key: "brand-domain", label: "域名", i18nKey: "siteExperience.menu.domain", path: "/brand/domain", navigationPath: "/system/brand", icon: Link },
+	{ key: "brand-region", label: "国家与币种", i18nKey: "siteExperience.menu.countryCurrency", path: "/brand/region", navigationPath: "/system/brand", icon: Position },
+	{ key: "brand-languages", label: "语言", i18nKey: "siteExperience.menu.languages", path: "/brand/languages", navigationPath: "/system/brand", icon: Message },
+	{ key: "brand-preview", label: "预览", i18nKey: "siteExperience.menu.preview", path: "/brand/preview", navigationPath: "/system/brand", icon: Monitor },
+	{ key: "brand-publish", label: "发布", i18nKey: "siteExperience.menu.publish", path: "/brand/publish", navigationPath: "/system/brand", icon: UploadFilled },
 ];
-
-const experienceItem = (key: string) => tenantExperienceItems.find((item) => item.key === key)!;
 
 const sharedOpsItems: MenuItem[] = [
   { key: "payment-monitor", label: "支付监控", i18nKey: "opsV1.monitor.pages.payment-monitor", path: "/ops/payments", icon: CreditCard },
@@ -771,109 +722,10 @@ const platformOpsItems: MenuItem[] = [
   { key: "backup-center", label: "备份中心", i18nKey: "opsV1.stability.pages.backup-center", path: "/ops/backups", icon: FolderOpened },
 ];
 
-const menuItemByKey = new Map(
-  menuGroups.flatMap((group) => group.children).map((item) => [item.key, item]),
-);
-
-function items(...keys: string[]) {
-  return keys
-    .map((key) => menuItemByKey.get(key))
-    .filter((item): item is MenuItem => Boolean(item));
-}
-
-export const platformMenuGroups: MenuGroup[] = [
-	{ key: "platform-support", label: "支持中心", i18nKey: "opsV1.support.eyebrow", icon: Headset, children: supportItems },
-	{ key: "platform-ops", label: "运维中心", i18nKey: "opsV1.stability.eyebrow", icon: Monitor, children: [...sharedOpsItems, ...platformOpsItems] },
-  {
-    key: "platform-tenants",
-    label: "租户中心",
-    i18nKey: "portal.platform.tenants",
-    icon: OfficeBuilding,
-    children: [
-      ...items("tenants"),
-      createBrandItem,
-      brandDeliveriesItem,
-      ...items("sites"),
-      tenantDomainsItem,
-      tenantPackagesItem,
-      tenantAuditItem,
-    ],
-  },
-  {
-    key: "platform-games",
-    label: "游戏平台",
-    i18nKey: "portal.platform.games",
-    icon: Platform,
-    children: [
-      ...items("game-sync", "game-list", "game-categories", "provider-callback-logs"),
-      providerReconciliationItem,
-    ],
-  },
-  {
-    key: "platform-assets",
-    label: "平台资源",
-    i18nKey: "portal.platform.assets",
-    icon: Picture,
-    children: [...items("asset-library", "country-config"), popupComponentsItem],
-  },
-  {
-    key: "platform-finance",
-    label: "平台财务",
-    i18nKey: "portal.platform.finance",
-    icon: Money,
-    children: items("provider-report"),
-  },
-  {
-    key: "platform-security",
-    label: "平台安全",
-    i18nKey: "portal.platform.security",
-    icon: Lock,
-    children: items("admins", "roles", "permissions", "admin-login-logs", "audit-logs"),
-  },
-  {
-    key: "platform-system",
-    label: "系统中心",
-    i18nKey: "portal.platform.system",
-    icon: Setting,
-    children: items("scheduled-tasks", "system-monitor", "system-config", "export-tasks"),
-  },
-];
-
-export const tenantMenuGroups: MenuGroup[] = [
-	{ key: "tenant-support", label: "支持中心", i18nKey: "tenantExperience.menu.support", icon: Headset, children: tenantSupportItems },
-	{ key: "tenant-players", label: "玩家", i18nKey: "tenantExperience.menu.players", icon: User, children: [...items("user-list", "login-records", "device-management", "risk-users"), experienceItem("player-tags")] },
-	{ key: "tenant-finance", label: "财务", i18nKey: "tenantExperience.menu.finance", icon: Money, children: items("wallet-accounts", "wallet-ledgers", "manual-adjustments", "deposit-orders", "withdrawal-orders", "financial-reconciliation", "deposit-methods", "deposit-channels", "deposit-amount-options") },
-	  {
-    key: "tenant-games",
-    label: "游戏中心",
-    i18nKey: "menu.games.root",
-    icon: Platform,
-	    children: [
-	      ...items("game-list"),
-	      experienceItem("game-operations"),
-	      ...items("game-categories", "lobby-sections", "game-launch-records"),
-	      ...items("bet-records", "rollback-records", "abnormal-bets"),
-	    ],
-	  },
-	{ key: "tenant-marketing", label: "营销", i18nKey: "tenantExperience.menu.marketing", icon: Promotion, children: [experienceItem("marketing-dashboard"), experienceItem("campaigns"), ...items("activities", "vouchers", "vip"), experienceItem("missions"), experienceItem("referral"), ...items("banners", "popups", "announcements", "push-messages", "h5-navigation", "social-links", "music", "asset-library")] },
-	  ...menuGroups.filter((group) => group.key === "agents"),
-	  ...menuGroups.filter((group) => group.key === "risk"),
-	  ...menuGroups.filter((group) => group.key === "reports"),
-  {
-    key: "tenant-brand",
-    label: "品牌设置",
-    i18nKey: "portal.tenant.brandSettings",
-    icon: Brush,
-	    children: [experienceItem("brand-overview"), ...items("brand-config"), experienceItem("brand-theme"), experienceItem("brand-seo"), experienceItem("brand-domain"), ...items("sites"), experienceItem("brand-region"), experienceItem("brand-languages"), experienceItem("brand-preview"), experienceItem("brand-publish")],
-	  },
-	{ key: "tenant-ops", label: "运维中心", i18nKey: "tenantExperience.menu.operations", icon: Monitor, children: [...sharedOpsItems, ...platformOpsItems.filter((item) => ["jobs-retries", "alert-center"].includes(item.key))] },
-];
-
-export const removedSaaSKeys = new Set(["tenants", "sites", "create-brand", "brand-deliveries", "tenant-domains", "tenant-packages", "tenant-audit"]);
 export const singleSiteMenuGroups: MenuGroup[] = [
   ...menuGroups.map((group) => ({ ...group,
     ...(group.key === "brand" ? { label: "H5 配置", i18nKey: "singleSite.settings" } : {}),
-    children: group.children.filter((item) => !removedSaaSKeys.has(item.key)),
+    children: group.children,
   })),
   { key: "site-support", label: "支持中心", i18nKey: "opsV1.support.eyebrow", icon: Headset, children: supportItems },
   { key: "site-ops", label: "运维中心", i18nKey: "opsV1.stability.eyebrow", icon: Monitor, children: [...sharedOpsItems, ...platformOpsItems] },
@@ -888,8 +740,8 @@ export const allMenuItems = [
 	...supportItems,
 	...sharedOpsItems,
 		...platformOpsItems,
-		...tenantExperienceItems,
-].filter((item) => !removedSaaSKeys.has(item.key));
+		...siteExperienceItems,
+];
 
 export const userCenterKeys = new Set([
   "user-list",

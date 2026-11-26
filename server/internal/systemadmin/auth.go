@@ -37,13 +37,12 @@ const (
 )
 
 type adminCredential struct {
-	ID                 uint64 `gorm:"column:id"`
-	Username           string `gorm:"column:username"`
-	DisplayName        string `gorm:"column:display_name"`
-	TenantID           uint64 `gorm:"column:tenant_id"`
-	SiteID             uint64 `gorm:"column:site_id"`
-	TenantCode         string `gorm:"column:tenant_code"`
-	TenantName         string `gorm:"column:tenant_name"`
+	ID          uint64 `gorm:"column:id"`
+	Username    string `gorm:"column:username"`
+	DisplayName string `gorm:"column:display_name"`
+
+	SiteID uint64 `gorm:"column:site_id"`
+
 	SiteCode           string `gorm:"column:site_code"`
 	SiteName           string `gorm:"column:site_name"`
 	PasswordHash       string `gorm:"column:password_hash"`
@@ -54,26 +53,25 @@ type adminCredential struct {
 }
 
 type mfaChallenge struct {
-	ID                 uint64     `gorm:"column:id"`
-	AdminID            uint64     `gorm:"column:admin_id"`
-	TenantID           uint64     `gorm:"column:tenant_id"`
-	SiteID             uint64     `gorm:"column:site_id"`
-	TokenHash          string     `gorm:"column:token_hash"`
-	Purpose            string     `gorm:"column:purpose"`
-	SecretEncrypted    string     `gorm:"column:secret_encrypted"`
-	Attempts           uint       `gorm:"column:attempts"`
-	ExpiresAt          time.Time  `gorm:"column:expires_at"`
-	ConsumedAt         *time.Time `gorm:"column:consumed_at"`
-	IP                 string     `gorm:"column:ip_address"`
-	UserAgent          string     `gorm:"column:user_agent"`
-	AdminUsername      string     `gorm:"column:admin_username"`
-	AdminDisplayName   string     `gorm:"column:admin_display_name"`
-	TenantCode         string     `gorm:"column:tenant_code"`
-	TenantName         string     `gorm:"column:tenant_name"`
-	SiteCode           string     `gorm:"column:site_code"`
-	SiteName           string     `gorm:"column:site_name"`
-	MFASecretEncrypted string     `gorm:"column:admin_mfa_secret_encrypted"`
-	MustChangePassword bool       `gorm:"column:must_change_password"`
+	ID      uint64 `gorm:"column:id"`
+	AdminID uint64 `gorm:"column:admin_id"`
+
+	SiteID           uint64     `gorm:"column:site_id"`
+	TokenHash        string     `gorm:"column:token_hash"`
+	Purpose          string     `gorm:"column:purpose"`
+	SecretEncrypted  string     `gorm:"column:secret_encrypted"`
+	Attempts         uint       `gorm:"column:attempts"`
+	ExpiresAt        time.Time  `gorm:"column:expires_at"`
+	ConsumedAt       *time.Time `gorm:"column:consumed_at"`
+	IP               string     `gorm:"column:ip_address"`
+	UserAgent        string     `gorm:"column:user_agent"`
+	AdminUsername    string     `gorm:"column:admin_username"`
+	AdminDisplayName string     `gorm:"column:admin_display_name"`
+
+	SiteCode           string `gorm:"column:site_code"`
+	SiteName           string `gorm:"column:site_name"`
+	MFASecretEncrypted string `gorm:"column:admin_mfa_secret_encrypted"`
+	MustChangePassword bool   `gorm:"column:must_change_password"`
 }
 
 func authConfig() (issuer string, challengeTTL, sessionTTL time.Duration) {
@@ -187,7 +185,7 @@ func totpCode(secret string, timestamp time.Time) (string, error) {
 	return fmt.Sprintf("%06d", value%1000000), nil
 }
 
-func verifyTOTP(secret, code string, timestamp time.Time) bool {
+func verifyTOTP(secret string, code string, timestamp time.Time) bool {
 	code = strings.TrimSpace(code)
 	if len(code) != 6 {
 		return false
@@ -235,17 +233,17 @@ func parseUserAgent(value string) (string, string, string) {
 	return device, osName, browser
 }
 
-func (s *Service) writeLoginLog(adminID *uint64, tenantID, siteID uint64, username string, success bool, reason, ip, userAgent, correlationID string) {
+func (s *Service) writeLoginLog(adminID *uint64, siteID uint64, username string, success bool, reason string, ip string, userAgent string, correlationID string) {
 	device, osName, browser := parseUserAgent(userAgent)
 	row := map[string]any{
-		"admin_id": adminID, "tenant_id": tenantID, "site_id": siteID, "username": username, "success": boolValue(success), "failure_reason": reason,
+		"admin_id": adminID, "site_id": siteID, "username": username, "success": boolValue(success), "failure_reason": reason,
 		"ip_address": ip, "device": device, "operating_system": osName, "browser": browser,
 		"user_agent": userAgent, "correlation_id": correlationID, "created_at": now(), "updated_at": now(),
 	}
 	_ = s.db.Table("game_admin_login_logs").Create(row).Error
 }
 
-func (s *Service) issueMFAChallenge(account adminCredential, purpose, secret, ip, userAgent string) (string, time.Time, error) {
+func (s *Service) issueMFAChallenge(account adminCredential, purpose string, secret string, ip string, userAgent string) (string, time.Time, error) {
 	token, err := randomToken(32)
 	if err != nil {
 		return "", time.Time{}, err
@@ -273,44 +271,14 @@ func (s *Service) issueMFAChallenge(account adminCredential, purpose, secret, ip
 	return token, expiresAt, err
 }
 
-func (s *Service) AdminLogin(input LoginInput, ip, userAgent, correlationID string) (map[string]any, error) {
+func (s *Service) AdminLogin(input LoginInput, ip string, userAgent string, correlationID string) (map[string]any, error) {
 	username := strings.TrimSpace(input.Username)
-	tenantCode := strings.TrimSpace(input.TenantCode)
-	portalType := strings.ToUpper(strings.TrimSpace(input.PortalType))
-	if singlesite.Active() {
-		portalType, tenantCode = "", ""
-	}
-	if portalType != "" && portalType != "PLATFORM" && portalType != "TENANT" {
-		return nil, NewError("INVALID_PORTAL_TYPE", "invalid administrator portal type")
-	}
-
-	if portalType == "TENANT" && tenantCode == "" {
-		return nil, NewError("TENANT_CODE_REQUIRED", "tenant code is required for tenant administrator login")
-	}
-
 	var account adminCredential
 	db := s.db.Table("game_admin_accounts a").
-		Select("a.id,a.username,a.display_name,a.tenant_id,a.site_id,COALESCE(t.tenant_code,'') tenant_code,COALESCE(t.tenant_name,'') tenant_name,COALESCE(st.site_code,'') site_code,COALESCE(st.site_name,'') site_name,a.password_hash,a.mfa_enabled,a.mfa_secret_encrypted,a.must_change_password,a.status").
-		Joins("LEFT JOIN game_saas_tenants t ON t.id=a.tenant_id AND t.deleted_at IS NULL").
-		Joins("LEFT JOIN game_saas_sites st ON st.id=a.site_id AND st.deleted_at IS NULL").
+		Select("a.id, a.username, a.display_name, a.site_id, COALESCE(st.site_code, '') AS site_code, COALESCE(st.site_name, '') AS site_name, a.password_hash, a.mfa_enabled, a.mfa_secret_encrypted, a.must_change_password, a.status").
+		Joins("LEFT JOIN game_site_config st ON st.id=a.site_id AND st.deleted_at IS NULL").
 		Where("a.username=? AND a.deleted_at IS NULL", username)
 
-	if portalType == "TENANT" {
-		if tenantCode == "" {
-			return nil, NewError("TENANT_CODE_REQUIRED", "tenant code is required for tenant administrator login")
-		} else {
-			db = db.Where("t.tenant_code=?", tenantCode)
-		}
-	}
-
-	if portalType == "PLATFORM" {
-		db = db.Where("a.tenant_id=0")
-	} else if portalType == "TENANT" {
-		db = db.Where("a.tenant_id>0")
-	}
-	if scope, ok := singlesite.Scope(); ok {
-		db = db.Where("a.tenant_id IN (0, ?)", scope.TenantID)
-	}
 	err := db.Take(&account).Error
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, fmt.Errorf("query administrator credential: %w", err)
@@ -319,35 +287,25 @@ func (s *Service) AdminLogin(input LoginInput, ip, userAgent, correlationID stri
 	if !success {
 		reason := "INVALID_CREDENTIALS"
 		var adminID *uint64
-		tenantID, siteID := uint64(0), uint64(0)
+		siteID := uint64(0)
 		if account.ID > 0 {
 			adminID = &account.ID
-			tenantID = account.TenantID
+
 			siteID = account.SiteID
 			if account.Status != 1 {
 				reason = "ACCOUNT_DISABLED"
 			}
 			_ = s.db.Table("game_admin_accounts").Where("id=?", account.ID).UpdateColumn("failed_login_count", gorm.Expr("failed_login_count+1")).Error
 		}
-		s.writeLoginLog(adminID, tenantID, siteID, username, false, reason, ip, userAgent, correlationID)
+		s.writeLoginLog(adminID, siteID, username, false, reason, ip, userAgent, correlationID)
 		return nil, NewError("INVALID_CREDENTIALS", "invalid username or password")
 	}
-	accountType := "TENANT"
-	if account.TenantID == 0 {
-		accountType = "PLATFORM"
-	}
-	if singlesite.Active() {
-		accountType = "SITE"
-	}
-	if portalType != "" && portalType != accountType {
-		s.writeLoginLog(&account.ID, account.TenantID, account.SiteID, username, false, "PORTAL_TYPE_MISMATCH", ip, userAgent, correlationID)
-		return nil, NewError("PORTAL_TYPE_MISMATCH", "this account cannot sign in to the selected administrator portal")
-	}
+	accountType := "SITE"
 
 	response := map[string]any{
-		"administrator": map[string]any{"id": account.ID, "username": account.Username, "displayName": account.DisplayName, "tenantID": account.TenantID, "siteID": account.SiteID, "defaultSiteID": account.SiteID, "adminType": accountType, "mustChangePassword": account.MustChangePassword},
-		"tenant":        map[string]any{"id": account.TenantID, "code": account.TenantCode, "name": account.TenantName},
-		"site":          map[string]any{"id": account.SiteID, "code": account.SiteCode, "name": account.SiteName},
+		"administrator": map[string]any{"id": account.ID, "username": account.Username, "displayName": account.DisplayName, "siteID": account.SiteID, "defaultSiteID": account.SiteID, "adminType": accountType, "mustChangePassword": account.MustChangePassword},
+
+		"site": map[string]any{"id": account.SiteID, "code": account.SiteCode, "name": account.SiteName},
 	}
 	response = singleSiteAuthResponse(response)
 	if !account.MFAEnabled {
@@ -382,13 +340,12 @@ func (s *Service) AdminLogin(input LoginInput, ip, userAgent, correlationID stri
 	return response, nil
 }
 
-func (s *Service) loadChallenge(tx *gorm.DB, token, purpose string) (mfaChallenge, error) {
+func (s *Service) loadChallenge(tx *gorm.DB, token string, purpose string) (mfaChallenge, error) {
 	var challenge mfaChallenge
 	err := tx.Table("game_admin_mfa_challenges c").
-		Select("c.id,c.admin_id,a.tenant_id,a.site_id,c.token_hash,c.purpose,c.secret_encrypted,c.attempts,c.expires_at,c.consumed_at,c.ip_address,c.user_agent,a.username admin_username,a.display_name admin_display_name,COALESCE(t.tenant_code,'') tenant_code,COALESCE(t.tenant_name,'') tenant_name,COALESCE(st.site_code,'') site_code,COALESCE(st.site_name,'') site_name,a.mfa_secret_encrypted admin_mfa_secret_encrypted,a.must_change_password").
+		Select("c.id, c.admin_id, a.site_id, c.token_hash, c.purpose, c.secret_encrypted, c.attempts, c.expires_at, c.consumed_at, c.ip_address, c.user_agent, a.username AS admin_username, a.display_name AS admin_display_name, COALESCE(st.site_code, '') AS site_code, COALESCE(st.site_name, '') AS site_name, a.mfa_secret_encrypted AS admin_mfa_secret_encrypted, a.must_change_password").
 		Joins("JOIN game_admin_accounts a ON a.id=c.admin_id AND a.status=1 AND a.deleted_at IS NULL").
-		Joins("LEFT JOIN game_saas_tenants t ON t.id=a.tenant_id AND t.deleted_at IS NULL").
-		Joins("LEFT JOIN game_saas_sites st ON st.id=a.site_id AND st.deleted_at IS NULL").
+		Joins("LEFT JOIN game_site_config st ON st.id=a.site_id AND st.deleted_at IS NULL").
 		Clauses(clause.Locking{Strength: "UPDATE"}).
 		Where("c.token_hash=? AND c.purpose=? AND c.deleted_at IS NULL", tokenHash(strings.TrimSpace(token)), purpose).
 		Take(&challenge).Error
@@ -406,7 +363,7 @@ func (s *Service) issueSession(tx *gorm.DB, challenge mfaChallenge, correlationI
 	_, _, sessionTTL := authConfig()
 	expiresAt := now().Add(sessionTTL)
 	if err := tx.Table("game_admin_sessions").Create(map[string]any{
-		"admin_id": challenge.AdminID, "tenant_id": challenge.TenantID, "site_id": challenge.SiteID, "token_hash": tokenHash(token), "ip_address": challenge.IP,
+		"admin_id": challenge.AdminID, "site_id": challenge.SiteID, "token_hash": tokenHash(token), "ip_address": challenge.IP,
 		"user_agent": challenge.UserAgent, "expired_at": expiresAt, "last_active_at": now(), "created_at": now(), "updated_at": now(),
 	}).Error; err != nil {
 		return nil, err
@@ -418,25 +375,27 @@ func (s *Service) issueSession(tx *gorm.DB, challenge mfaChallenge, correlationI
 	}
 	device, osName, browser := parseUserAgent(challenge.UserAgent)
 	if err := tx.Table("game_admin_login_logs").Create(map[string]any{
-		"admin_id": challenge.AdminID, "tenant_id": challenge.TenantID, "site_id": challenge.SiteID, "username": challenge.AdminUsername, "success": 1,
+		"admin_id": challenge.AdminID, "site_id": challenge.SiteID, "username": challenge.AdminUsername, "success": 1,
 		"failure_reason": "", "ip_address": challenge.IP, "device": device, "operating_system": osName,
 		"browser": browser, "user_agent": challenge.UserAgent, "correlation_id": correlationID,
 		"created_at": now(), "updated_at": now(),
 	}).Error; err != nil {
 		return nil, err
 	}
-	adminType := "TENANT"
-	if challenge.TenantID == 0 {
+	adminType := "SITE"
+	if challenge.SiteID == 0 {
 		adminType = "PLATFORM"
 	}
-	if singlesite.Active() {
+	{
+
 		adminType = "SITE"
 	}
+
 	return singleSiteAuthResponse(map[string]any{
 		"status": authStatusAuthenticated, "token": token, "expiresAt": expiresAt,
-		"administrator": map[string]any{"id": challenge.AdminID, "username": challenge.AdminUsername, "displayName": challenge.AdminDisplayName, "tenantID": challenge.TenantID, "siteID": challenge.SiteID, "defaultSiteID": challenge.SiteID, "adminType": adminType, "mustChangePassword": challenge.MustChangePassword},
-		"tenant":        map[string]any{"id": challenge.TenantID, "code": challenge.TenantCode, "name": challenge.TenantName},
-		"site":          map[string]any{"id": challenge.SiteID, "code": challenge.SiteCode, "name": challenge.SiteName},
+		"administrator": map[string]any{"id": challenge.AdminID, "username": challenge.AdminUsername, "displayName": challenge.AdminDisplayName, "siteID": challenge.SiteID, "defaultSiteID": challenge.SiteID, "adminType": adminType, "mustChangePassword": challenge.MustChangePassword},
+
+		"site": map[string]any{"id": challenge.SiteID, "code": challenge.SiteCode, "name": challenge.SiteName},
 	}), nil
 }
 
@@ -472,7 +431,7 @@ func (s *Service) ConfirmMFASetup(input MFAChallengeInput, correlationID string)
 		if err != nil {
 			return err
 		}
-		if err := audit(tx, Actor{ID: challenge.AdminID, Username: challenge.AdminUsername, TenantID: challenge.TenantID, SiteID: challenge.SiteID, Platform: challenge.TenantID == 0, IP: challenge.IP, UserAgent: challenge.UserAgent, CorrelationID: correlationID}, "system:admin:reset-mfa", "system.admin.mfa.setup", "administrator", challenge.AdminID, map[string]any{"mfaEnabled": false}, map[string]any{"mfaEnabled": true}, "first login MFA enrollment"); err != nil {
+		if err := audit(tx, Actor{ID: challenge.AdminID, Username: challenge.AdminUsername, SiteID: challenge.SiteID, Platform: challenge.SiteID == 0, IP: challenge.IP, UserAgent: challenge.UserAgent, CorrelationID: correlationID}, "system:admin:reset-mfa", "system.admin.mfa.setup", "administrator", challenge.AdminID, map[string]any{"mfaEnabled": false}, map[string]any{"mfaEnabled": true}, "first login MFA enrollment"); err != nil {
 			return err
 		}
 		response, err = s.issueSession(tx, challenge, correlationID)
@@ -537,11 +496,9 @@ func singleSiteAuthResponse(response map[string]any) map[string]any {
 	if scope, ok := singlesite.Scope(); ok {
 		if profile, ok := response["administrator"].(map[string]any); ok {
 			profile["adminType"] = "SITE"
-			profile["tenantID"] = scope.TenantID
 			profile["siteID"] = scope.SiteID
 			profile["defaultSiteID"] = scope.SiteID
 		}
-		delete(response, "tenant")
 		response["site"] = map[string]any{"id": scope.SiteID}
 	}
 	return response

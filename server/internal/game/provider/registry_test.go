@@ -31,8 +31,8 @@ func (p testProvider) GetProviderBalance(context.Context) (*domain.ProviderBalan
 
 type testCurrencyMapper struct{}
 
-func (testCurrencyMapper) ToProviderCurrency(_, currency string) string { return currency }
-func (testCurrencyMapper) ToPlatformCurrency(currency string) string    { return currency }
+func (testCurrencyMapper) ToProviderCurrency(_ string, currency string) string { return currency }
+func (testCurrencyMapper) ToPlatformCurrency(currency string) string           { return currency }
 
 type testCallbackAdapter struct{ code string }
 

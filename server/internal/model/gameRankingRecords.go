@@ -34,5 +34,3 @@ var GameRankingRecordsColumnNames = map[string]bool{
 	"reward_amount":     true,
 	"status":            true,
 }
-
-

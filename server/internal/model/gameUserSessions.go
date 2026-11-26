@@ -1,15 +1,15 @@
 package model
 
 import (
-	"github.com/go-dev-frame/sponge/pkg/sgorm"
 	"time"
+
+	"github.com/go-dev-frame/sponge/pkg/sgorm"
 )
 
 // GameUserSessions Login sessions
 type GameUserSessions struct {
 	sgorm.Model `gorm:"embedded"` // embed id and time
 
-	TenantID  uint64     `gorm:"column:tenant_id;type:bigint(20) unsigned;default:0;not null" json:"tenantID"`
 	SiteID    uint64     `gorm:"column:site_id;type:bigint(20) unsigned;default:0;not null" json:"siteID"`
 	UserID    uint64     `gorm:"column:user_id;type:bigint(20) unsigned;not null" json:"userID"`
 	TokenHash string     `gorm:"column:token_hash;type:varchar(255);not null" json:"tokenHash"`
@@ -26,7 +26,7 @@ var GameUserSessionsColumnNames = map[string]bool{
 	"created_at": true,
 	"updated_at": true,
 	"deleted_at": true,
-	"tenant_id":  true,
+
 	"site_id":    true,
 	"user_id":    true,
 	"token_hash": true,

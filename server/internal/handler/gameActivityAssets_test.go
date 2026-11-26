@@ -103,7 +103,7 @@ func Test_gameActivityAssetsHandler_Create(t *testing.T) {
 	}
 
 	t.Logf("%+v", result)
-	
+
 }
 
 func Test_gameActivityAssetsHandler_DeleteByID(t *testing.T) {

@@ -80,7 +80,7 @@ function dateText(date: Date, end = false) {
   return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())} ${end ? "23:59:59" : "00:00:00"}`;
 }
 
-function tenantToday() {
+function siteToday() {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: overview.value?.timezone || "UTC",
     year: "numeric",
@@ -102,7 +102,7 @@ function dashboardFilter(): DashboardFilter {
       currency: overview.value?.currencyCode || "PKR",
     };
   }
-  const now = tenantToday();
+  const now = siteToday();
   const start = new Date(now);
   const end = new Date(now);
   if (range.value === "yesterday") {
@@ -233,7 +233,7 @@ async function load() {
     ElMessage.error(
       error instanceof Error
         ? error.message
-        : t("tenantExperience.common.loadFailed"),
+        : t("siteExperience.common.loadFailed"),
     );
   } finally {
     loading.value = false;
@@ -365,31 +365,31 @@ onMounted(load);
 </script>
 
 <template>
-  <div v-loading="loading" class="tenant-dashboard">
+  <div v-loading="loading" class="site-dashboard">
     <header class="page-header">
       <div>
-        <p>{{ t("tenantExperience.dashboard.eyebrow") }}</p>
+        <p>{{ t("siteExperience.dashboard.eyebrow") }}</p>
         <h1>
-          {{ overview?.brandName || t("tenantExperience.dashboard.title") }}
+          {{ overview?.brandName || t("siteExperience.dashboard.title") }}
         </h1>
         <span>{{ overview?.timezone }} · {{ overview?.currencyCode }}</span>
       </div>
       <div class="range-control">
         <el-radio-group v-model="range" size="small" @change="changeRange">
           <el-radio-button value="today">{{
-            t("tenantExperience.ranges.today")
+            t("siteExperience.ranges.today")
           }}</el-radio-button
           ><el-radio-button value="yesterday">{{
-            t("tenantExperience.ranges.yesterday")
+            t("siteExperience.ranges.yesterday")
           }}</el-radio-button
           ><el-radio-button value="last7">{{
-            t("tenantExperience.ranges.last7")
+            t("siteExperience.ranges.last7")
           }}</el-radio-button
           ><el-radio-button value="last30">{{
-            t("tenantExperience.ranges.last30")
+            t("siteExperience.ranges.last30")
           }}</el-radio-button
           ><el-radio-button value="custom">{{
-            t("tenantExperience.ranges.custom")
+            t("siteExperience.ranges.custom")
           }}</el-radio-button>
         </el-radio-group>
         <el-date-picker
@@ -406,7 +406,7 @@ onMounted(load);
     <el-alert
       v-if="loadErrors.length"
       type="warning"
-      :title="t('tenantExperience.dashboard.partialData')"
+      :title="t('siteExperience.dashboard.partialData')"
       :description="loadErrors[0]"
       show-icon
       :closable="false"
@@ -425,8 +425,8 @@ onMounted(load);
     <section class="section-block">
       <header>
         <div>
-          <h2>{{ t("tenantExperience.dashboard.operationalOverview") }}</h2>
-          <p>{{ t("tenantExperience.dashboard.operationalDescription") }}</p>
+          <h2>{{ t("siteExperience.dashboard.operationalOverview") }}</h2>
+          <p>{{ t("siteExperience.dashboard.operationalDescription") }}</p>
         </div>
       </header>
       <div class="ops-grid">
@@ -437,7 +437,7 @@ onMounted(load);
           @click="router.push(item.path)"
         >
           <span>{{
-            t(`tenantExperience.dashboard.operations.${item.key}`)
+            t(`siteExperience.dashboard.operations.${item.key}`)
           }}</span
           ><el-tag
             v-if="
@@ -448,7 +448,7 @@ onMounted(load);
             effect="plain"
             >{{
               t(
-                `tenantExperience.status.${statusKey(item.value)}`,
+                `siteExperience.status.${statusKey(item.value)}`,
                 String(item.value),
               )
             }}</el-tag
@@ -461,7 +461,7 @@ onMounted(load);
       <article class="section-block">
         <header>
           <div>
-            <h2>{{ t("tenantExperience.dashboard.financialTrend") }}</h2>
+            <h2>{{ t("siteExperience.dashboard.financialTrend") }}</h2>
             <p>{{ overview?.currencyCode }}</p>
           </div>
         </header>
@@ -470,8 +470,8 @@ onMounted(load);
       <article class="section-block">
         <header>
           <div>
-            <h2>{{ t("tenantExperience.dashboard.playerTrend") }}</h2>
-            <p>{{ t("tenantExperience.dashboard.playerTrendDescription") }}</p>
+            <h2>{{ t("siteExperience.dashboard.playerTrend") }}</h2>
+            <p>{{ t("siteExperience.dashboard.playerTrendDescription") }}</p>
           </div>
         </header>
         <TrendChart :data="playerTrend" :loading="loading" />
@@ -482,8 +482,8 @@ onMounted(load);
       <article class="section-block">
         <header>
           <div>
-            <h2>{{ t("tenantExperience.dashboard.providerHealth") }}</h2>
-            <p>{{ t("tenantExperience.dashboard.providerDescription") }}</p>
+            <h2>{{ t("siteExperience.dashboard.providerHealth") }}</h2>
+            <p>{{ t("siteExperience.dashboard.providerDescription") }}</p>
           </div>
           <el-button
             link
@@ -494,7 +494,7 @@ onMounted(load);
         </header>
         <el-table :data="providers.slice(0, 6)" size="small"
           ><el-table-column
-            :label="t('tenantExperience.fields.provider')"
+            :label="t('siteExperience.fields.provider')"
             min-width="160"
             ><template #default="{ row }"
               ><strong>{{
@@ -503,10 +503,10 @@ onMounted(load);
               ><small>{{ row.providerCode }}</small></template
             ></el-table-column
           ><el-table-column
-            :label="t('tenantExperience.fields.enabledGames')"
+            :label="t('siteExperience.fields.enabledGames')"
             prop="enabledGames"
             width="120" /><el-table-column
-            :label="t('tenantExperience.fields.status')"
+            :label="t('siteExperience.fields.status')"
             width="125"
             ><template #default="{ row }"
               ><el-tag
@@ -514,7 +514,7 @@ onMounted(load);
                 effect="plain"
                 >{{
                   t(
-                    `tenantExperience.status.${statusKey(row.operationalStatus || row.healthStatus)}`,
+                    `siteExperience.status.${statusKey(row.operationalStatus || row.healthStatus)}`,
                     String(row.operationalStatus || row.healthStatus || "-"),
                   )
                 }}</el-tag
@@ -522,15 +522,15 @@ onMounted(load);
             ></el-table-column
           ><template #empty
             ><el-empty
-              :description="t('tenantExperience.empty.provider')" /></template
+              :description="t('siteExperience.empty.provider')" /></template
         ></el-table>
       </article>
 
       <article class="section-block">
         <header>
           <div>
-            <h2>{{ t("tenantExperience.dashboard.pendingWork") }}</h2>
-            <p>{{ t("tenantExperience.dashboard.pendingDescription") }}</p>
+            <h2>{{ t("siteExperience.dashboard.pendingWork") }}</h2>
+            <p>{{ t("siteExperience.dashboard.pendingDescription") }}</p>
           </div>
         </header>
         <div v-if="pendingWork.length" class="pending-list">
@@ -541,23 +541,23 @@ onMounted(load);
             @click="router.push(item.path)"
           >
             <span>{{
-              t(`tenantExperience.dashboard.pending.${item.key}`)
+              t(`siteExperience.dashboard.pending.${item.key}`)
             }}</span
             ><el-tag type="warning" round>{{ item.count }}</el-tag>
           </button>
         </div>
-        <el-empty v-else :description="t('tenantExperience.empty.pending')" />
+        <el-empty v-else :description="t('siteExperience.empty.pending')" />
       </article>
     </section>
 
     <section class="quick-actions">
-      <h2>{{ t("tenantExperience.dashboard.quickActions") }}</h2>
+      <h2>{{ t("siteExperience.dashboard.quickActions") }}</h2>
       <el-button
         v-for="item in quickActions"
         :key="item.key"
         :icon="item.icon"
         @click="router.push(item.path)"
-        >{{ t(`tenantExperience.dashboard.quick.${item.key}`) }}</el-button
+        >{{ t(`siteExperience.dashboard.quick.${item.key}`) }}</el-button
       >
     </section>
 
@@ -574,7 +574,7 @@ onMounted(load);
 </template>
 
 <style scoped>
-.tenant-dashboard {
+.site-dashboard {
   display: grid;
   gap: 16px;
 }

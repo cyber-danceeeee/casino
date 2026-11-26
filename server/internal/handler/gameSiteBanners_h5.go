@@ -13,7 +13,7 @@ import (
 
 func PublicSiteBanners(c *gin.Context) {
 	db := database.GetDB()
-	scope := h5TenancyScope(c)
+	scope := h5ContentScope(c)
 	_, _, loggedIn := h5AuthenticatedUser(db, c)
 	language := strings.TrimSpace(c.Query("language"))
 	if language == "" {

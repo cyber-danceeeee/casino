@@ -7,7 +7,7 @@ import (
 // gameUserVipLogs business-level http error codes.
 // the gameUserVipLogsNO value range is 1~999, if the same error code is used, it will cause panic.
 var (
-	gameUserVipLogsNO = 49
+	gameUserVipLogsNO       = 49
 	gameUserVipLogsName     = "gameUserVipLogs"
 	gameUserVipLogsBaseCode = errcode.HCode(gameUserVipLogsNO)
 

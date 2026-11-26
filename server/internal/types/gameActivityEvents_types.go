@@ -10,70 +10,68 @@ var _ time.Time
 
 // Tip: suggested filling in the binding rules https://github.com/go-playground/validator in request struct fields tag.
 
-
 // CreateGameActivityEventsRequest request params
 type CreateGameActivityEventsRequest struct {
-	ActivityCode  string `json:"activityCode" binding:""`
-	Slug  string `json:"slug" binding:""`
-	Kind  string `json:"kind" binding:""` // deposit, spin, chest, red_packet, checkin, card
-	Title  string `json:"title" binding:""`
-	Subtitle  string `json:"subtitle" binding:""`
-	RewardText  string `json:"rewardText" binding:""`
-	MaxRewardText  string `json:"maxRewardText" binding:""`
-	Note  string `json:"note" binding:""`
-	CtaText  string `json:"ctaText" binding:""`
-	HeroURL  string `json:"heroURL" binding:""`
-	CardImageURL  string `json:"cardImageURL" binding:""`
-	Status  int `json:"status" binding:""` // 1 enabled, 2 disabled, 3 ended
-	Sort  int `json:"sort" binding:""`
-	StartAt  *time.Time `json:"startAt" binding:""`
-	EndAt  *time.Time `json:"endAt" binding:""`
+	ActivityCode  string     `json:"activityCode" binding:""`
+	Slug          string     `json:"slug" binding:""`
+	Kind          string     `json:"kind" binding:""` // deposit, spin, chest, red_packet, checkin, card
+	Title         string     `json:"title" binding:""`
+	Subtitle      string     `json:"subtitle" binding:""`
+	RewardText    string     `json:"rewardText" binding:""`
+	MaxRewardText string     `json:"maxRewardText" binding:""`
+	Note          string     `json:"note" binding:""`
+	CtaText       string     `json:"ctaText" binding:""`
+	HeroURL       string     `json:"heroURL" binding:""`
+	CardImageURL  string     `json:"cardImageURL" binding:""`
+	Status        int        `json:"status" binding:""` // 1 enabled, 2 disabled, 3 ended
+	Sort          int        `json:"sort" binding:""`
+	StartAt       *time.Time `json:"startAt" binding:""`
+	EndAt         *time.Time `json:"endAt" binding:""`
 }
 
 // UpdateGameActivityEventsByIDRequest request params
 type UpdateGameActivityEventsByIDRequest struct {
 	ID uint64 `json:"id" binding:""` // uint64 id
 
-	ActivityCode  string `json:"activityCode" binding:""`
-	Slug  string `json:"slug" binding:""`
-	Kind  string `json:"kind" binding:""` // deposit, spin, chest, red_packet, checkin, card
-	Title  string `json:"title" binding:""`
-	Subtitle  string `json:"subtitle" binding:""`
-	RewardText  string `json:"rewardText" binding:""`
-	MaxRewardText  string `json:"maxRewardText" binding:""`
-	Note  string `json:"note" binding:""`
-	CtaText  string `json:"ctaText" binding:""`
-	HeroURL  string `json:"heroURL" binding:""`
-	CardImageURL  string `json:"cardImageURL" binding:""`
-	Status  int `json:"status" binding:""` // 1 enabled, 2 disabled, 3 ended
-	Sort  int `json:"sort" binding:""`
-	StartAt  *time.Time `json:"startAt" binding:""`
-	EndAt  *time.Time `json:"endAt" binding:""`
+	ActivityCode  string     `json:"activityCode" binding:""`
+	Slug          string     `json:"slug" binding:""`
+	Kind          string     `json:"kind" binding:""` // deposit, spin, chest, red_packet, checkin, card
+	Title         string     `json:"title" binding:""`
+	Subtitle      string     `json:"subtitle" binding:""`
+	RewardText    string     `json:"rewardText" binding:""`
+	MaxRewardText string     `json:"maxRewardText" binding:""`
+	Note          string     `json:"note" binding:""`
+	CtaText       string     `json:"ctaText" binding:""`
+	HeroURL       string     `json:"heroURL" binding:""`
+	CardImageURL  string     `json:"cardImageURL" binding:""`
+	Status        int        `json:"status" binding:""` // 1 enabled, 2 disabled, 3 ended
+	Sort          int        `json:"sort" binding:""`
+	StartAt       *time.Time `json:"startAt" binding:""`
+	EndAt         *time.Time `json:"endAt" binding:""`
 }
 
 // GameActivityEventsObjDetail detail
 type GameActivityEventsObjDetail struct {
 	ID uint64 `json:"id"` // convert to uint64 id
 
-	ActivityCode  string `json:"activityCode"`
-	Slug  string `json:"slug"`
-	Kind  string `json:"kind"` // deposit, spin, chest, red_packet, checkin, card
-	Title  string `json:"title"`
-	Subtitle  string `json:"subtitle"`
-	RewardText  string `json:"rewardText"`
-	MaxRewardText  string `json:"maxRewardText"`
-	Note  string `json:"note"`
-	CtaText  string `json:"ctaText"`
-	HeroURL  string `json:"heroURL"`
-	CardImageURL  string `json:"cardImageURL"`
-	Status  int `json:"status"` // 1 enabled, 2 disabled, 3 ended
-	Sort  int `json:"sort"`
-	StartAt  *time.Time `json:"startAt"`
-	EndAt  *time.Time `json:"endAt"`
-	CreatedAt  *time.Time `json:"createdAt"`
-	UpdatedAt  *time.Time `json:"updatedAt"`
+	ActivityCode  string     `json:"activityCode"`
+	Slug          string     `json:"slug"`
+	Kind          string     `json:"kind"` // deposit, spin, chest, red_packet, checkin, card
+	Title         string     `json:"title"`
+	Subtitle      string     `json:"subtitle"`
+	RewardText    string     `json:"rewardText"`
+	MaxRewardText string     `json:"maxRewardText"`
+	Note          string     `json:"note"`
+	CtaText       string     `json:"ctaText"`
+	HeroURL       string     `json:"heroURL"`
+	CardImageURL  string     `json:"cardImageURL"`
+	Status        int        `json:"status"` // 1 enabled, 2 disabled, 3 ended
+	Sort          int        `json:"sort"`
+	StartAt       *time.Time `json:"startAt"`
+	EndAt         *time.Time `json:"endAt"`
+	CreatedAt     *time.Time `json:"createdAt"`
+	UpdatedAt     *time.Time `json:"updatedAt"`
 }
-
 
 // CreateGameActivityEventsReply only for api docs
 type CreateGameActivityEventsReply struct {

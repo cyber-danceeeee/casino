@@ -232,7 +232,7 @@ func (h *gameSmsVerificationCodesHandler) List(c *gin.Context) {
 
 	response.Success(c, gin.H{
 		"gameSmsVerificationCodess": data,
-		"total":        total,
+		"total":                     total,
 	})
 }
 

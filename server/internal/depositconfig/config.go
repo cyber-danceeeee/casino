@@ -8,8 +8,8 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
+	"casino/internal/content"
 	"casino/internal/model"
-	"casino/internal/tenancy"
 )
 
 type Selection struct {
@@ -27,15 +27,15 @@ type voucherEligibility struct {
 	Reason    string
 }
 
-func depositPlatformScope() tenancy.Scope {
-	return tenancy.Scope{Platform: true}
+func depositPlatformScope() content.Scope {
+	return content.Scope{Platform: true}
 }
 
-func depositApplyReadableScope(db *gorm.DB, alias string, scope tenancy.Scope) *gorm.DB {
+func depositApplyReadableScope(db *gorm.DB, alias string, scope content.Scope) *gorm.DB {
 	if scope.Platform {
-		return db.Where(depositColumn(alias, "tenant_id")+" = ? AND "+depositColumn(alias, "site_id")+" = ?", 0, 0)
+		return db.Where(depositColumn(alias, "")+" = ? AND "+depositColumn(alias, "site_id")+" = ?", 0, 0)
 	}
-	return tenancy.ApplySite(db, alias, scope)
+	return content.ApplySite(db, alias, scope)
 }
 
 func depositColumn(alias string, name string) string {
@@ -52,7 +52,7 @@ func (s *Service) GetConfig(q ConfigQuery) (map[string]any, error) {
 
 	var methods []model.GamePaymentMethods
 	catalogScope := q.Scope
-	loadMethods := func(scope tenancy.Scope) error {
+	loadMethods := func(scope content.Scope) error {
 		methods = []model.GamePaymentMethods{}
 		methodDB := depositApplyReadableScope(s.db.Model(&model.GamePaymentMethods{}), "", scope).
 			Where("deleted_at IS NULL AND status = 1 AND method_type IN ?", []string{"deposit", "both"})
@@ -61,7 +61,7 @@ func (s *Service) GetConfig(q ConfigQuery) (map[string]any, error) {
 	if err := loadMethods(catalogScope); err != nil {
 		return nil, err
 	}
-	if len(methods) == 0 && q.Scope.TenantScoped() {
+	if len(methods) == 0 && q.Scope.SiteScoped() {
 		catalogScope = depositPlatformScope()
 		if err := loadMethods(catalogScope); err != nil {
 			return nil, err
@@ -129,7 +129,7 @@ func (s *Service) GetConfig(q ConfigQuery) (map[string]any, error) {
 
 	now := time.Now()
 	var vouchers []model.GameDepositVouchers
-	voucherDB := tenancy.ApplySite(s.db.Model(&model.GameDepositVouchers{}), "", q.Scope).
+	voucherDB := content.ApplySite(s.db.Model(&model.GameDepositVouchers{}), "", q.Scope).
 		Where("deleted_at IS NULL AND status = 1 AND (start_at IS NULL OR start_at <= ?) AND (end_at IS NULL OR end_at >= ?)", now, now)
 	if err := voucherDB.Order("sort ASC, id ASC").Find(&vouchers).Error; err != nil {
 		return nil, err
@@ -194,7 +194,7 @@ func (s *Service) GetConfig(q ConfigQuery) (map[string]any, error) {
 	}, nil
 }
 
-func (s *Service) ResolveSelection(q ConfigQuery, channelCode, voucherCode string) (Selection, error) {
+func (s *Service) ResolveSelection(q ConfigQuery, channelCode string, voucherCode string) (Selection, error) {
 	amount, err := money(q.Amount, "amount")
 	if err != nil || amount.LessThanOrEqual(decimal.Zero) {
 		return Selection{}, domainError("INVALID_AMOUNT", "amount must be greater than zero")
@@ -203,12 +203,12 @@ func (s *Service) ResolveSelection(q ConfigQuery, channelCode, voucherCode strin
 	var method model.GamePaymentMethods
 	catalogScope := q.Scope
 	methodCode := strings.TrimSpace(q.MethodCode)
-	methodDB := func(scope tenancy.Scope) *gorm.DB {
+	methodDB := func(scope content.Scope) *gorm.DB {
 		return depositApplyReadableScope(s.db.Model(&model.GamePaymentMethods{}), "", scope).
 			Where("deleted_at IS NULL AND status = 1 AND method_code = ? AND method_type IN ?", methodCode, []string{"deposit", "both"})
 	}
 	err = methodDB(catalogScope).First(&method).Error
-	if err != nil && q.Scope.TenantScoped() && err == gorm.ErrRecordNotFound {
+	if err != nil && q.Scope.SiteScoped() && err == gorm.ErrRecordNotFound {
 		catalogScope = depositPlatformScope()
 		err = methodDB(catalogScope).First(&method).Error
 	}
@@ -246,7 +246,7 @@ func (s *Service) ResolveSelection(q ConfigQuery, channelCode, voucherCode strin
 
 	now := time.Now()
 	var voucher model.GameDepositVouchers
-	voucherDB := tenancy.ApplySite(s.db.Model(&model.GameDepositVouchers{}), "", q.Scope).
+	voucherDB := content.ApplySite(s.db.Model(&model.GameDepositVouchers{}), "", q.Scope).
 		Where("deleted_at IS NULL AND status = 1 AND voucher_code = ? AND (start_at IS NULL OR start_at <= ?) AND (end_at IS NULL OR end_at >= ?)", strings.TrimSpace(voucherCode), now, now)
 	if err := voucherDB.First(&voucher).Error; err != nil {
 		return Selection{}, notFound(err, "VOUCHER_NOT_FOUND")
@@ -304,7 +304,7 @@ func (s *Service) voucherEligibility(voucher model.GameDepositVouchers, q Config
 
 	var successfulDeposits int64
 	if voucher.NewUsersOnly || voucher.FirstDepositOnly {
-		depositDB := tenancy.ApplySite(s.db.Model(&model.GameDepositOrders{}), "", q.Scope).
+		depositDB := content.ApplySite(s.db.Model(&model.GameDepositOrders{}), "", q.Scope).
 			Where("user_id = ? AND status = 2 AND deleted_at IS NULL", q.UserID)
 		if err := depositDB.Count(&successfulDeposits).Error; err != nil {
 			return voucherEligibility{}, err
@@ -316,7 +316,7 @@ func (s *Service) voucherEligibility(voucher model.GameDepositVouchers, q Config
 
 	if voucher.PerUserLimit > 0 {
 		var count int64
-		depositDB := tenancy.ApplySite(s.db.Model(&model.GameDepositOrders{}), "", q.Scope).
+		depositDB := content.ApplySite(s.db.Model(&model.GameDepositOrders{}), "", q.Scope).
 			Where("user_id = ? AND voucher_id = ? AND status = 2 AND deleted_at IS NULL", q.UserID, voucher.ID)
 		if err := depositDB.Count(&count).Error; err != nil {
 			return voucherEligibility{}, err
@@ -328,7 +328,7 @@ func (s *Service) voucherEligibility(voucher model.GameDepositVouchers, q Config
 	if voucher.DailyLimit > 0 {
 		start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 		var count int64
-		depositDB := tenancy.ApplySite(s.db.Model(&model.GameDepositOrders{}), "", q.Scope).
+		depositDB := content.ApplySite(s.db.Model(&model.GameDepositOrders{}), "", q.Scope).
 			Where("user_id = ? AND voucher_id = ? AND status = 2 AND created_at >= ? AND deleted_at IS NULL", q.UserID, voucher.ID, start)
 		if err := depositDB.Count(&count).Error; err != nil {
 			return voucherEligibility{}, err
@@ -341,7 +341,7 @@ func (s *Service) voucherEligibility(voucher model.GameDepositVouchers, q Config
 		weekday := (int(now.Weekday()) + 6) % 7
 		start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).AddDate(0, 0, -weekday)
 		var count int64
-		depositDB := tenancy.ApplySite(s.db.Model(&model.GameDepositOrders{}), "", q.Scope).
+		depositDB := content.ApplySite(s.db.Model(&model.GameDepositOrders{}), "", q.Scope).
 			Where("user_id = ? AND voucher_id = ? AND status = 2 AND created_at >= ? AND deleted_at IS NULL", q.UserID, voucher.ID, start)
 		if err := depositDB.Count(&count).Error; err != nil {
 			return voucherEligibility{}, err

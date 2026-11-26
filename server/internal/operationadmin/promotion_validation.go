@@ -104,6 +104,6 @@ func validatePromotionInput(in PromotionInput) error {
 	return nil
 }
 
-func promotionExecutable(triggerType, claimMode string) bool {
+func promotionExecutable(triggerType string, claimMode string) bool {
 	return strings.EqualFold(triggerType, "DEPOSIT_SUCCEEDED") && strings.EqualFold(claimMode, "AUTO")
 }

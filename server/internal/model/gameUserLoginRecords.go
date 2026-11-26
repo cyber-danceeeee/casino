@@ -10,7 +10,6 @@ import (
 type GameUserLoginRecords struct {
 	sgorm.Model `gorm:"embedded"`
 
-	TenantID        uint64     `gorm:"column:tenant_id;type:bigint unsigned;not null" json:"tenantID"`
 	SiteID          uint64     `gorm:"column:site_id;type:bigint unsigned;not null" json:"siteID"`
 	UserID          uint64     `gorm:"column:user_id;type:bigint unsigned;not null" json:"userID"`
 	LoginIdentifier string     `gorm:"column:login_identifier;type:varchar(190);not null" json:"loginIdentifier"`

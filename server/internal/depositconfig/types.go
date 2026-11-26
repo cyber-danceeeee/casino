@@ -3,13 +3,13 @@ package depositconfig
 import (
 	"time"
 
-	"casino/internal/tenancy"
+	"casino/internal/content"
 )
 
 type Actor struct {
 	ID            uint64
 	Username      string
-	Scope         tenancy.Scope
+	Scope         content.Scope
 	IP            string
 	UserAgent     string
 	CorrelationID string
@@ -19,7 +19,7 @@ type ListQuery struct {
 	Page     int
 	PageSize int
 	Values   map[string]string
-	Scope    tenancy.Scope
+	Scope    content.Scope
 }
 
 type PageResult struct {
@@ -102,7 +102,7 @@ type RewardTierInput struct {
 
 type ConfigQuery struct {
 	UserID     uint64
-	Scope      tenancy.Scope
+	Scope      content.Scope
 	Country    string
 	Currency   string
 	MethodCode string

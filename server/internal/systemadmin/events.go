@@ -3,8 +3,8 @@ package systemadmin
 import (
 	"context"
 
+	"casino/internal/content"
 	"casino/internal/eventbus"
-	"casino/internal/tenancy"
 )
 
 type EventDispatchInput struct {
@@ -119,7 +119,7 @@ func (s *Service) ReplayConsumer(input EventReplayConsumerInput, actor Actor) (a
 }
 
 func (s *Service) requireEventSuperAdmin(actor Actor) error {
-	if !actor.Platform || actor.TenantID != 0 {
+	if !actor.Platform || actor.SiteID != 0 {
 		return NewError("PERMISSION_DENIED", "permission denied")
 	}
 	if !s.db.Migrator().HasTable("game_admin_account_roles") || !s.db.Migrator().HasTable("game_admin_roles") {
@@ -127,7 +127,7 @@ func (s *Service) requireEventSuperAdmin(actor Actor) error {
 	}
 	var count int64
 	_ = s.db.Table("game_admin_account_roles ar").
-		Joins("JOIN game_admin_roles r ON r.id=ar.role_id AND r.code='super-admin' AND r.tenant_id=0 AND r.status=1 AND r.deleted_at IS NULL").
+		Joins("JOIN game_admin_roles AS r ON r.id = ar.role_id AND r.code = 'super-admin' AND r.status = 1 AND r.deleted_at IS NULL").
 		Where("ar.admin_id=? AND ar.deleted_at IS NULL", actor.ID).
 		Count(&count).Error
 	if count == 0 {
@@ -136,8 +136,8 @@ func (s *Service) requireEventSuperAdmin(actor Actor) error {
 	return nil
 }
 
-func eventScope(actor Actor) tenancy.Scope {
-	return tenancy.Scope{TenantID: actor.TenantID, SiteID: actor.SiteID, Platform: actor.Platform}
+func eventScope(actor Actor) content.Scope {
+	return content.Scope{SiteID: actor.SiteID, Platform: actor.Platform}
 }
 
 func eventError(err error) error {

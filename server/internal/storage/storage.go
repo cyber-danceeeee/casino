@@ -312,7 +312,7 @@ func Delete(ctx context.Context, value string) error {
 	return fmt.Errorf("unsupported storage driver %q", settings.Driver)
 }
 
-func putLocal(key string, body io.Reader, size int64, contentType, publicBaseURL string) (Asset, error) {
+func putLocal(key string, body io.Reader, size int64, contentType string, publicBaseURL string) (Asset, error) {
 	target := filepath.Join(config.StaticDir(), filepath.FromSlash(key))
 	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 		return Asset{}, err
@@ -380,7 +380,7 @@ func ossClient(settings config.OSSStorage) (*oss.Client, error) {
 	return oss.NewClient(cfg), nil
 }
 
-func ossSignedGetURL(ctx context.Context, client *oss.Client, bucket, objectKey string, settings config.OSSStorage) (string, time.Time, error) {
+func ossSignedGetURL(ctx context.Context, client *oss.Client, bucket string, objectKey string, settings config.OSSStorage) (string, time.Time, error) {
 	expires := ossPresignDuration(settings)
 	result, err := client.Presign(ctx, &oss.GetObjectRequest{
 		Bucket: oss.Ptr(bucket),
@@ -466,7 +466,7 @@ func isConfiguredOSSEndpoint(host string, settings config.OSSStorage) bool {
 	return false
 }
 
-func localPublicURL(value, publicBaseURL string) string {
+func localPublicURL(value string, publicBaseURL string) string {
 	value = strings.TrimSpace(value)
 	if value == "" {
 		return ""
@@ -500,7 +500,7 @@ func cleanObjectKey(key string) string {
 	return strings.Join(cleaned, "/")
 }
 
-func normalizeContentType(value, extension string) string {
+func normalizeContentType(value string, extension string) string {
 	value = strings.TrimSpace(value)
 	if value != "" {
 		if mediaType, _, err := mime.ParseMediaType(value); err == nil && mediaType != "" {
@@ -523,7 +523,7 @@ func normalizeContentType(value, extension string) string {
 	return "application/octet-stream"
 }
 
-func joinURL(base, suffix string) string {
+func joinURL(base string, suffix string) string {
 	suffix = strings.TrimLeft(strings.TrimSpace(suffix), "/")
 	if strings.TrimSpace(base) == "" {
 		return "/" + suffix

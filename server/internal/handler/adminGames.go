@@ -87,7 +87,7 @@ func (h *adminGamesHandler) ListProviders(c *gin.Context) {
 	gameWrite(c, data, err)
 }
 func (h *adminGamesHandler) GetProvider(c *gin.Context) {
-	data, err := h.service.ProviderDetail(c.Param("code"), adminTenancyScope(c))
+	data, err := h.service.ProviderDetail(c.Param("code"), adminContentScope(c))
 	gameWrite(c, data, err)
 }
 func (h *adminGamesHandler) SetProviderStatus(c *gin.Context) {
@@ -141,7 +141,7 @@ func (h *adminGamesHandler) SyncAll(c *gin.Context) {
 	gameWrite(c, data, err)
 }
 func (h *adminGamesHandler) ListProviderGameTypes(c *gin.Context) {
-	data, err := h.service.ListProviderGameTypes(c.Param("code"), adminTenancyScope(c))
+	data, err := h.service.ListProviderGameTypes(c.Param("code"), adminContentScope(c))
 	gameWrite(c, data, err)
 }
 
@@ -154,7 +154,7 @@ func (h *adminGamesHandler) ListImportableGames(c *gin.Context) {
 	gameWrite(c, data, err)
 }
 func (h *adminGamesHandler) ListImportableProviderGameTypes(c *gin.Context) {
-	data, err := h.service.ListImportableProviderGameTypes(c.Param("code"), adminTenancyScope(c))
+	data, err := h.service.ListImportableProviderGameTypes(c.Param("code"), adminContentScope(c))
 	gameWrite(c, data, err)
 }
 func (h *adminGamesHandler) ImportGames(c *gin.Context) {
@@ -170,7 +170,7 @@ func (h *adminGamesHandler) GetGame(c *gin.Context) {
 	if !ok {
 		return
 	}
-	data, err := h.service.GameDetail(id, adminTenancyScope(c))
+	data, err := h.service.GameDetail(id, adminContentScope(c))
 	gameWrite(c, data, err)
 }
 func (h *adminGamesHandler) UpdateGame(c *gin.Context) {
@@ -239,7 +239,7 @@ func (h *adminGamesHandler) LaunchDemo(c *gin.Context) {
 	if !ok {
 		return
 	}
-	data, err := h.service.LaunchDemo(c.Request.Context(), id, adminTenancyScope(c))
+	data, err := h.service.LaunchDemo(c.Request.Context(), id, adminContentScope(c))
 	gameWrite(c, data, err)
 }
 
@@ -252,7 +252,7 @@ func (h *adminGamesHandler) GetCategory(c *gin.Context) {
 	if !ok {
 		return
 	}
-	data, err := h.service.CategoryDetail(id, adminTenancyScope(c))
+	data, err := h.service.CategoryDetail(id, adminContentScope(c))
 	gameWrite(c, data, err)
 }
 func (h *adminGamesHandler) ListCategoryGames(c *gin.Context) {
@@ -365,7 +365,7 @@ func (h *adminGamesHandler) GetTag(c *gin.Context) {
 	if !ok {
 		return
 	}
-	data, err := h.service.TagDetail(id, adminTenancyScope(c))
+	data, err := h.service.TagDetail(id, adminContentScope(c))
 	gameWrite(c, data, err)
 }
 func (h *adminGamesHandler) CreateTag(c *gin.Context) {
@@ -420,7 +420,7 @@ func (h *adminGamesHandler) GetCollection(c *gin.Context) {
 	if !ok {
 		return
 	}
-	data, err := h.service.CollectionDetail(id, adminTenancyScope(c))
+	data, err := h.service.CollectionDetail(id, adminContentScope(c))
 	gameWrite(c, data, err)
 }
 func (h *adminGamesHandler) CreateCollection(c *gin.Context) {
@@ -464,7 +464,7 @@ func (h *adminGamesHandler) GetLobbySection(c *gin.Context) {
 	if !ok {
 		return
 	}
-	data, err := h.service.LobbySectionDetail(id, adminTenancyScope(c))
+	data, err := h.service.LobbySectionDetail(id, adminContentScope(c))
 	gameWrite(c, data, err)
 }
 func (h *adminGamesHandler) CreateLobbySection(c *gin.Context) {
@@ -510,7 +510,7 @@ func (h *adminGamesHandler) GetSyncLog(c *gin.Context) {
 	if !ok {
 		return
 	}
-	data, err := h.service.SyncLogDetail(id, adminTenancyScope(c))
+	data, err := h.service.SyncLogDetail(id, adminContentScope(c))
 	gameWrite(c, data, err)
 }
 func (h *adminGamesHandler) ListSyncLogItems(c *gin.Context) {
@@ -526,7 +526,7 @@ func (h *adminGamesHandler) GetSyncLogRawResponse(c *gin.Context) {
 	if !ok {
 		return
 	}
-	data, err := h.service.SyncLogRawResponse(id, adminTenancyScope(c))
+	data, err := h.service.SyncLogRawResponse(id, adminContentScope(c))
 	gameWrite(c, data, err)
 }
 func (h *adminGamesHandler) ListSyncLogOperationLogs(c *gin.Context) {
@@ -546,7 +546,7 @@ func (h *adminGamesHandler) GetLaunchLog(c *gin.Context) {
 	if !ok {
 		return
 	}
-	data, err := h.service.LaunchLogDetail(id, adminTenancyScope(c))
+	data, err := h.service.LaunchLogDetail(id, adminContentScope(c))
 	gameWrite(c, data, err)
 }
 func (h *adminGamesHandler) UploadGameAsset(c *gin.Context) {
@@ -606,7 +606,7 @@ func gameActor(c *gin.Context) gameadmin.Actor {
 	if correlation == "" {
 		correlation = c.GetString("request_id")
 	}
-	return gameadmin.Actor{ID: actor.ID, Username: actor.Username, Scope: adminTenancyScope(c), IP: c.ClientIP(), UserAgent: c.GetHeader("User-Agent"), CorrelationID: correlation}
+	return gameadmin.Actor{ID: actor.ID, Username: actor.Username, Scope: adminContentScope(c), IP: c.ClientIP(), UserAgent: c.GetHeader("User-Agent"), CorrelationID: correlation}
 }
 func gameListQuery(c *gin.Context, keys []string) gameadmin.ListQuery {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
@@ -617,7 +617,7 @@ func gameListQuery(c *gin.Context, keys []string) gameadmin.ListQuery {
 			values[key] = value
 		}
 	}
-	return gameadmin.ListQuery{Page: page, PageSize: pageSize, Values: values, Scope: adminTenancyScope(c)}
+	return gameadmin.ListQuery{Page: page, PageSize: pageSize, Values: values, Scope: adminContentScope(c)}
 }
 func gameError(c *gin.Context, err error) {
 	var domain *gameadmin.Error

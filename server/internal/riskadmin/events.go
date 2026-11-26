@@ -117,7 +117,7 @@ func (s *RiskEventService) Detail(id uint64) (map[string]any, error) {
 	row.DeviceID = mask(row.DeviceID)
 	return map[string]any{"riskSummary": row, "triggerData": evidence, "userInformation": map[string]any{"userID": row.UserID, "username": row.Username}, "relatedIPs": ips, "relatedDevices": devices, "relatedAccounts": accounts, "relatedDeposits": deposits, "relatedWithdrawals": withdrawals, "relatedBets": bets, "reviewHistory": history, "internalNotes": notes, "operationLogs": logs}, nil
 }
-func (s *RiskEventService) Create(userID uint64, riskType, riskLevel, reason string, actor Actor) (uint64, error) {
+func (s *RiskEventService) Create(userID uint64, riskType string, riskLevel string, reason string, actor Actor) (uint64, error) {
 	if userID == 0 || !valid(riskLevel, "LOW", "MEDIUM", "HIGH", "CRITICAL") {
 		return 0, newError("INVALID_REQUEST", "invalid user or risk level")
 	}
@@ -193,7 +193,7 @@ func (s *RiskEventService) Transition(id uint64, target string, cmd EventActionC
 		return audit(tx, actor, permission, "risk_event."+strings.ToLower(target), "risk_event", id, row.UserID, before, map[string]any{"status": target}, cmd.Reason)
 	})
 }
-func eventTransition(from, to string) bool {
+func eventTransition(from string, to string) bool {
 	switch to {
 	case "UNDER_REVIEW":
 		return from == "PENDING"
@@ -217,8 +217,8 @@ func (s *RiskEventService) AddNote(id uint64, cmd NoteCommand, actor Actor) erro
 		return audit(tx, actor, "risk:event:note", "risk_event.note", "risk_event", id, row.UserID, nil, map[string]any{"noteID": note.ID}, "internal note added")
 	})
 }
-func upsertRiskProfile(tx *gorm.DB, userID uint64, level, status, reason string, actor Actor) error {
-	return tx.Exec("INSERT INTO game_user_risk_profiles(user_id,risk_level,risk_status,trigger_count,associated_accounts,assigned_reviewer_id,assigned_reviewer,latest_reason,created_at,updated_at) VALUES(?,?,?,1,0,?,?,?,NOW(3),NOW(3)) ON DUPLICATE KEY UPDATE risk_level=VALUES(risk_level),risk_status=VALUES(risk_status),trigger_count=trigger_count+1,assigned_reviewer_id=VALUES(assigned_reviewer_id),assigned_reviewer=VALUES(assigned_reviewer),latest_reason=VALUES(latest_reason),updated_at=NOW(3)", userID, level, status, actor.ID, actor.Username, reason).Error
+func upsertRiskProfile(tx *gorm.DB, userID uint64, level string, status string, reason string, actor Actor) error {
+	return tx.Exec("INSERT INTO game_user_risk_profiles (user_id, risk_level, risk_status, trigger_count, associated_accounts, assigned_reviewer_id, assigned_reviewer, latest_reason, created_at, updated_at) VALUES (?, ?, ?, 1, 0, ?, ?, ?, NOW(3), NOW(3)) ON DUPLICATE KEY UPDATE risk_level = VALUES(risk_level), risk_status = VALUES(risk_status), trigger_count = trigger_count + 1, assigned_reviewer_id = VALUES(assigned_reviewer_id), assigned_reviewer = VALUES(assigned_reviewer), latest_reason = VALUES(latest_reason), updated_at = NOW(3)", userID, level, status, actor.ID, actor.Username, reason).Error
 }
 func addRiskTags(tx *gorm.DB, userID uint64, tags string) error {
 	for _, name := range strings.Split(tags, ",") {

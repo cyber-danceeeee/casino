@@ -19,14 +19,14 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"casino/internal/content"
 	"casino/internal/eventbus"
 	"casino/internal/storage"
-	"casino/internal/tenancy"
 )
 
-func reportAudit(tx *gorm.DB, actor Actor, permission, action, reportType string, targetID uint64, before, after any, reason string) error {
+func reportAudit(tx *gorm.DB, actor Actor, permission string, action string, reportType string, targetID uint64, before any, after any, reason string) error {
 	return tx.Table("game_admin_operation_logs").Create(map[string]any{
-		"tenant_id": actor.Scope.TenantID, "site_id": actor.Scope.SiteID,
+		"site_id":     actor.Scope.SiteID,
 		"operator_id": actor.ID, "operator_username": actor.Username, "permission": permission, "action": action,
 		"target_type": "report_export", "target_id": targetID, "before_state": marshal(before), "after_state": marshal(after),
 		"reason": reason, "ip_address": actor.IP, "user_agent": actor.UserAgent, "correlation_id": actor.CorrelationID,
@@ -53,7 +53,7 @@ func (s *ReportExportService) Create(command ExportCommand, actor Actor) (uint64
 	taskNo := fmt.Sprintf("REXP%d", now.UnixNano())
 	filtersJSON := marshal(command.Filters)
 	summary := filtersSummary(command.Filters)
-	row := map[string]any{"tenant_id": actor.Scope.TenantID, "site_id": actor.Scope.SiteID, "task_no": taskNo, "report_type": typeCode, "filters": filtersJSON, "filters_summary": summary, "file_format": format, "status": "PENDING", "operator_id": actor.ID, "operator_username": actor.Username, "idempotency_key": strings.TrimSpace(command.IdempotencyKey), "correlation_id": actor.CorrelationID, "created_at": now, "updated_at": now}
+	row := map[string]any{"site_id": actor.Scope.SiteID, "task_no": taskNo, "report_type": typeCode, "filters": filtersJSON, "filters_summary": summary, "file_format": format, "status": "PENDING", "operator_id": actor.ID, "operator_username": actor.Username, "idempotency_key": strings.TrimSpace(command.IdempotencyKey), "correlation_id": actor.CorrelationID, "created_at": now, "updated_at": now}
 	created := false
 	err = s.db.Transaction(func(tx *gorm.DB) error {
 		result := tx.Table("game_report_export_tasks").Clauses(clause.Insert{Modifier: "IGNORE"}).Create(row)
@@ -81,7 +81,7 @@ func (s *ReportExportService) Create(command ExportCommand, actor Actor) (uint64
 			return err
 		}
 		_, err := eventbus.New(tx).PublishTx(tx, eventbus.Event{
-			Scope: actor.Scope, TenantID: actor.Scope.TenantID, SiteID: actor.Scope.SiteID,
+			Scope: actor.Scope, SiteID: actor.Scope.SiteID,
 			EventType: eventbus.EventReportExportRequested, AggregateType: "report_export", AggregateID: fmt.Sprint(existing.ID),
 			Source: "reportadmin", Producer: "reportadmin", IdempotencyKey: "report-export:" + taskNo,
 			RequestID: actor.CorrelationID, TraceID: actor.CorrelationID, CorrelationID: actor.CorrelationID,
@@ -105,15 +105,14 @@ func (s *ReportExportService) HandleEvent(ctx eventbus.Context) error {
 		return NewError("EXPORT_TASK_REQUIRED", "report export task is required")
 	}
 	var task struct {
-		TenantID uint64 `gorm:"column:tenant_id"`
-		SiteID   uint64 `gorm:"column:site_id"`
-		Status   string
-		Failure  string `gorm:"column:failure_reason"`
+		SiteID  uint64 `gorm:"column:site_id"`
+		Status  string
+		Failure string `gorm:"column:failure_reason"`
 	}
-	if err := s.db.Table("game_report_export_tasks").Select("tenant_id,site_id,status,failure_reason").Where("id=? AND deleted_at IS NULL", id).Take(&task).Error; err != nil {
+	if err := s.db.Table("game_report_export_tasks").Select("site_id, status, failure_reason").Where("id=? AND deleted_at IS NULL", id).Take(&task).Error; err != nil {
 		return err
 	}
-	if task.TenantID != ctx.Event.TenantID || task.SiteID != ctx.Event.SiteID {
+	if task.SiteID != ctx.Event.SiteID {
 		return NewError("EXPORT_SCOPE_MISMATCH", "report export is outside event scope")
 	}
 	if task.Status == "SUCCESS" {
@@ -170,14 +169,14 @@ func (s *ReportExportService) process(id uint64) {
 	}
 	var task struct {
 		ReportType, Filters, FileFormat, TaskNo string
-		TenantID, SiteID                        uint64
+		SiteID                                  uint64
 	}
-	if e := s.db.Table("game_report_export_tasks").Select("report_type,filters,file_format,task_no,tenant_id,site_id").Where("id=?", id).Take(&task).Error; e != nil {
+	if e := s.db.Table("game_report_export_tasks").Select("report_type, filters, file_format, task_no, site_id").Where("id=?", id).Take(&task).Error; e != nil {
 		s.fail(id, e)
 		return
 	}
 	filters := unmarshalMap(task.Filters)
-	scope := exportTaskScope(task.TenantID, task.SiteID)
+	scope := exportTaskScope(task.SiteID)
 	rows, err := s.exportRows(task.ReportType, filters, scope)
 	if err != nil {
 		s.fail(id, err)
@@ -216,7 +215,7 @@ func (s *ReportExportService) process(id uint64) {
 	if contentType == "" {
 		contentType = "application/octet-stream"
 	}
-	asset, err := storage.Put(context.Background(), fmt.Sprintf("report-exports/tenant-%d/site-%d/%s.%s", task.TenantID, task.SiteID, task.TaskNo, extension), file, stat.Size(), contentType)
+	asset, err := storage.Put(context.Background(), fmt.Sprintf("report-exports/site-%d/%s.%s", task.SiteID, task.TaskNo, extension), file, stat.Size(), contentType)
 	_ = file.Close()
 	if err != nil {
 		s.fail(id, err)
@@ -237,7 +236,7 @@ func truncate(v string, n int) string {
 	return v
 }
 
-func (s *ReportExportService) exportRows(kind string, filters map[string]string, scope tenancy.Scope) ([]map[string]any, error) {
+func (s *ReportExportService) exportRows(kind string, filters map[string]string, scope content.Scope) ([]map[string]any, error) {
 	q := exportPageQuery(filters, scope)
 	all := []map[string]any{}
 	for {
@@ -255,15 +254,15 @@ func (s *ReportExportService) exportRows(kind string, filters map[string]string,
 	return all, nil
 }
 
-func exportTaskScope(tenantID, siteID uint64) tenancy.Scope {
-	return tenancy.Scope{TenantID: tenantID, SiteID: siteID, Platform: tenantID == 0}
+func exportTaskScope(siteID uint64) content.Scope {
+	return content.Scope{SiteID: siteID, Platform: siteID == 0}
 }
 
-func exportTaskDB(db *gorm.DB, scope tenancy.Scope) *gorm.DB {
-	return tenancy.ApplySite(db.Table("game_report_export_tasks"), "", scope)
+func exportTaskDB(db *gorm.DB, scope content.Scope) *gorm.DB {
+	return content.ApplySite(db.Table("game_report_export_tasks"), "", scope)
 }
 
-func exportPageQuery(filters map[string]string, scope tenancy.Scope) Query {
+func exportPageQuery(filters map[string]string, scope content.Scope) Query {
 	return Query{Page: 1, PageSize: 100, Values: filters, Scope: scope}
 }
 
@@ -380,7 +379,7 @@ func writeSheetRow(b *bytes.Buffer, row int, values []string) {
 	}
 	b.WriteString(`</row>`)
 }
-func cellRef(col, row int) string {
+func cellRef(col int, row int) string {
 	result := ""
 	for col++; col > 0; col = (col - 1) / 26 {
 		result = string(rune('A'+(col-1)%26)) + result
@@ -474,7 +473,7 @@ func (s *ReportExportService) Retry(id uint64, reason string, actor Actor) error
 			return err
 		}
 		_, err := eventbus.New(tx).PublishTx(tx, eventbus.Event{
-			Scope: actor.Scope, TenantID: actor.Scope.TenantID, SiteID: actor.Scope.SiteID,
+			Scope: actor.Scope, SiteID: actor.Scope.SiteID,
 			EventType: eventbus.EventReportExportRequested, AggregateType: "report_export", AggregateID: fmt.Sprint(id),
 			Source: "reportadmin", Producer: "reportadmin", IdempotencyKey: fmt.Sprintf("report-export-retry:%d:%d", id, requestedAt.UnixNano()),
 			RequestID: actor.CorrelationID, TraceID: actor.CorrelationID, CorrelationID: actor.CorrelationID,

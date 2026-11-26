@@ -1,15 +1,15 @@
 package model
 
 import (
-	"github.com/go-dev-frame/sponge/pkg/sgorm"
 	"time"
+
+	"github.com/go-dev-frame/sponge/pkg/sgorm"
 )
 
 // GameBanners Home banners and download bars
 type GameBanners struct {
 	sgorm.Model `gorm:"embedded"` // embed id and time
 
-	TenantID     uint64     `gorm:"column:tenant_id;type:bigint(20) unsigned;default:0;not null" json:"tenantID"`
 	SiteID       uint64     `gorm:"column:site_id;type:bigint(20) unsigned;default:0;not null" json:"siteID"`
 	BannerCode   string     `gorm:"column:banner_code;type:varchar(64);not null" json:"bannerCode"`
 	Position     string     `gorm:"column:position;type:varchar(64);default:home;not null" json:"position"`
@@ -26,11 +26,11 @@ type GameBanners struct {
 
 // GameBannersColumnNames Whitelist for custom query fields to prevent sql injection attacks
 var GameBannersColumnNames = map[string]bool{
-	"id":            true,
-	"created_at":    true,
-	"updated_at":    true,
-	"deleted_at":    true,
-	"tenant_id":     true,
+	"id":         true,
+	"created_at": true,
+	"updated_at": true,
+	"deleted_at": true,
+
 	"site_id":       true,
 	"banner_code":   true,
 	"position":      true,

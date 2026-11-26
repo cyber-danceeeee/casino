@@ -96,7 +96,7 @@ func Test_gameActivityAssetsDao_UpdateByID(t *testing.T) {
 	// zero id error
 	err = d.IDao.(GameActivityAssetsDao).UpdateByID(d.Ctx, &model.GameActivityAssets{})
 	assert.Error(t, err)
-	
+
 }
 
 func Test_gameActivityAssetsDao_GetByID(t *testing.T) {

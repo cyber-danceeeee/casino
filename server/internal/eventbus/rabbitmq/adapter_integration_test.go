@@ -105,7 +105,7 @@ func TestRabbitMQIntegrationRetryDeadReplayReconnectAndShutdown(t *testing.T) {
 	}
 }
 
-func publishIntegrationEvent(t *testing.T, adapter *Adapter, eventID, eventType, routingKey string) {
+func publishIntegrationEvent(t *testing.T, adapter *Adapter, eventID string, eventType string, routingKey string) {
 	t.Helper()
 	envelope := eventbus.EventEnvelope{
 		EventID: eventID, EventType: eventType, EventVersion: 1, OccurredAt: time.Now(), Producer: "integration-test", Payload: map[string]any{}, Metadata: map[string]any{},
@@ -149,7 +149,7 @@ func cleanupIntegrationQueues(connectionURL string, queues ...string) {
 	}
 }
 
-func defaultEnv(name, fallback string) string {
+func defaultEnv(name string, fallback string) string {
 	if value := os.Getenv(name); value != "" {
 		return value
 	}

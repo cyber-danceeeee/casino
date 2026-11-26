@@ -20,9 +20,9 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"casino/internal/content"
 	"casino/internal/database"
 	"casino/internal/model"
-	"casino/internal/tenancy"
 )
 
 type gameUsersAuthRequest struct {
@@ -61,7 +61,7 @@ func (h *gameUsersHandler) Login(c *gin.Context) {
 
 	now := time.Now()
 	db := database.GetDB()
-	_ = tenancy.ApplySite(db.Model(&model.GameUsers{}), "", h5UserTenancyScope(db, user.ID, h5TenancyScope(c))).Where("id = ?", user.ID).Updates(map[string]interface{}{
+	_ = content.ApplySite(db.Model(&model.GameUsers{}), "", h5UserContentScope(db, user.ID, h5ContentScope(c))).Where("id = ?", user.ID).Updates(map[string]interface{}{
 		"last_login_at":      now,
 		"last_login_ip":      c.ClientIP(),
 		"failed_login_count": 0,
@@ -244,13 +244,13 @@ func h5AuthenticatedUser(db *gorm.DB, c *gin.Context) (model.GameUsers, model.Ga
 	if token == "" {
 		return model.GameUsers{}, model.GameUserWallets{}, false
 	}
-	scope := h5TenancyScope(c)
+	scope := h5ContentScope(c)
 	query := db.Table("game_user_sessions AS s").
 		Select("u.*").
 		Joins("INNER JOIN game_users AS u ON u.id = s.user_id AND u.deleted_at IS NULL AND u.status = ? AND u.login_enabled = ?", 1, 1).
 		Where("s.token_hash = ? AND s.revoked_at IS NULL AND s.expired_at > ? AND s.deleted_at IS NULL", h5UserSessionHash(token), time.Now())
-	query = tenancy.ApplySite(query, "s", scope)
-	query = tenancy.ApplySite(query, "u", scope)
+	query = content.ApplySite(query, "s", scope)
+	query = content.ApplySite(query, "u", scope)
 	err := query.Take(&user).Error
 	if err != nil || user.ID == 0 {
 		return model.GameUsers{}, model.GameUserWallets{}, false
@@ -260,7 +260,7 @@ func h5AuthenticatedUser(db *gorm.DB, c *gin.Context) (model.GameUsers, model.Ga
 
 func authenticateGameUser(c *gin.Context, req *gameUsersAuthRequest) (model.GameUsers, model.GameUserWallets, error) {
 	db := database.GetDB()
-	scope := h5TenancyScope(c)
+	scope := h5ContentScope(c)
 	phone, err := h5AuthPhone(req.Phone)
 	if err != nil {
 		return model.GameUsers{}, model.GameUserWallets{}, err
@@ -277,7 +277,7 @@ func authenticateGameUser(c *gin.Context, req *gameUsersAuthRequest) (model.Game
 		return model.GameUsers{}, model.GameUserWallets{}, err
 	}
 	if !h5VerifyGameUserPassword(db, user, req.Password) {
-		_ = tenancy.ApplySiteStrict(db.Model(&model.GameUsers{}), "", scope).Where("id = ?", user.ID).Update("failed_login_count", gorm.Expr("failed_login_count + 1")).Error
+		_ = content.ApplySiteStrict(db.Model(&model.GameUsers{}), "", scope).Where("id = ?", user.ID).Update("failed_login_count", gorm.Expr("failed_login_count + 1")).Error
 		return model.GameUsers{}, model.GameUserWallets{}, errors.New("invalid phone or password")
 	}
 
@@ -291,7 +291,7 @@ func authenticateGameUser(c *gin.Context, req *gameUsersAuthRequest) (model.Game
 
 func registerGameUser(c *gin.Context, req *gameUsersAuthRequest) (model.GameUsers, model.GameUserWallets, bool, error) {
 	db := database.GetDB()
-	scope := h5TenancyScope(c)
+	scope := h5ContentScope(c)
 	defaults := h5ScopeDefaults(db, scope)
 	phone, err := h5AuthPhone(req.Phone)
 	if err != nil {
@@ -322,7 +322,7 @@ func registerGameUser(c *gin.Context, req *gameUsersAuthRequest) (model.GameUser
 	}
 
 	user := model.GameUsers{
-		TenantID:            scope.TenantID,
+
 		SiteID:              scope.SiteID,
 		UserNo:              h5UserNo(),
 		PhoneCountryCode:    phoneCountryCode,
@@ -343,7 +343,7 @@ func registerGameUser(c *gin.Context, req *gameUsersAuthRequest) (model.GameUser
 	}
 	if req.InviteCode != "" {
 		var referrer model.GameUsers
-		if tenancy.ApplySite(db.Model(&model.GameUsers{}), "", scope).Where("invite_code = ? AND deleted_at IS NULL", strings.TrimSpace(req.InviteCode)).First(&referrer).Error == nil {
+		if content.ApplySite(db.Model(&model.GameUsers{}), "", scope).Where("invite_code = ? AND deleted_at IS NULL", strings.TrimSpace(req.InviteCode)).First(&referrer).Error == nil {
 			user.ReferrerUserID = referrer.ID
 		}
 	}
@@ -361,9 +361,9 @@ func registerGameUser(c *gin.Context, req *gameUsersAuthRequest) (model.GameUser
 	return user, wallet, true, nil
 }
 
-func h5FindGameUserByPhone(db *gorm.DB, scope tenancy.Scope, phoneCountryCode, phone string) (model.GameUsers, error) {
+func h5FindGameUserByPhone(db *gorm.DB, scope content.Scope, phoneCountryCode string, phone string) (model.GameUsers, error) {
 	var user model.GameUsers
-	err := tenancy.ApplySiteStrict(db.Model(&model.GameUsers{}), "", scope).
+	err := content.ApplySiteStrict(db.Model(&model.GameUsers{}), "", scope).
 		Where("phone_country_code = ? AND phone = ? AND deleted_at IS NULL", phoneCountryCode, phone).
 		First(&user).Error
 	return user, err
@@ -463,9 +463,9 @@ func h5UserSessionHash(token string) string {
 func h5IssueGameUserSession(db *gorm.DB, c *gin.Context, userID uint64) (string, error) {
 	token := "user_" + h5RandomHex(32)
 	expiredAt := time.Now().Add(30 * 24 * time.Hour)
-	scope := h5UserTenancyScope(db, userID, h5TenancyScope(c))
+	scope := h5UserContentScope(db, userID, h5ContentScope(c))
 	session := model.GameUserSessions{
-		TenantID:  scope.TenantID,
+
 		SiteID:    scope.SiteID,
 		UserID:    userID,
 		TokenHash: h5UserSessionHash(token),
@@ -483,7 +483,7 @@ func h5RevokeGameUserSession(db *gorm.DB, c *gin.Context) {
 		return
 	}
 	now := time.Now()
-	_ = tenancy.ApplySite(db.Model(&model.GameUserSessions{}), "", h5TenancyScope(c)).
+	_ = content.ApplySite(db.Model(&model.GameUserSessions{}), "", h5ContentScope(c)).
 		Where("token_hash = ? AND revoked_at IS NULL", h5UserSessionHash(token)).
 		Updates(map[string]interface{}{"revoked_at": &now, "updated_at": now}).Error
 }
@@ -497,7 +497,7 @@ func h5Truncate(value string, max int) string {
 
 func ensurePendingRegisterReward(user model.GameUsers, wallet model.GameUserWallets) (*model.GameRegisterRewardClaims, error) {
 	db := database.GetDB()
-	scope := h5UserTenancyScope(db, user.ID, tenancy.Scope{})
+	scope := h5UserContentScope(db, user.ID, content.Scope{})
 	amount, enabled := registerRewardAmount(db, scope)
 	if !enabled || !amount.GreaterThan(decimal.Zero) {
 		return nil, nil
@@ -505,7 +505,7 @@ func ensurePendingRegisterReward(user model.GameUsers, wallet model.GameUserWall
 
 	idempotencyKey := fmt.Sprintf("register_reward:%d", user.ID)
 	var existing model.GameRegisterRewardClaims
-	if err := tenancy.ApplySite(db.Model(&model.GameRegisterRewardClaims{}), "", scope).Where("idempotency_key = ? AND deleted_at IS NULL", idempotencyKey).Take(&existing).Error; err == nil {
+	if err := content.ApplySite(db.Model(&model.GameRegisterRewardClaims{}), "", scope).Where("idempotency_key = ? AND deleted_at IS NULL", idempotencyKey).Take(&existing).Error; err == nil {
 		return &existing, nil
 	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
@@ -513,7 +513,7 @@ func ensurePendingRegisterReward(user model.GameUsers, wallet model.GameUserWall
 
 	before := h5DecimalValue(wallet.CashBalance)
 	claim := model.GameRegisterRewardClaims{
-		TenantID:       scope.TenantID,
+
 		SiteID:         scope.SiteID,
 		UserID:         user.ID,
 		Amount:         h5DecimalPtr(amount),
@@ -537,7 +537,7 @@ func pendingRegisterRewardPayload(db *gorm.DB, user model.GameUsers, wallet mode
 	}
 
 	var claim model.GameRegisterRewardClaims
-	err := tenancy.ApplySite(db.Model(&model.GameRegisterRewardClaims{}), "", h5UserTenancyScope(db, user.ID, tenancy.Scope{})).Where("user_id = ? AND status = 1 AND deleted_at IS NULL", user.ID).
+	err := content.ApplySite(db.Model(&model.GameRegisterRewardClaims{}), "", h5UserContentScope(db, user.ID, content.Scope{})).Where("user_id = ? AND status = 1 AND deleted_at IS NULL", user.ID).
 		Order("id ASC").
 		Take(&claim).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -584,7 +584,7 @@ func pendingActivityRewardsPayload(db *gorm.DB, user model.GameUsers, wallet mod
 		return nil, totalAmount, err
 	}
 
-	scope := h5UserTenancyScope(db, user.ID, tenancy.Scope{})
+	scope := h5UserContentScope(db, user.ID, content.Scope{})
 	currency := h5FirstNonEmpty(wallet.Currency, h5ScopeDefaults(db, scope).CurrencyCode)
 	for _, row := range rows {
 		cashAmount := h5DecimalValue(row.RewardCash)
@@ -678,7 +678,7 @@ func claimPendingActivityReward(user model.GameUsers, recordID uint64) (model.Ga
 				IdempotencyKey:      &key,
 				OrderNo:             h5FirstNonEmpty(record.OrderNo, h5OrderNo("AR")),
 				Amount:              h5DecimalPtr(amount),
-				Currency:            h5FirstNonEmpty(wallet.Currency, h5ScopeDefaults(tx, h5UserTenancyScope(tx, user.ID, tenancy.Scope{})).CurrencyCode),
+				Currency:            h5FirstNonEmpty(wallet.Currency, h5ScopeDefaults(tx, h5UserContentScope(tx, user.ID, content.Scope{})).CurrencyCode),
 				Status:              1,
 				BalanceBefore:       h5DecimalPtr(before),
 				BalanceAfter:        h5DecimalPtr(after),
@@ -716,7 +716,7 @@ func claimPendingActivityReward(user model.GameUsers, recordID uint64) (model.Ga
 			"cashAmount":     cashAmount.StringFixed(2),
 			"bonusAmount":    bonusAmount.StringFixed(2),
 			"amount":         cashAmount.Add(bonusAmount).StringFixed(2),
-			"currency":       h5FirstNonEmpty(wallet.Currency, h5ScopeDefaults(tx, h5UserTenancyScope(tx, user.ID, tenancy.Scope{})).CurrencyCode),
+			"currency":       h5FirstNonEmpty(wallet.Currency, h5ScopeDefaults(tx, h5UserContentScope(tx, user.ID, content.Scope{})).CurrencyCode),
 			"status":         2,
 			"transactionIDs": transactionIDs,
 		}
@@ -775,7 +775,7 @@ func claimPendingRegisterReward(user model.GameUsers) (model.GameUserWallets, gi
 			IdempotencyKey:      &key,
 			OrderNo:             h5OrderNo("RG"),
 			Amount:              h5DecimalPtr(amount),
-			Currency:            h5FirstNonEmpty(wallet.Currency, h5ScopeDefaults(tx, h5UserTenancyScope(tx, user.ID, tenancy.Scope{})).CurrencyCode),
+			Currency:            h5FirstNonEmpty(wallet.Currency, h5ScopeDefaults(tx, h5UserContentScope(tx, user.ID, content.Scope{})).CurrencyCode),
 			Status:              1,
 			BalanceBefore:       h5DecimalPtr(before),
 			BalanceAfter:        h5DecimalPtr(after),
@@ -830,7 +830,7 @@ func registerRewardPayload(claim model.GameRegisterRewardClaims, cashBefore deci
 	}
 }
 
-func registerRewardAmount(db *gorm.DB, scope tenancy.Scope) (decimal.Decimal, bool) {
+func registerRewardAmount(db *gorm.DB, scope content.Scope) (decimal.Decimal, bool) {
 	if !systemConfigBool(db, "operation.register_reward_enabled", true, scope) {
 		return decimal.Zero, false
 	}
@@ -857,7 +857,7 @@ func registerRewardAmount(db *gorm.DB, scope tenancy.Scope) (decimal.Decimal, bo
 	return decimal.NewFromInt(minCents + n.Int64()).Div(decimal.NewFromInt(100)), true
 }
 
-func systemConfigBool(db *gorm.DB, key string, fallback bool, scope tenancy.Scope) bool {
+func systemConfigBool(db *gorm.DB, key string, fallback bool, scope content.Scope) bool {
 	value := strings.TrimSpace(systemConfigValue(db, key, scope))
 	if value == "" {
 		return fallback
@@ -865,7 +865,7 @@ func systemConfigBool(db *gorm.DB, key string, fallback bool, scope tenancy.Scop
 	return strings.EqualFold(value, "true") || value == "1" || strings.EqualFold(value, "yes")
 }
 
-func systemConfigDecimal(db *gorm.DB, key string, fallback decimal.Decimal, scope tenancy.Scope) decimal.Decimal {
+func systemConfigDecimal(db *gorm.DB, key string, fallback decimal.Decimal, scope content.Scope) decimal.Decimal {
 	value := strings.TrimSpace(systemConfigValue(db, key, scope))
 	if value == "" {
 		return fallback
@@ -877,9 +877,9 @@ func systemConfigDecimal(db *gorm.DB, key string, fallback decimal.Decimal, scop
 	return parsed
 }
 
-func systemConfigValue(db *gorm.DB, key string, scope tenancy.Scope) string {
+func systemConfigValue(db *gorm.DB, key string, scope content.Scope) string {
 	var value string
-	_ = tenancy.ApplySite(db.Table("game_system_configs"), "", scope).
+	_ = content.ApplySite(db.Table("game_system_configs"), "", scope).
 		Select("config_value").
 		Where("config_key = ? AND status = 1 AND deleted_at IS NULL", key).
 		Scan(&value).Error
@@ -889,9 +889,9 @@ func systemConfigValue(db *gorm.DB, key string, scope tenancy.Scope) string {
 func recordGameUserLogin(c *gin.Context, userID uint64, identifier string, success bool, failureReason string) {
 	now := time.Now()
 	db := database.GetDB()
-	scope := h5UserTenancyScope(db, userID, h5TenancyScope(c))
+	scope := h5UserContentScope(db, userID, h5ContentScope(c))
 	record := model.GameUserLoginRecords{
-		TenantID:        scope.TenantID,
+
 		SiteID:          scope.SiteID,
 		UserID:          userID,
 		LoginIdentifier: h5MaskedPhone(h5CleanPhone(identifier)),
@@ -932,11 +932,11 @@ func upsertGameUserDevice(c *gin.Context, userID uint64, now time.Time) {
 	}
 	device := model.GameUserDevices{}
 	db := database.GetDB()
-	scope := h5UserTenancyScope(db, userID, h5TenancyScope(c))
-	err := tenancy.ApplySite(db.Model(&model.GameUserDevices{}), "", scope).Where("user_id = ? AND device_id = ? AND deleted_at IS NULL", userID, deviceID).Take(&device).Error
+	scope := h5UserContentScope(db, userID, h5ContentScope(c))
+	err := content.ApplySite(db.Model(&model.GameUserDevices{}), "", scope).Where("user_id = ? AND device_id = ? AND deleted_at IS NULL", userID, deviceID).Take(&device).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		device = model.GameUserDevices{
-			TenantID: scope.TenantID, SiteID: scope.SiteID,
+			SiteID: scope.SiteID,
 			UserID: userID, DeviceID: deviceID, Platform: firstHeader(c, "X-Platform", "h5"),
 			DeviceModel: c.GetHeader("X-Device-Model"), OS: c.GetHeader("X-OS"), Browser: c.GetHeader("X-Browser"),
 			AppVersion: c.GetHeader("X-App-Version"), FingerprintHash: c.GetHeader("X-Fingerprint-Hash"),
@@ -958,7 +958,7 @@ func blockedGameUserDevice(c *gin.Context, userID uint64) bool {
 	}
 	var count int64
 	db := database.GetDB()
-	_ = tenancy.ApplySite(db.Model(&model.GameUserDevices{}), "", h5UserTenancyScope(db, userID, h5TenancyScope(c))).
+	_ = content.ApplySite(db.Model(&model.GameUserDevices{}), "", h5UserContentScope(db, userID, h5ContentScope(c))).
 		Where("user_id = ? AND device_id = ? AND status = 2 AND deleted_at IS NULL", userID, deviceID).
 		Count(&count).Error
 	return count > 0

@@ -34,5 +34,3 @@ var GameInvitationChestConfigsColumnNames = map[string]bool{
 	"sort":             true,
 	"status":           true,
 }
-
-

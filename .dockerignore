@@ -20,8 +20,7 @@ compose.override.yml
 **/__pycache__
 **/*.pyc
 # Deployment SQL and legacy tooling are distributed in Git, not in API images.
-server/migrations
-server/game_schema.sql
+server/database
 server/deployments
 server/scripts
 server/README.md

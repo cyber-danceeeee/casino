@@ -11,7 +11,6 @@ import (
 type GamePushDeviceToken struct {
 	sgorm.Model `gorm:"embedded"`
 
-	TenantID               uint64     `gorm:"column:tenant_id;type:bigint unsigned;not null;default:0" json:"tenantID"`
 	SiteID                 uint64     `gorm:"column:site_id;type:bigint unsigned;not null;default:0" json:"siteID"`
 	UserID                 uint64     `gorm:"column:user_id;type:bigint(20) unsigned;not null;index:idx_push_token_user_enabled,priority:1" json:"userID"`
 	Platform               string     `gorm:"column:platform;type:varchar(16);not null" json:"platform"`
@@ -56,7 +55,6 @@ func (GamePushDeviceToken) TableName() string { return "game_push_device_tokens"
 type GameNotificationDelivery struct {
 	sgorm.Model `gorm:"embedded"`
 
-	TenantID          uint64     `gorm:"column:tenant_id;type:bigint unsigned;not null;default:0" json:"tenantID"`
 	SiteID            uint64     `gorm:"column:site_id;type:bigint unsigned;not null;default:0" json:"siteID"`
 	NotificationID    uint64     `gorm:"column:notification_id;type:bigint(20) unsigned;not null;uniqueIndex:uk_notification_delivery_user,priority:1;index:idx_notification_delivery_status,priority:1" json:"notificationID"`
 	JobID             uint64     `gorm:"column:job_id;type:bigint(20) unsigned;not null" json:"jobID"`

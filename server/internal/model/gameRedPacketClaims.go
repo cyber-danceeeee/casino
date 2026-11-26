@@ -1,9 +1,10 @@
 package model
 
 import (
+	"time"
+
 	"github.com/go-dev-frame/sponge/pkg/sgorm"
 	"github.com/shopspring/decimal"
-	"time"
 )
 
 // GameRedPacketClaims Red packet rain claim records
@@ -31,5 +32,3 @@ var GameRedPacketClaimsColumnNames = map[string]bool{
 	"status":        true,
 	"claimed_at":    true,
 }
-
-

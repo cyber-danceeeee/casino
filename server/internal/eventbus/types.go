@@ -6,28 +6,22 @@ import (
 	"strings"
 	"time"
 
-	"casino/internal/tenancy"
+	"casino/internal/content"
 )
 
 const (
 	DefaultEventVersion = 1
 
-	EventPlayerDepositSucceeded    = "player.deposit_succeeded.v1"
-	EventPlayerWithdrawApproved    = "player.withdraw_approved.v1"
-	EventWalletBalanceChanged      = "wallet.balance_changed.v1"
-	EventGameBetPlaced             = "game.bet_placed.v1"
-	EventGameBetSettled            = "game.bet_settled.v1"
-	EventSettlementCompleted       = "settlement.completed.v1"
-	EventTenantCreditChanged       = "tenant.credit_changed.v1"
-	EventTenantDepositCredited     = "tenant.deposit_credited.v1"
-	EventTenantFundsFrozen         = "tenant.funds_frozen.v1"
-	EventTenantFundsUnfrozen       = "tenant.funds_unfrozen.v1"
-	EventLedgerTransactionPosted   = "ledger.transaction_posted.v1"
-	EventTenantLedgerPosted        = EventLedgerTransactionPosted
-	EventTenantLedgerReversed      = "ledger.transaction_reversed.v1"
+	EventPlayerDepositSucceeded = "player.deposit_succeeded.v1"
+	EventPlayerWithdrawApproved = "player.withdraw_approved.v1"
+	EventWalletBalanceChanged   = "wallet.balance_changed.v1"
+	EventGameBetPlaced          = "game.bet_placed.v1"
+	EventGameBetSettled         = "game.bet_settled.v1"
+	EventSettlementCompleted    = "settlement.completed.v1"
+
 	EventProviderCallbackReceived  = "provider.callback_received.v1"
 	EventWhiteLabelConfigPublished = "white_label.config_published.v1"
-	EventTenantProvisioned         = "tenant.provisioned.v1"
+
 	EventSupportExportRequested    = "task.support_export.requested.v1"
 	EventReportExportRequested     = "task.report_export.requested.v1"
 	EventProviderSyncRequested     = "task.provider_sync.requested.v1"
@@ -35,26 +29,22 @@ const (
 	EventSystemTaskRequested       = "task.system_execution.requested.v1"
 	EventNotificationSendRequested = "task.notification_send.requested.v1"
 
-	ConsumerDashboardDailyStats   = "dashboard.daily_stats.v1"
-	ConsumerLedgerAudit           = "audit.ledger_transaction.v1"
-	ConsumerEventJournal          = "audit.event_journal.v1"
-	ConsumerRiskRules             = "risk.rules.v1"
-	ConsumerPromotionDeposit      = "promotion.deposit_trigger.v1"
-	ConsumerTenantOnboardingEmail = "notification.tenant_onboarding_email.v1"
-	ConsumerSupportExport         = "system.support_export.v1"
-	ConsumerReportExport          = "system.report_export.v1"
-	ConsumerProviderSync          = "system.provider_sync.v1"
-	ConsumerBackup                = "system.backup.v1"
-	ConsumerSystemTask            = "system.scheduled_task.v1"
-	ConsumerNotificationPush      = "notification.push.v1"
+	ConsumerEventJournal     = "audit.event_journal.v1"
+	ConsumerRiskRules        = "risk.rules.v1"
+	ConsumerPromotionDeposit = "promotion.deposit_trigger.v1"
 
-	QueueLedger       = "ledger.events"
+	ConsumerSupportExport    = "system.support_export.v1"
+	ConsumerReportExport     = "system.report_export.v1"
+	ConsumerProviderSync     = "system.provider_sync.v1"
+	ConsumerBackup           = "system.backup.v1"
+	ConsumerSystemTask       = "system.scheduled_task.v1"
+	ConsumerNotificationPush = "notification.push.v1"
+
 	QueuePayment      = "payment.events"
 	QueueProvider     = "provider.events"
 	QueuePromotion    = "promotion.events"
 	QueueNotification = "notification.events"
 	QueueAudit        = "audit.events"
-	QueueDashboard    = "dashboard.events"
 	QueueSystemJobs   = "system.jobs"
 	QueueRetry        = "retry.events"
 	QueueDead         = "dead.events"
@@ -68,7 +58,7 @@ const (
 )
 
 var (
-	ErrInvalidScope        = NewError("INVALID_SCOPE", "invalid event tenant scope")
+	ErrInvalidScope        = NewError("INVALID_SCOPE", "invalid event H5 content scope")
 	ErrEventTypeRequired   = NewError("EVENT_TYPE_REQUIRED", "event type is required")
 	ErrIdempotencyRequired = NewError("IDEMPOTENCY_KEY_REQUIRED", "event idempotency key is required")
 	ErrConsumerRequired    = NewError("CONSUMER_REQUIRED", "event consumer is required")
@@ -85,7 +75,7 @@ type Error struct {
 
 func (e *Error) Error() string { return e.Message }
 
-func NewError(code, message string) error {
+func NewError(code string, message string) error {
 	return &Error{Code: code, Message: message}
 }
 
@@ -98,8 +88,8 @@ func ErrorCode(err error) string {
 }
 
 type Event struct {
-	Scope           tenancy.Scope
-	TenantID        uint64
+	Scope content.Scope
+
 	SiteID          uint64
 	EventType       string
 	EventVersion    int
@@ -119,10 +109,10 @@ type Event struct {
 }
 
 type EventEnvelope struct {
-	EventID         string         `json:"event_id"`
-	EventType       string         `json:"event_type"`
-	EventVersion    int            `json:"version"`
-	TenantID        uint64         `json:"tenant_id"`
+	EventID      string `json:"event_id"`
+	EventType    string `json:"event_type"`
+	EventVersion int    `json:"version"`
+
 	SiteID          uint64         `json:"site_id"`
 	RequestID       string         `json:"request_id"`
 	AggregateType   string         `json:"aggregate_type"`
@@ -138,9 +128,9 @@ type EventEnvelope struct {
 }
 
 type Record struct {
-	ID              uint64         `json:"id"`
-	EventID         string         `json:"eventID"`
-	TenantID        uint64         `json:"tenantID"`
+	ID      uint64 `json:"id"`
+	EventID string `json:"eventID"`
+
 	SiteID          uint64         `json:"siteID"`
 	EventType       string         `json:"eventType"`
 	EventVersion    int            `json:"eventVersion"`
@@ -171,10 +161,10 @@ type Record struct {
 }
 
 type Delivery struct {
-	ID         uint64     `json:"id"`
-	EventID    string     `json:"eventID"`
-	OutboxID   uint64     `json:"outboxID"`
-	TenantID   uint64     `json:"tenantID"`
+	ID       uint64 `json:"id"`
+	EventID  string `json:"eventID"`
+	OutboxID uint64 `json:"outboxID"`
+
 	SiteID     uint64     `json:"siteID"`
 	EventType  string     `json:"eventType"`
 	Consumer   string     `json:"consumer"`

@@ -96,7 +96,7 @@ func Test_gameRankingPeriodsDao_UpdateByID(t *testing.T) {
 	// zero id error
 	err = d.IDao.(GameRankingPeriodsDao).UpdateByID(d.Ctx, &model.GameRankingPeriods{})
 	assert.Error(t, err)
-	
+
 }
 
 func Test_gameRankingPeriodsDao_GetByID(t *testing.T) {

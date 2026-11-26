@@ -1,8 +1,9 @@
 package model
 
 import (
-	"github.com/go-dev-frame/sponge/pkg/sgorm"
 	"time"
+
+	"github.com/go-dev-frame/sponge/pkg/sgorm"
 )
 
 // GameRankingPeriods Ranking periods
@@ -30,5 +31,3 @@ var GameRankingPeriodsColumnNames = map[string]bool{
 	"period_end":   true,
 	"status":       true,
 }
-
-

@@ -1,9 +1,10 @@
 package model
 
 import (
+	"time"
+
 	"github.com/go-dev-frame/sponge/pkg/sgorm"
 	"github.com/shopspring/decimal"
-	"time"
 )
 
 // GameUserCheckins Daily check-in records
@@ -37,5 +38,3 @@ var GameUserCheckinsColumnNames = map[string]bool{
 	"status":        true,
 	"claimed_at":    true,
 }
-
-

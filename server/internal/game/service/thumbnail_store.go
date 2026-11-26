@@ -22,7 +22,7 @@ const maxThumbnailBytes int64 = 10 << 20
 var safeFilePartPattern = regexp.MustCompile(`[^a-zA-Z0-9._-]+`)
 var thumbnailHTTPClient = &http.Client{Timeout: 20 * time.Second}
 
-func downloadGameThumbnail(ctx context.Context, providerCode, providerGameID, source string) (string, error) {
+func downloadGameThumbnail(ctx context.Context, providerCode string, providerGameID string, source string) (string, error) {
 	parsed, err := url.Parse(strings.TrimSpace(source))
 	if err != nil {
 		return "", fmt.Errorf("parse thumbnail URL: %w", err)

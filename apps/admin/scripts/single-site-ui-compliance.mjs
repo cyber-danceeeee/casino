@@ -6,21 +6,9 @@ const root = resolve(import.meta.dirname, "..");
 const read = (path) => readFileSync(resolve(root, path), "utf8");
 
 const menu = read("src/data/adminMenu.ts");
-for (const key of [
-  "tenant-support",
-  "tenant-players",
-  "tenant-finance",
-  "tenant-games",
-  "tenant-marketing",
-  "agents",
-  "risk",
-  "reports",
-  "tenant-brand",
-  "tenant-ops",
-]) {
-  assert.match(menu, new RegExp(`key: ["']${key}["']`), `missing tenant menu section: ${key}`);
+for (const key of ["site-support","users","funds","games","operations","agents","risk","reports","brand","site-ops"]) {
+ assert.match(menu,new RegExp(`key: ["']${key}["']`),`missing administration menu: ${key}`);
 }
-
 const userList = read("src/views/users/UserListPage.vue");
 assert.doesNotMatch(userList, /tr\(["']User ID["']\)/, "player list renders User ID");
 assert.match(userList, /tr\(["']Player Number["']\)/, "player list must render Player Number");
@@ -43,7 +31,7 @@ assert.match(banner, /H5PreviewFrame/, "banner management must render a real H5 
 assert.match(banner, /actionTargetOptions/, "banner targets must use business selectors");
 
 const maintenance = read("src/views/operations/MaintenanceCenterPage.vue");
-assert.match(maintenance, /v-if=["']isPlatform["'][^>]*fields\.siteID/, "tenant maintenance site scope must be implicit");
+assert.match(maintenance, /v-if=["']isPlatform["'][^>]*fields\.siteID/, "H5 maintenance site scope must be implicit");
 
 const monitor = read("src/views/operations/OperationsMonitorPage.vue");
 assert.match(monitor, /paymentDetailByNumber/, "payment diagnostics must search by business order number");
@@ -61,8 +49,8 @@ const dashboard = read("src/views/brand/BrandDashboard.vue");
 for (const field of ["depositAmount", "withdrawalAmount", "totalBet", "ggr", "onlineUsers"]) {
   assert.match(dashboard, new RegExp(field), `dashboard missing ${field}`);
 }
-assert.match(dashboard, /overview(?:\.value)?\??\.currencyCode/, "dashboard must use tenant currency");
-assert.match(dashboard, /overview(?:\.value)?\??\.timezone/, "dashboard must use tenant timezone");
+assert.match(dashboard, /overview(?:\.value)?\??\.currencyCode/, "dashboard must use H5 currency");
+assert.match(dashboard, /overview(?:\.value)?\??\.timezone/, "dashboard must use H5 timezone");
 assert.match(dashboard, /value="custom"/, "dashboard must support a custom date range");
 
 const funds = read("src/views/funds/FundsPage.vue");
@@ -73,11 +61,11 @@ assert.match(reports, /f\('playerNo'\)/, "player reports must search by player n
 assert.match(reports, /c\('gameCode'/, "game reports must display a game code");
 
 const stability = read("src/views/operations/PlatformStabilityPage.vue");
-assert.match(stability, /subTab\.value = 'retryRecords'/, "tenant jobs must default to tenant-scoped retry records");
+assert.match(stability, /subTab\.value = 'retryRecords'/, "H5 jobs must default to H5-scoped retry records");
 
 const gameCenter = read("src/views/games/GameCenterPage.vue");
-assert.match(gameCenter, /const isPlatform = computed/, "game center must distinguish platform and tenant workflows");
-assert.match(gameCenter, /usesDraftWorkflow/, "tenant game changes must retain the draft workflow");
+assert.match(gameCenter, /const isPlatform = computed/, "game center must distinguish platform and H5 workflows");
+assert.match(gameCenter, /usesDraftWorkflow/, "H5 game changes must retain the draft workflow");
 assert.match(gameCenter, /savedImmediate/, "platform game changes must communicate immediate effect");
 assert.match(gameCenter, /"publishedState", "draftState", "hasChanges", "draftUpdatedAt"/, "platform game list must hide draft-only columns");
 
@@ -88,9 +76,9 @@ for (const phrase of ["玩家编号", "Player Number", "游戏编码", "Game Cod
 
 assert.match(menu, /return singleSiteMenuGroups/, "navigation must use the single-site menu");
 const login = read("src/views/auth/AdminLogin.vue");
-assert.doesNotMatch(login, /tenantCode|isTenantPortal|portalType|router-link/, "login still exposes a tenant or portal selector");
+assert.doesNotMatch(login, /H5Code|isTenantPortal|portalType|router-link/, "login still exposes a H5 or portal selector");
 assert.match(routes, /name: "admin-login"/, "the unified login route is missing");
-assert.doesNotMatch(routes, /path: "system\/tenants\/:id"/, "tenant detail is still routable");
+assert.doesNotMatch(routes, /path: "system\/H5s\/:id"/, "H5 detail is still routable");
 const settings = read("src/views/brand/BrandSettingsPage.vue");
 assert.match(settings, /systemAPI.brand.save/, "H5 settings must save to the bound site");
 assert.match(settings, /form.h5Domain/, "the H5 address field is missing");

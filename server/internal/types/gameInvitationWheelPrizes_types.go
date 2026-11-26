@@ -10,18 +10,17 @@ var _ time.Time
 
 // Tip: suggested filling in the binding rules https://github.com/go-playground/validator in request struct fields tag.
 
-
 // CreateGameInvitationWheelPrizesRequest request params
 type CreateGameInvitationWheelPrizesRequest struct {
 	PrizeCode  string `json:"prizeCode" binding:""`
-	Label  string `json:"label" binding:""`
-	RewardType  string `json:"rewardType" binding:""` // cash, bonus, spin, chest, empty
+	Label      string `json:"label" binding:""`
+	RewardType string `json:"rewardType" binding:""` // cash, bonus, spin, chest, empty
 	MinAmount  string `json:"minAmount" binding:""`
 	MaxAmount  string `json:"maxAmount" binding:""`
-	Weight  uint `json:"weight" binding:""`
-	IconURL  string `json:"iconURL" binding:""`
-	Sort  int `json:"sort" binding:""`
-	Status  int `json:"status" binding:""` // 1 enabled, 2 disabled
+	Weight     uint   `json:"weight" binding:""`
+	IconURL    string `json:"iconURL" binding:""`
+	Sort       int    `json:"sort" binding:""`
+	Status     int    `json:"status" binding:""` // 1 enabled, 2 disabled
 }
 
 // UpdateGameInvitationWheelPrizesByIDRequest request params
@@ -29,33 +28,32 @@ type UpdateGameInvitationWheelPrizesByIDRequest struct {
 	ID uint64 `json:"id" binding:""` // uint64 id
 
 	PrizeCode  string `json:"prizeCode" binding:""`
-	Label  string `json:"label" binding:""`
-	RewardType  string `json:"rewardType" binding:""` // cash, bonus, spin, chest, empty
+	Label      string `json:"label" binding:""`
+	RewardType string `json:"rewardType" binding:""` // cash, bonus, spin, chest, empty
 	MinAmount  string `json:"minAmount" binding:""`
 	MaxAmount  string `json:"maxAmount" binding:""`
-	Weight  uint `json:"weight" binding:""`
-	IconURL  string `json:"iconURL" binding:""`
-	Sort  int `json:"sort" binding:""`
-	Status  int `json:"status" binding:""` // 1 enabled, 2 disabled
+	Weight     uint   `json:"weight" binding:""`
+	IconURL    string `json:"iconURL" binding:""`
+	Sort       int    `json:"sort" binding:""`
+	Status     int    `json:"status" binding:""` // 1 enabled, 2 disabled
 }
 
 // GameInvitationWheelPrizesObjDetail detail
 type GameInvitationWheelPrizesObjDetail struct {
 	ID uint64 `json:"id"` // convert to uint64 id
 
-	PrizeCode  string `json:"prizeCode"`
-	Label  string `json:"label"`
-	RewardType  string `json:"rewardType"` // cash, bonus, spin, chest, empty
-	MinAmount  string `json:"minAmount"`
-	MaxAmount  string `json:"maxAmount"`
-	Weight  uint `json:"weight"`
-	IconURL  string `json:"iconURL"`
-	Sort  int `json:"sort"`
-	Status  int `json:"status"` // 1 enabled, 2 disabled
+	PrizeCode  string     `json:"prizeCode"`
+	Label      string     `json:"label"`
+	RewardType string     `json:"rewardType"` // cash, bonus, spin, chest, empty
+	MinAmount  string     `json:"minAmount"`
+	MaxAmount  string     `json:"maxAmount"`
+	Weight     uint       `json:"weight"`
+	IconURL    string     `json:"iconURL"`
+	Sort       int        `json:"sort"`
+	Status     int        `json:"status"` // 1 enabled, 2 disabled
 	CreatedAt  *time.Time `json:"createdAt"`
 	UpdatedAt  *time.Time `json:"updatedAt"`
 }
-
 
 // CreateGameInvitationWheelPrizesReply only for api docs
 type CreateGameInvitationWheelPrizesReply struct {

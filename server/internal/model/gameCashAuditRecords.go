@@ -1,9 +1,10 @@
 package model
 
 import (
+	"time"
+
 	"github.com/go-dev-frame/sponge/pkg/sgorm"
 	"github.com/shopspring/decimal"
-	"time"
 )
 
 // GameCashAuditRecords Cash audit requirements
@@ -39,5 +40,3 @@ var GameCashAuditRecordsColumnNames = map[string]bool{
 	"started_at":             true,
 	"completed_at":           true,
 }
-
-

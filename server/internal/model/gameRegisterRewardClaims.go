@@ -11,7 +11,6 @@ import (
 type GameRegisterRewardClaims struct {
 	sgorm.Model `gorm:"embedded"`
 
-	TenantID            uint64           `gorm:"column:tenant_id;type:bigint(20) unsigned;default:0;not null" json:"tenantID"`
 	SiteID              uint64           `gorm:"column:site_id;type:bigint(20) unsigned;default:0;not null" json:"siteID"`
 	UserID              uint64           `gorm:"column:user_id;type:bigint(20) unsigned;not null" json:"userID"`
 	Amount              *decimal.Decimal `gorm:"column:amount;type:decimal(18,2);default:0.00;not null" json:"amount"`

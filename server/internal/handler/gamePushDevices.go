@@ -12,9 +12,9 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"casino/internal/content"
 	"casino/internal/database"
 	"casino/internal/model"
-	"casino/internal/tenancy"
 )
 
 type gamePushDeviceRequest struct {
@@ -91,9 +91,9 @@ func (h *gamePushDeviceHandler) Register(c *gin.Context) {
 	}
 	now := time.Now()
 	tokenHash := pushTokenHash(request.Token)
-	scope := tenancy.Scope{TenantID: user.TenantID, SiteID: user.SiteID}
+	scope := content.Scope{SiteID: user.SiteID}
 	record := model.GamePushDeviceToken{
-		TenantID:               scope.TenantID,
+
 		SiteID:                 scope.SiteID,
 		UserID:                 user.ID,
 		Platform:               request.Platform,
@@ -132,7 +132,7 @@ func (h *gamePushDeviceHandler) Register(c *gin.Context) {
 		if err := tx.Clauses(clause.OnConflict{
 			Columns: []clause.Column{{Name: "token_hash"}},
 			DoUpdates: clause.AssignmentColumns([]string{
-				"tenant_id", "site_id", "user_id", "platform", "token", "device_id", "fingerprint_hash", "manufacturer", "brand",
+				"site_id", "user_id", "platform", "token", "device_id", "fingerprint_hash", "manufacturer", "brand",
 				"device_model", "device_name", "os_version", "sdk_version", "security_patch", "network_type",
 				"network_metered", "network_roaming", "carrier_name", "screen_width", "screen_height",
 				"screen_density", "timezone", "locale", "battery_level", "charging", "notification_permission",
@@ -145,7 +145,7 @@ func (h *gamePushDeviceHandler) Register(c *gin.Context) {
 		if request.DeviceID == "" {
 			return nil
 		}
-		return tenancy.ApplySite(tx.Model(&model.GamePushDeviceToken{}), "", scope).
+		return content.ApplySite(tx.Model(&model.GamePushDeviceToken{}), "", scope).
 			Where("user_id=? AND platform=? AND device_id=? AND token_hash<>? AND deleted_at IS NULL", user.ID, request.Platform, request.DeviceID, tokenHash).
 			Updates(map[string]any{"enabled": false, "invalidated_at": &now}).Error
 	}); err != nil {
@@ -170,8 +170,8 @@ func (h *gamePushDeviceHandler) Unregister(c *gin.Context) {
 		return
 	}
 	now := time.Now()
-	scope := tenancy.Scope{TenantID: user.TenantID, SiteID: user.SiteID}
-	if err := tenancy.ApplySite(db.Model(&model.GamePushDeviceToken{}), "", scope).
+	scope := content.Scope{SiteID: user.SiteID}
+	if err := content.ApplySite(db.Model(&model.GamePushDeviceToken{}), "", scope).
 		Where("user_id=? AND token_hash=? AND deleted_at IS NULL", user.ID, pushTokenHash(strings.TrimSpace(request.Token))).
 		Updates(map[string]any{"enabled": false, "invalidated_at": &now}).Error; err != nil {
 		h5Error(c, http.StatusInternalServerError, "push device unregister failed")

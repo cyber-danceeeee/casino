@@ -6,15 +6,15 @@ import (
 
 	"gorm.io/gorm"
 
+	"casino/internal/content"
 	"casino/internal/model"
 	"casino/internal/operationdefaults"
-	"casino/internal/tenancy"
 )
 
 type socialLinkRecord struct {
 	operationdefaults.Metadata
-	ID               uint64     `gorm:"column:id;primaryKey" json:"id"`
-	TenantID         uint64     `gorm:"column:tenant_id" json:"tenantID"`
+	ID uint64 `gorm:"column:id;primaryKey" json:"id"`
+
 	SiteID           uint64     `gorm:"column:site_id" json:"siteID"`
 	PlatformCode     string     `gorm:"column:platform_code" json:"platformCode"`
 	Label            string     `gorm:"column:label" json:"label"`
@@ -47,35 +47,35 @@ type SocialLinkInput struct {
 
 func (s *Service) ListSocialLinks(q ListQuery) (PageResult, error) {
 	var rows []socialLinkRecord
-	db := tenancy.ApplySite(s.db.Model(&socialLinkRecord{}), "", q.Scope).Where("deleted_at IS NULL")
+	db := content.ApplySite(s.db.Model(&socialLinkRecord{}), "", q.Scope).Where("deleted_at IS NULL")
 	db = contains(db, "platform_code", q.Values["platformCode"])
 	db = contains(db, "label", q.Values["label"])
 	db = socialStatusFilter(db, q.Values["enabled"])
 	result, err := page(db.Order("sort ASC, id DESC"), q, &rows)
 	for i := range rows {
 		rows[i].Enabled = rows[i].Status == 1
-		rows[i].Metadata = operationdefaults.Metadata{CanEdit: true, CanDelete: !q.Scope.TenantScoped(), Visible: rows[i].Enabled}
+		rows[i].Metadata = operationdefaults.Metadata{CanEdit: true, CanDelete: !q.Scope.SiteScoped(), Visible: rows[i].Enabled}
 		signSocialAssets(&rows[i])
 	}
 	result.List = rows
 	return result, err
 }
 
-func (s *Service) GetSocialLink(id uint64, scope tenancy.Scope) (map[string]any, error) {
+func (s *Service) GetSocialLink(id uint64, scope content.Scope) (map[string]any, error) {
 	var row socialLinkRecord
-	if err := tenancy.ApplySite(s.db.Model(&socialLinkRecord{}), "", scope).Where("id = ? AND deleted_at IS NULL", id).First(&row).Error; err != nil {
+	if err := content.ApplySite(s.db.Model(&socialLinkRecord{}), "", scope).Where("id = ? AND deleted_at IS NULL", id).First(&row).Error; err != nil {
 		return nil, notFound(err, "SOCIAL_LINK_NOT_FOUND")
 	}
 	row.Enabled = row.Status == 1
-	row.Metadata = operationdefaults.Metadata{CanEdit: true, CanDelete: !scope.TenantScoped(), Visible: row.Enabled}
+	row.Metadata = operationdefaults.Metadata{CanEdit: true, CanDelete: !scope.SiteScoped(), Visible: row.Enabled}
 	signSocialAssets(&row)
 	logs, _ := s.operationLogs("social_link", id, scope)
 	return map[string]any{"overview": row, "operationLogs": logs}, nil
 }
 
 func (s *Service) SaveSocialLink(id uint64, in SocialLinkInput, actor Actor) (uint64, error) {
-	if actor.Scope.TenantScoped() && id == 0 {
-		return 0, newError("SOCIAL_LINK_CREATE_DISABLED", "tenant social platforms are provisioned by the platform")
+	if actor.Scope.SiteScoped() && id == 0 {
+		return 0, newError("SOCIAL_LINK_CREATE_DISABLED", "social links are managed by the H5 configuration")
 	}
 	in.PlatformCode = strings.ToLower(strings.TrimSpace(in.PlatformCode))
 	in.Label = strings.TrimSpace(in.Label)
@@ -88,10 +88,10 @@ func (s *Service) SaveSocialLink(id uint64, in SocialLinkInput, actor Actor) (ui
 		var before model.GameSocialLinks
 		action, permission := "create", "operation:social-link:create"
 		if id > 0 {
-			if err := tenancy.ApplySite(tx.Model(&model.GameSocialLinks{}), "", actor.Scope).Where("id = ? AND deleted_at IS NULL", id).First(&before).Error; err != nil {
+			if err := content.ApplySite(tx.Model(&model.GameSocialLinks{}), "", actor.Scope).Where("id = ? AND deleted_at IS NULL", id).First(&before).Error; err != nil {
 				return notFound(err, "SOCIAL_LINK_NOT_FOUND")
 			}
-			if actor.Scope.TenantScoped() {
+			if actor.Scope.SiteScoped() {
 				in.PlatformCode = before.PlatformCode
 			}
 			action, permission = "update", "operation:social-link:update"
@@ -111,16 +111,16 @@ func (s *Service) SaveSocialLink(id uint64, in SocialLinkInput, actor Actor) (ui
 		} else {
 			icon = operationAssetRef(icon)
 		}
-		row := model.GameSocialLinks{TenantID: actor.Scope.TenantID, SiteID: actor.Scope.SiteID, PlatformCode: in.PlatformCode, Label: label, IconURL: icon, ShareURL: in.ShareURL, ShareTitle: in.ShareTitle, ShareText: in.ShareText, ShareDescription: in.ShareDescription, Sort: in.Sort, Status: operationStatus(in.Enabled)}
+		row := model.GameSocialLinks{SiteID: actor.Scope.SiteID, PlatformCode: in.PlatformCode, Label: label, IconURL: icon, ShareURL: in.ShareURL, ShareTitle: in.ShareTitle, ShareText: in.ShareText, ShareDescription: in.ShareDescription, Sort: in.Sort, Status: operationStatus(in.Enabled)}
 		if id == 0 {
 			if err := tx.Create(&row).Error; err != nil {
 				return err
 			}
 			id = row.ID
-		} else if err := tenancy.ApplySite(tx.Model(&model.GameSocialLinks{}), "", actor.Scope).Where("id = ?", id).Select("platform_code", "label", "icon_url", "share_url", "share_title", "share_text", "share_description", "sort", "status").Updates(row).Error; err != nil {
+		} else if err := content.ApplySite(tx.Model(&model.GameSocialLinks{}), "", actor.Scope).Where("id = ?", id).Select("platform_code", "label", "icon_url", "share_url", "share_title", "share_text", "share_description", "sort", "status").Updates(row).Error; err != nil {
 			return err
 		}
-		if err := tenancy.ApplySite(tx.Model(&model.GameSocialLinks{}), "", actor.Scope).Where("id = ?", id).First(&row).Error; err != nil {
+		if err := content.ApplySite(tx.Model(&model.GameSocialLinks{}), "", actor.Scope).Where("id = ?", id).First(&row).Error; err != nil {
 			return err
 		}
 		return audit(tx, actor, permission, action, "social_link", id, before, row, "")
@@ -129,8 +129,8 @@ func (s *Service) SaveSocialLink(id uint64, in SocialLinkInput, actor Actor) (ui
 }
 
 func (s *Service) DeleteSocialLink(id uint64, actor Actor) error {
-	if actor.Scope.TenantScoped() {
-		return newError("SOCIAL_LINK_DELETE_DISABLED", "tenant social platforms cannot be deleted")
+	if actor.Scope.SiteScoped() {
+		return newError("SOCIAL_LINK_DELETE_DISABLED", "default social links cannot be deleted")
 	}
 	return s.softDelete("game_social_links", "social_link", id, "operation:social-link:delete", actor)
 }

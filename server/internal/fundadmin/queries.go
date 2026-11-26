@@ -6,24 +6,24 @@ import (
 
 	"gorm.io/gorm"
 
-	"casino/internal/tenancy"
+	"casino/internal/content"
 )
 
-func addTextFilter(db *gorm.DB, column, value string) *gorm.DB {
+func addTextFilter(db *gorm.DB, column string, value string) *gorm.DB {
 	if value == "" {
 		return db
 	}
 	return db.Where(column+" LIKE ?", "%"+value+"%")
 }
 
-func addExactFilter(db *gorm.DB, column, value string) *gorm.DB {
+func addExactFilter(db *gorm.DB, column string, value string) *gorm.DB {
 	if value == "" {
 		return db
 	}
 	return db.Where(column+" = ?", value)
 }
 
-func addTimeRange(db *gorm.DB, column, from, to string) *gorm.DB {
+func addTimeRange(db *gorm.DB, column string, from string, to string) *gorm.DB {
 	if from != "" {
 		db = db.Where(column+" >= ?", from)
 	}
@@ -33,7 +33,7 @@ func addTimeRange(db *gorm.DB, column, from, to string) *gorm.DB {
 	return db
 }
 
-func addMoneyRange(db *gorm.DB, column, min, max string) *gorm.DB {
+func addMoneyRange(db *gorm.DB, column string, min string, max string) *gorm.DB {
 	if min != "" {
 		db = db.Where(column+" >= ?", min)
 	}
@@ -43,7 +43,7 @@ func addMoneyRange(db *gorm.DB, column, min, max string) *gorm.DB {
 	return db
 }
 
-func addUintFilter(db *gorm.DB, column, value string) *gorm.DB {
+func addUintFilter(db *gorm.DB, column string, value string) *gorm.DB {
 	if strings.TrimSpace(value) == "" {
 		return db
 	}
@@ -60,7 +60,7 @@ func (s *Service) ListWallets(input ListQuery) (Page[WalletRow], error) {
 		Joins("JOIN game_users u ON u.id = w.user_id AND u.deleted_at IS NULL").
 		Joins("LEFT JOIN game_user_risk_profiles rp ON rp.user_id = u.id AND rp.deleted_at IS NULL").
 		Where("w.deleted_at IS NULL")
-	db = tenancy.ApplySite(db, "w", q.Scope)
+	db = content.ApplySite(db, "w", q.Scope)
 	db = addTextFilter(db, "u.user_no", queryValue(q, "userNo"))
 	if username := queryValue(q, "username"); username != "" {
 		like := "%" + username + "%"
@@ -109,7 +109,7 @@ func (s *Service) ListWallets(input ListQuery) (Page[WalletRow], error) {
 	return Page[WalletRow]{List: rows, Total: total, Page: q.Page, PageSize: q.PageSize}, nil
 }
 
-func (s *Service) GetWallet(id uint64, scope tenancy.Scope) (map[string]any, error) {
+func (s *Service) GetWallet(id uint64, scope content.Scope) (map[string]any, error) {
 	var wallet WalletRow
 	db := s.db.Table("game_user_wallets w").
 		Joins("JOIN game_users u ON u.id = w.user_id AND u.deleted_at IS NULL").
@@ -122,7 +122,7 @@ func (s *Service) GetWallet(id uint64, scope tenancy.Scope) (map[string]any, err
 		DATE_FORMAT(w.created_at, '%Y-%m-%d %H:%i:%s') created_at,
 		DATE_FORMAT(w.updated_at, '%Y-%m-%d %H:%i:%s') updated_at`).
 		Where("w.id = ? AND w.deleted_at IS NULL", id)
-	err := tenancy.ApplySite(db, "w", scope).Take(&wallet).Error
+	err := content.ApplySite(db, "w", scope).Take(&wallet).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, ErrWalletNotFound
@@ -157,7 +157,7 @@ func (s *Service) GetWallet(id uint64, scope tenancy.Scope) (map[string]any, err
 		CAST(balance_after AS CHAR) balance_after, source_type reference_type, order_no reference_id,
 		status, DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') created_at`).
 		Where("wallet_id = ? AND deleted_at IS NULL", id)
-	if err := tenancy.ApplySite(recentDB, "", scope).Order("created_at DESC, id DESC").Limit(20).Scan(&recentTransactions).Error; err != nil {
+	if err := content.ApplySite(recentDB, "", scope).Order("created_at DESC, id DESC").Limit(20).Scan(&recentTransactions).Error; err != nil {
 		return nil, wrapInternal(err)
 	}
 	freezes := []map[string]any{}
@@ -165,14 +165,14 @@ func (s *Service) GetWallet(id uint64, scope tenancy.Scope) (map[string]any, err
 		reason, reference_type, reference_no, status, DATE_FORMAT(frozen_at, '%Y-%m-%d %H:%i:%s') frozen_at,
 		DATE_FORMAT(released_at, '%Y-%m-%d %H:%i:%s') released_at, operator_username operator`).
 		Where("wallet_id = ? AND deleted_at IS NULL", id)
-	if err := tenancy.ApplySite(freezeDB, "", scope).Order("created_at DESC").Limit(100).Scan(&freezes).Error; err != nil {
+	if err := content.ApplySite(freezeDB, "", scope).Order("created_at DESC").Limit(100).Scan(&freezes).Error; err != nil {
 		return nil, wrapInternal(err)
 	}
 	relatedUser := map[string]any{}
 	userDB := s.db.Table("game_users").Select(`id, user_no, username, country_code, vip_level,
 		status, DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') registered_at, DATE_FORMAT(last_login_at, '%Y-%m-%d %H:%i:%s') last_login_at`).
 		Where("id = ? AND deleted_at IS NULL", wallet.UserID)
-	if err := tenancy.ApplySite(userDB, "", scope).Scan(&relatedUser).Error; err != nil {
+	if err := content.ApplySite(userDB, "", scope).Scan(&relatedUser).Error; err != nil {
 		return nil, wrapInternal(err)
 	}
 	logs, err := s.operationLogs("wallet", id, scope)
@@ -186,7 +186,7 @@ func (s *Service) ListTransactions(input ListQuery) (Page[TransactionRow], error
 	q := normalizeQuery(input)
 	db := s.db.Table("game_wallet_transactions t").
 		Joins("JOIN game_users u ON u.id = t.user_id AND u.deleted_at IS NULL").Where("t.deleted_at IS NULL")
-	db = tenancy.ApplySite(db, "t", q.Scope)
+	db = content.ApplySite(db, "t", q.Scope)
 	for _, item := range []struct{ key, column string }{
 		{"transactionID", "t.txn_no"}, {"externalTransactionID", "t.external_txn_no"},
 		{"userNo", "u.user_no"}, {"phone", "u.phone"}, {"referenceNo", "t.order_no"},
@@ -238,7 +238,7 @@ func (s *Service) ListTransactions(input ListQuery) (Page[TransactionRow], error
 	return Page[TransactionRow]{List: rows, Total: total, Page: q.Page, PageSize: q.PageSize}, nil
 }
 
-func (s *Service) GetTransaction(id uint64, scope tenancy.Scope) (map[string]any, error) {
+func (s *Service) GetTransaction(id uint64, scope content.Scope) (map[string]any, error) {
 	var row TransactionRow
 	db := s.db.Table("game_wallet_transactions t").Joins("JOIN game_users u ON u.id=t.user_id").
 		Select(`t.id, t.txn_no, t.external_txn_no, t.user_id, u.user_no, `+phoneUsernameSQL("u")+` username, u.phone_country_code, u.phone, t.wallet_id,
@@ -250,7 +250,7 @@ func (s *Service) GetTransaction(id uint64, scope tenancy.Scope) (map[string]any
 		DATE_FORMAT(t.created_at, '%Y-%m-%d %H:%i:%s') created_at,
 		DATE_FORMAT(t.completed_at, '%Y-%m-%d %H:%i:%s') completed_at`).
 		Where("t.id=? AND t.deleted_at IS NULL", id)
-	err := tenancy.ApplySite(db, "t", scope).Take(&row).Error
+	err := content.ApplySite(db, "t", scope).Take(&row).Error
 	if err != nil {
 		return nil, wrapInternal(err)
 	}
@@ -308,20 +308,20 @@ func redactMap(value map[string]any) {
 	}
 }
 
-func (s *Service) operationLogs(targetType string, targetID uint64, scope tenancy.Scope) ([]map[string]any, error) {
+func (s *Service) operationLogs(targetType string, targetID uint64, scope content.Scope) ([]map[string]any, error) {
 	rows := []map[string]any{}
 	db := s.db.Table("game_admin_operation_logs").Select(`operator_username operator, permission, action,
 		before_state, after_state, CAST(amount AS CHAR) amount, currency, reason, ip_address,
 		correlation_id, DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') created_at`).
 		Where("target_type = ? AND target_id = ? AND deleted_at IS NULL", targetType, targetID)
-	err := tenancy.ApplySite(db, "", scope).Order("created_at DESC, id DESC").Limit(100).Scan(&rows).Error
+	err := content.ApplySite(db, "", scope).Order("created_at DESC, id DESC").Limit(100).Scan(&rows).Error
 	if err != nil {
 		return nil, wrapInternal(err)
 	}
 	return rows, nil
 }
 
-func (s *Service) walletTransactionResult(id uint64, scope tenancy.Scope) (map[string]any, error) {
+func (s *Service) walletTransactionResult(id uint64, scope content.Scope) (map[string]any, error) {
 	if id == 0 {
 		return map[string]any{}, nil
 	}
@@ -333,7 +333,7 @@ func (s *Service) walletTransactionResult(id uint64, scope tenancy.Scope) (map[s
 		status, DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') created_at,
 		DATE_FORMAT(completed_at, '%Y-%m-%d %H:%i:%s') completed_at`).
 		Where("id = ? AND deleted_at IS NULL", id)
-	err := tenancy.ApplySite(db, "", scope).Scan(&row).Error
+	err := content.ApplySite(db, "", scope).Scan(&row).Error
 	if err != nil {
 		return nil, wrapInternal(err)
 	}
@@ -343,7 +343,7 @@ func (s *Service) walletTransactionResult(id uint64, scope tenancy.Scope) (map[s
 func (s *Service) ListAdjustments(input ListQuery) (Page[AdjustmentRow], error) {
 	q := normalizeQuery(input)
 	db := s.db.Table("game_manual_adjustments a").Joins("JOIN game_users u ON u.id=a.user_id AND u.deleted_at IS NULL").Where("a.deleted_at IS NULL")
-	db = tenancy.ApplySite(db, "a", q.Scope)
+	db = content.ApplySite(db, "a", q.Scope)
 	for _, item := range []struct{ key, column string }{{"adjustmentID", "a.adjustment_no"}, {"userNo", "u.user_no"}, {"phone", "u.phone"}, {"applicant", "a.applicant_username"}, {"approver", "a.approver_username"}} {
 		db = addTextFilter(db, item.column, queryValue(q, item.key))
 	}
@@ -383,7 +383,7 @@ func scanAdjustmentPage(db *gorm.DB, q ListQuery) (Page[AdjustmentRow], error) {
 	return Page[AdjustmentRow]{List: rows, Total: total, Page: q.Page, PageSize: q.PageSize}, nil
 }
 
-func (s *Service) GetAdjustment(id uint64, scope tenancy.Scope) (map[string]any, error) {
+func (s *Service) GetAdjustment(id uint64, scope content.Scope) (map[string]any, error) {
 	var row AdjustmentRow
 	db := s.db.Table("game_manual_adjustments a").Joins("JOIN game_users u ON u.id=a.user_id").
 		Select(`a.id, a.adjustment_no, a.user_id, u.user_no, `+phoneUsernameSQL("u")+` username, u.phone_country_code, u.phone, a.wallet_id, a.adjustment_type,
@@ -395,7 +395,7 @@ func (s *Service) GetAdjustment(id uint64, scope tenancy.Scope) (map[string]any,
 		DATE_FORMAT(a.approved_at,'%Y-%m-%d %H:%i:%s') approved_at,
 		DATE_FORMAT(a.completed_at,'%Y-%m-%d %H:%i:%s') completed_at`).
 		Where("a.id=? AND a.deleted_at IS NULL", id)
-	err := tenancy.ApplySite(db, "a", scope).Take(&row).Error
+	err := content.ApplySite(db, "a", scope).Take(&row).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, ErrAdjustmentNotFound
@@ -406,7 +406,7 @@ func (s *Service) GetAdjustment(id uint64, scope tenancy.Scope) (map[string]any,
 	approvalDB := s.db.Table("game_manual_adjustment_approvals").Select(`operator_username operator, decision,
 		before_status, after_status, reason, DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') created_at`).
 		Where("adjustment_id=? AND deleted_at IS NULL", id)
-	if err := tenancy.ApplySite(approvalDB, "", scope).Order("created_at").Scan(&approvals).Error; err != nil {
+	if err := content.ApplySite(approvalDB, "", scope).Order("created_at").Scan(&approvals).Error; err != nil {
 		return nil, wrapInternal(err)
 	}
 	walletResult, err := s.walletTransactionResult(row.WalletTransactionID, scope)
@@ -423,7 +423,7 @@ func (s *Service) GetAdjustment(id uint64, scope tenancy.Scope) (map[string]any,
 func (s *Service) ListDeposits(input ListQuery) (Page[DepositRow], error) {
 	q := normalizeQuery(input)
 	db := s.db.Table("game_deposit_orders o").Joins("JOIN game_users u ON u.id=o.user_id AND u.deleted_at IS NULL").Where("o.deleted_at IS NULL")
-	db = tenancy.ApplySite(db, "o", q.Scope)
+	db = content.ApplySite(db, "o", q.Scope)
 	for _, item := range []struct{ key, column string }{{"platformOrderID", "o.order_no"}, {"channelOrderID", "o.channel_order_no"}, {"userNo", "u.user_no"}, {"username", "u.username"}, {"phone", "u.phone"}} {
 		db = addTextFilter(db, item.column, queryValue(q, item.key))
 	}
@@ -475,10 +475,10 @@ func depositStatusValue(value string) int {
 	}
 }
 
-func (s *Service) GetDeposit(id uint64, scope tenancy.Scope) (map[string]any, error) {
+func (s *Service) GetDeposit(id uint64, scope content.Scope) (map[string]any, error) {
 	var row DepositRow
 	db := s.db.Table("game_deposit_orders o").Joins("JOIN game_users u ON u.id=o.user_id").Select(`o.id,o.order_no,o.channel_order_no,o.user_id,u.user_no,u.username,o.channel_code,o.method_code,CAST(o.amount AS CHAR) amount,CAST(o.fee_amount AS CHAR) fee_amount,CAST(o.paid_amount AS CHAR) paid_amount,o.currency,o.status,o.wallet_transaction_id,o.reviewer_username,o.review_reason,o.evidence_reference,o.channel_response_code,o.channel_response_message,o.fail_reason,DATE_FORMAT(o.created_at,'%Y-%m-%d %H:%i:%s') created_at,DATE_FORMAT(o.expired_at,'%Y-%m-%d %H:%i:%s') expired_at,DATE_FORMAT(o.paid_at,'%Y-%m-%d %H:%i:%s') paid_at,DATE_FORMAT(o.callback_at,'%Y-%m-%d %H:%i:%s') callback_at,DATE_FORMAT(o.completed_at,'%Y-%m-%d %H:%i:%s') completed_at`).Where("o.id=? AND o.deleted_at IS NULL", id)
-	err := tenancy.ApplySite(db, "o", scope).Take(&row).Error
+	err := content.ApplySite(db, "o", scope).Take(&row).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, ErrDepositNotFound
@@ -500,7 +500,7 @@ func (s *Service) GetDeposit(id uint64, scope tenancy.Scope) (map[string]any, er
 		source_ip, signature_valid, channel_status, processing_result,
 		CASE WHEN http_response IS NULL OR http_response = '' THEN '' ELSE '[REDACTED]' END http_response, retry_count`).
 		Where("deposit_order_id=? AND deleted_at IS NULL", id)
-	if err := tenancy.ApplySite(callbackDB, "", scope).Order("callback_time DESC").Scan(&callbacks).Error; err != nil {
+	if err := content.ApplySite(callbackDB, "", scope).Order("callback_time DESC").Scan(&callbacks).Error; err != nil {
 		return nil, wrapInternal(err)
 	}
 	logs, err := s.operationLogs("deposit", id, scope)
@@ -513,7 +513,7 @@ func (s *Service) GetDeposit(id uint64, scope tenancy.Scope) (map[string]any, er
 func (s *Service) ListWithdrawals(input ListQuery) (Page[WithdrawalRow], error) {
 	q := normalizeQuery(input)
 	db := s.db.Table("game_withdraw_orders o").Joins("JOIN game_users u ON u.id=o.user_id AND u.deleted_at IS NULL").Joins("LEFT JOIN game_withdraw_accounts a ON a.id=o.withdraw_account_id AND a.deleted_at IS NULL").Where("o.deleted_at IS NULL")
-	db = tenancy.ApplySite(db, "o", q.Scope)
+	db = content.ApplySite(db, "o", q.Scope)
 	for _, item := range []struct{ key, column string }{{"platformOrderID", "o.order_no"}, {"channelOrderID", "o.channel_order_no"}, {"userNo", "u.user_no"}, {"username", "u.username"}, {"phone", "u.phone"}} {
 		db = addTextFilter(db, item.column, queryValue(q, item.key))
 	}
@@ -579,7 +579,7 @@ func auditStatus(value int) string {
 	}
 }
 
-func (s *Service) GetWithdrawal(id uint64, scope tenancy.Scope) (map[string]any, error) {
+func (s *Service) GetWithdrawal(id uint64, scope content.Scope) (map[string]any, error) {
 	var row WithdrawalRow
 	db := s.db.Table("game_withdraw_orders o").Joins("JOIN game_users u ON u.id=o.user_id").Joins("LEFT JOIN game_withdraw_accounts a ON a.id=o.withdraw_account_id AND a.deleted_at IS NULL").
 		Select(`o.id,o.order_no,o.channel_order_no,o.user_id,u.user_no,u.username,CAST(o.amount AS CHAR) amount,CAST(o.fee_amount AS CHAR) fee_amount,CAST(o.actual_amount AS CHAR) actual_amount,o.currency,o.payment_method,
@@ -587,7 +587,7 @@ func (s *Service) GetWithdrawal(id uint64, scope tenancy.Scope) (map[string]any,
 		CASE WHEN a.account_name IS NULL OR a.account_name='' THEN '' WHEN CHAR_LENGTH(a.account_name)<=2 THEN CONCAT(LEFT(a.account_name,1),'*') ELSE CONCAT(LEFT(a.account_name,1),'***',RIGHT(a.account_name,1)) END account_name_masked,
 		COALESCE(a.bank_name,'') bank_name,o.kyc_status,o.risk_status,o.status,o.audit_status,o.reviewer_username,o.review_remark,o.freeze_record_id,o.final_debit_transaction_id,o.refund_transaction_id,o.failure_reason,DATE_FORMAT(o.created_at,'%Y-%m-%d %H:%i:%s') created_at,DATE_FORMAT(o.submitted_at,'%Y-%m-%d %H:%i:%s') submitted_at,DATE_FORMAT(o.reviewed_at,'%Y-%m-%d %H:%i:%s') reviewed_at,DATE_FORMAT(o.approved_at,'%Y-%m-%d %H:%i:%s') approved_at,DATE_FORMAT(o.completed_at,'%Y-%m-%d %H:%i:%s') completed_at`).
 		Where("o.id=? AND o.deleted_at IS NULL", id)
-	err := tenancy.ApplySite(db, "o", scope).Take(&row).Error
+	err := content.ApplySite(db, "o", scope).Take(&row).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, ErrWithdrawalNotFound
@@ -605,7 +605,7 @@ func (s *Service) GetWithdrawal(id uint64, scope tenancy.Scope) (map[string]any,
 		DATE_FORMAT(u.created_at, '%Y-%m-%d %H:%i:%s') registration_time,
 		DATE_FORMAT(u.last_login_at, '%Y-%m-%d %H:%i:%s') last_login_time`).
 		Where("u.id = ? AND u.deleted_at IS NULL", row.UserID)
-	if err := tenancy.ApplySite(userDB, "u", scope).Scan(&userReview).Error; err != nil {
+	if err := content.ApplySite(userDB, "u", scope).Scan(&userReview).Error; err != nil {
 		return nil, wrapInternal(err)
 	}
 	userReview["kyc_status"] = row.KYCStatus
@@ -621,7 +621,7 @@ func (s *Service) GetWithdrawal(id uint64, scope tenancy.Scope) (map[string]any,
 			DATE_FORMAT(frozen_at, '%Y-%m-%d %H:%i:%s') freeze_time,
 			DATE_FORMAT(released_at, '%Y-%m-%d %H:%i:%s') release_time`).
 			Where("id = ? AND deleted_at IS NULL", row.FreezeRecordID)
-		if err := tenancy.ApplySite(freezeDB, "", scope).Scan(&freeze).Error; err != nil {
+		if err := content.ApplySite(freezeDB, "", scope).Scan(&freeze).Error; err != nil {
 			return nil, wrapInternal(err)
 		}
 		for key, value := range freeze {
@@ -635,14 +635,14 @@ func (s *Service) GetWithdrawal(id uint64, scope tenancy.Scope) (map[string]any,
 		before_status, after_status, reason, internal_remark,
 		DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') created_at`).
 		Where("withdrawal_order_id=? AND deleted_at IS NULL", id)
-	if err := tenancy.ApplySite(approvalDB, "", scope).Order("created_at").Scan(&approvals).Error; err != nil {
+	if err := content.ApplySite(approvalDB, "", scope).Order("created_at").Scan(&approvals).Error; err != nil {
 		return nil, wrapInternal(err)
 	}
 	payoutDB := s.db.Table("game_withdrawal_payout_logs").Select(`channel_code, request_result, channel_order_no,
 		query_result, callback_result, retry_count, failure_reason,
 		DATE_FORMAT(requested_at, '%Y-%m-%d %H:%i:%s') requested_at`).
 		Where("withdrawal_order_id=? AND deleted_at IS NULL", id)
-	if err := tenancy.ApplySite(payoutDB, "", scope).Order("created_at DESC").Scan(&payouts).Error; err != nil {
+	if err := content.ApplySite(payoutDB, "", scope).Order("created_at DESC").Scan(&payouts).Error; err != nil {
 		return nil, wrapInternal(err)
 	}
 	logs, err := s.operationLogs("withdrawal", id, scope)
@@ -655,7 +655,7 @@ func (s *Service) GetWithdrawal(id uint64, scope tenancy.Scope) (map[string]any,
 func (s *Service) ListReconciliations(input ListQuery) (Page[ReconciliationRow], error) {
 	q := normalizeQuery(input)
 	db := s.db.Table("game_reconciliation_records r").Where("r.deleted_at IS NULL")
-	db = tenancy.ApplySite(db, "r", q.Scope)
+	db = content.ApplySite(db, "r", q.Scope)
 	for _, item := range []struct{ key, column string }{{"reconciliationID", "r.reconciliation_no"}, {"businessDate", "r.business_date"}, {"businessType", "r.business_type"}, {"channel", "r.channel_code"}, {"currency", "r.currency"}, {"status", "r.status"}} {
 		if item.key == "reconciliationID" {
 			db = addTextFilter(db, item.column, queryValue(q, item.key))
@@ -681,10 +681,10 @@ func (s *Service) ListReconciliations(input ListQuery) (Page[ReconciliationRow],
 	return Page[ReconciliationRow]{List: rows, Total: total, Page: q.Page, PageSize: q.PageSize}, nil
 }
 
-func (s *Service) GetReconciliation(id uint64, scope tenancy.Scope) (map[string]any, error) {
+func (s *Service) GetReconciliation(id uint64, scope content.Scope) (map[string]any, error) {
 	var row ReconciliationRow
 	db := s.db.Table("game_reconciliation_records r").Select(`r.id,r.reconciliation_no,DATE_FORMAT(r.business_date,'%Y-%m-%d') business_date,r.business_type,r.channel_code,r.currency,r.reconciliation_mode,r.platform_order_count,CAST(r.platform_amount AS CHAR) platform_amount,r.channel_order_count,CAST(r.channel_amount AS CHAR) channel_amount,CAST(r.difference_amount AS CHAR) difference_amount,r.difference_count,r.status,r.generated_by,DATE_FORMAT(r.generated_at,'%Y-%m-%d %H:%i:%s') generated_at,DATE_FORMAT(r.completed_at,'%Y-%m-%d %H:%i:%s') completed_at`).Where("r.id=? AND r.deleted_at IS NULL", id)
-	err := tenancy.ApplySite(db, "r", scope).Take(&row).Error
+	err := content.ApplySite(db, "r", scope).Take(&row).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, ErrReconciliationAbsent
@@ -701,19 +701,19 @@ func (s *Service) GetReconciliation(id uint64, scope tenancy.Scope) (map[string]
 		DATE_FORMAT(detected_at, '%Y-%m-%d %H:%i:%s') detected_at,
 		DATE_FORMAT(resolved_at, '%Y-%m-%d %H:%i:%s') resolved_at`).
 		Where("reconciliation_id=? AND deleted_at IS NULL", id)
-	if err := tenancy.ApplySite(diffDB, "", scope).Order("id").Scan(&differences).Error; err != nil {
+	if err := content.ApplySite(diffDB, "", scope).Order("id").Scan(&differences).Error; err != nil {
 		return nil, wrapInternal(err)
 	}
 	logDB := s.db.Table("game_reconciliation_logs").Select(`level, message,
 		DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') created_at`).
 		Where("reconciliation_id=? AND deleted_at IS NULL", id)
-	if err := tenancy.ApplySite(logDB, "", scope).Order("id").Scan(&logs).Error; err != nil {
+	if err := content.ApplySite(logDB, "", scope).Order("id").Scan(&logs).Error; err != nil {
 		return nil, wrapInternal(err)
 	}
 	resolutionDB := s.db.Table("game_reconciliation_resolutions").Select(`operator_username operator, action, reason,
 		DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') created_at`).
 		Where("reconciliation_id=? AND deleted_at IS NULL", id)
-	if err := tenancy.ApplySite(resolutionDB, "", scope).Order("id").Scan(&resolutionHistory).Error; err != nil {
+	if err := content.ApplySite(resolutionDB, "", scope).Order("id").Scan(&resolutionHistory).Error; err != nil {
 		return nil, wrapInternal(err)
 	}
 	auditLogs, err := s.operationLogs("reconciliation", id, scope)

@@ -31,5 +31,3 @@ var GameAppVersionsColumnNames = map[string]bool{
 	"release_note": true,
 	"status":       true,
 }
-
-

@@ -7,7 +7,7 @@ import (
 // gameUserFavoriteGames business-level http error codes.
 // the gameUserFavoriteGamesNO value range is 1~999, if the same error code is used, it will cause panic.
 var (
-	gameUserFavoriteGamesNO = 45
+	gameUserFavoriteGamesNO       = 45
 	gameUserFavoriteGamesName     = "gameUserFavoriteGames"
 	gameUserFavoriteGamesBaseCode = errcode.HCode(gameUserFavoriteGamesNO)
 

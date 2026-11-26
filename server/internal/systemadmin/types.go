@@ -20,10 +20,10 @@ type Result struct {
 }
 
 type Actor struct {
-	ID            uint64
-	SessionID     uint64
-	Username      string
-	TenantID      uint64
+	ID        uint64
+	SessionID uint64
+	Username  string
+
 	SiteID        uint64
 	Platform      bool
 	IP            string
@@ -37,8 +37,8 @@ type Error struct {
 	Message string
 }
 
-func (e *Error) Error() string            { return e.Message }
-func NewError(code, message string) error { return &Error{Code: code, Message: message} }
+func (e *Error) Error() string                   { return e.Message }
+func NewError(code string, message string) error { return &Error{Code: code, Message: message} }
 func ErrorCode(err error) string {
 	var target *Error
 	if errors.As(err, &target) {
@@ -48,10 +48,10 @@ func ErrorCode(err error) string {
 }
 
 type AdminInput struct {
-	Username     string   `json:"username"`
-	DisplayName  string   `json:"displayName"`
-	Password     string   `json:"password"`
-	TenantID     uint64   `json:"tenantID"`
+	Username    string `json:"username"`
+	DisplayName string `json:"displayName"`
+	Password    string `json:"password"`
+
 	SiteID       uint64   `json:"siteID"`
 	DepartmentID *uint64  `json:"departmentID"`
 	Mobile       string   `json:"mobile"`
@@ -168,10 +168,8 @@ type IDsInput struct {
 }
 
 type LoginInput struct {
-	Username   string `json:"username"`
-	Password   string `json:"password"`
-	TenantCode string `json:"tenantCode"`
-	PortalType string `json:"portalType"`
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
 type MFAChallengeInput struct {

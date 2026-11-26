@@ -1,9 +1,10 @@
 package model
 
 import (
+	"time"
+
 	"github.com/go-dev-frame/sponge/pkg/sgorm"
 	"github.com/shopspring/decimal"
-	"time"
 )
 
 // GameInvitationWheelSpins Invitation wheel spin records
@@ -35,5 +36,3 @@ var GameInvitationWheelSpinsColumnNames = map[string]bool{
 	"status":        true,
 	"spun_at":       true,
 }
-
-

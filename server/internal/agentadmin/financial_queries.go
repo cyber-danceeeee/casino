@@ -3,7 +3,7 @@ package agentadmin
 import (
 	"fmt"
 
-	"casino/internal/tenancy"
+	"casino/internal/content"
 )
 
 func (s *Service) ListCommissionRecords(q ListQuery) (PageResult, error) {
@@ -31,7 +31,7 @@ func (s *Service) ListCommissionRecords(q ListQuery) (PageResult, error) {
 	var rows []map[string]any
 	return paginate(db.Order("r.created_at DESC,r.id DESC"), q, &rows)
 }
-func (s *Service) CommissionDetail(id uint64, scope tenancy.Scope) (map[string]any, error) {
+func (s *Service) CommissionDetail(id uint64, scope content.Scope) (map[string]any, error) {
 	var row map[string]any
 	db := s.db.Table("game_commission_records r").Select("r.*,a.agent_code,a.name agent_name,u.user_no,u.username,cp.code plan_code,cp.name_en plan_name").Joins("JOIN game_agents a ON a.id=r.agent_id").Joins("LEFT JOIN game_users u ON u.id=r.user_id").Joins("LEFT JOIN game_commission_plans cp ON cp.id=r.commission_plan_id").Where("r.id=? AND r.deleted_at IS NULL", id)
 	db = scoped(db, "r", scope)
@@ -69,7 +69,7 @@ func (s *Service) ListSettlements(q ListQuery) (PageResult, error) {
 	var rows []map[string]any
 	return paginate(db.Order("st.created_at DESC,st.id DESC"), q, &rows)
 }
-func (s *Service) SettlementDetail(id uint64, scope tenancy.Scope) (map[string]any, error) {
+func (s *Service) SettlementDetail(id uint64, scope content.Scope) (map[string]any, error) {
 	var row map[string]any
 	db := s.db.Table("game_agent_settlements st").Select("st.*,a.agent_code,a.name agent_name").Joins("JOIN game_agents a ON a.id=st.agent_id").Where("st.id=? AND st.deleted_at IS NULL", id)
 	db = scoped(db, "st", scope)
@@ -110,7 +110,7 @@ func (s *Service) ListWallets(q ListQuery) (PageResult, error) {
 	var rows []map[string]any
 	return paginate(db.Order("w.updated_at DESC,w.id DESC"), q, &rows)
 }
-func (s *Service) WalletDetail(id uint64, scope tenancy.Scope) (map[string]any, error) {
+func (s *Service) WalletDetail(id uint64, scope content.Scope) (map[string]any, error) {
 	var row map[string]any
 	db := s.db.Table("game_agent_wallets w").Select("w.*,a.agent_code,a.name agent_name").Joins("JOIN game_agents a ON a.id=w.agent_id").Where("w.id=? AND w.deleted_at IS NULL", id)
 	db = scoped(db, "w", scope)
@@ -154,7 +154,7 @@ func (s *Service) ListLogs(q ListQuery) (PageResult, error) {
 	var rows []map[string]any
 	return paginate(db.Order("l.created_at DESC,l.id DESC"), q, &rows)
 }
-func (s *Service) LogDetail(id uint64, scope tenancy.Scope) (map[string]any, error) {
+func (s *Service) LogDetail(id uint64, scope content.Scope) (map[string]any, error) {
 	var row map[string]any
 	e := scoped(s.db.Table("game_admin_operation_logs"), "", scope).Where("id=? AND deleted_at IS NULL", id).Take(&row).Error
 	if e != nil {

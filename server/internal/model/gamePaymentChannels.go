@@ -9,7 +9,6 @@ import (
 type GamePaymentChannels struct {
 	sgorm.Model `gorm:"embedded"` // embed id and time
 
-	TenantID     uint64           `gorm:"column:tenant_id;type:bigint(20) unsigned;default:0;not null" json:"tenantID"`
 	SiteID       uint64           `gorm:"column:site_id;type:bigint(20) unsigned;default:0;not null" json:"siteID"`
 	MethodID     uint64           `gorm:"column:method_id;type:bigint(20) unsigned;not null" json:"methodID"`
 	ChannelCode  string           `gorm:"column:channel_code;type:varchar(64);not null" json:"channelCode"`
@@ -25,11 +24,11 @@ type GamePaymentChannels struct {
 
 // GamePaymentChannelsColumnNames Whitelist for custom query fields to prevent sql injection attacks
 var GamePaymentChannelsColumnNames = map[string]bool{
-	"id":            true,
-	"created_at":    true,
-	"updated_at":    true,
-	"deleted_at":    true,
-	"tenant_id":     true,
+	"id":         true,
+	"created_at": true,
+	"updated_at": true,
+	"deleted_at": true,
+
 	"site_id":       true,
 	"method_id":     true,
 	"channel_code":  true,

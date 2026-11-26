@@ -26,7 +26,6 @@ type Service struct{ db *gorm.DB }
 func New(db *gorm.DB) *Service { return &Service{db: db} }
 
 type DepositTrigger struct {
-	TenantID        uint64
 	SiteID          uint64
 	UserID          uint64
 	DepositOrderID  uint64
@@ -42,8 +41,8 @@ type DepositTrigger struct {
 }
 
 type promotionRecord struct {
-	ID              uint64           `gorm:"primaryKey"`
-	TenantID        uint64           `gorm:"column:tenant_id"`
+	ID uint64 `gorm:"primaryKey"`
+
 	SiteID          uint64           `gorm:"column:site_id"`
 	ActivityCode    string           `gorm:"column:activity_code"`
 	TriggerType     string           `gorm:"column:trigger_type"`
@@ -80,7 +79,7 @@ func (s *Service) HandleDepositEvent(ctx eventbus.Context) error {
 		return fmt.Errorf("invalid deposit event amount: %w", err)
 	}
 	trigger := DepositTrigger{
-		TenantID: event.TenantID, SiteID: event.SiteID, UserID: payloadUint(event.Payload, "userID"),
+		SiteID: event.SiteID, UserID: payloadUint(event.Payload, "userID"),
 		DepositOrderID: payloadUint(event.Payload, "depositOrderID"), OrderNo: payloadString(event.Payload, "orderNo"),
 		EventID: event.EventID, Amount: amount, Currency: strings.ToUpper(payloadString(event.Payload, "currency")),
 		Country: strings.ToUpper(payloadString(event.Payload, "country")), DepositSequence: payloadUint(event.Payload, "depositSequence"),
@@ -90,17 +89,14 @@ func (s *Service) HandleDepositEvent(ctx eventbus.Context) error {
 }
 
 func (s *Service) ProcessDepositSucceeded(ctx context.Context, trigger DepositTrigger) error {
-	if trigger.TenantID == 0 || trigger.SiteID == 0 || trigger.UserID == 0 || trigger.EventID == "" || !trigger.Amount.IsPositive() {
+	if trigger.SiteID == 0 || trigger.UserID == 0 || trigger.EventID == "" || !trigger.Amount.IsPositive() {
 		return fmt.Errorf("invalid trusted promotion trigger scope or payload")
 	}
 	if trigger.OccurredAt.IsZero() {
 		trigger.OccurredAt = time.Now()
 	}
 	var promotions []promotionRecord
-	err := s.db.WithContext(ctx).Where(
-		"tenant_id=? AND site_id=? AND trigger_type=? AND claim_mode='AUTO' AND status_code='ACTIVE' AND deleted_at IS NULL",
-		trigger.TenantID, trigger.SiteID, TriggerDepositSucceeded,
-	).Where("start_at IS NULL OR start_at<=?", trigger.OccurredAt).
+	err := s.db.WithContext(ctx).Where("site_id = ? AND trigger_type = ? AND claim_mode = 'AUTO' AND status_code = 'ACTIVE' AND deleted_at IS NULL", trigger.SiteID, TriggerDepositSucceeded).Where("start_at IS NULL OR start_at<=?", trigger.OccurredAt).
 		Where("end_at IS NULL OR end_at>=?", trigger.OccurredAt).
 		Order("priority DESC,id ASC").Find(&promotions).Error
 	if err != nil {
@@ -130,9 +126,7 @@ func (s *Service) processPromotion(ctx context.Context, promotionID uint64, trig
 	granted := false
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var promotion promotionRecord
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where(
-			"id=? AND tenant_id=? AND site_id=? AND deleted_at IS NULL", promotionID, trigger.TenantID, trigger.SiteID,
-		).First(&promotion).Error; err != nil {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ? AND site_id = ? AND deleted_at IS NULL", promotionID, trigger.SiteID).First(&promotion).Error; err != nil {
 			return err
 		}
 		claimKey := fmt.Sprintf("promotion:%s:%d", trigger.EventID, promotion.ID)
@@ -147,7 +141,7 @@ func (s *Service) processPromotion(ctx context.Context, promotionID uint64, trig
 			return nil
 		}
 		var user model.GameUsers
-		if err := tx.Where("id=? AND tenant_id=? AND site_id=? AND deleted_at IS NULL", trigger.UserID, trigger.TenantID, trigger.SiteID).First(&user).Error; err != nil {
+		if err := tx.Where("id = ? AND site_id = ? AND deleted_at IS NULL", trigger.UserID, trigger.SiteID).First(&user).Error; err != nil {
 			return err
 		}
 		if !csvContains(promotion.Countries, user.CountryCode) || !csvContains(promotion.Currencies, trigger.Currency) {
@@ -156,15 +150,13 @@ func (s *Service) processPromotion(ctx context.Context, promotionID uint64, trig
 		depositSequence := trigger.DepositSequence
 		if depositSequence == 0 {
 			var count int64
-			if err := tx.Model(&model.GameDepositOrders{}).Where(
-				"tenant_id=? AND site_id=? AND user_id=? AND status=2 AND deleted_at IS NULL", trigger.TenantID, trigger.SiteID, trigger.UserID,
-			).Count(&count).Error; err != nil {
+			if err := tx.Model(&model.GameDepositOrders{}).Where("site_id = ? AND user_id = ? AND status = 2 AND deleted_at IS NULL", trigger.SiteID, trigger.UserID).Count(&count).Error; err != nil {
 				return err
 			}
 			depositSequence = uint64(count)
 		}
 		var rules []model.GamePromotionParticipationRule
-		if err := tx.Where("tenant_id=? AND site_id=? AND promotion_id=? AND enabled=1 AND deleted_at IS NULL", trigger.TenantID, trigger.SiteID, promotion.ID).
+		if err := tx.Where("site_id = ? AND promotion_id = ? AND enabled = 1 AND deleted_at IS NULL", trigger.SiteID, promotion.ID).
 			Order("sort_order,id").Find(&rules).Error; err != nil {
 			return err
 		}
@@ -174,10 +166,7 @@ func (s *Service) processPromotion(ctx context.Context, promotionID uint64, trig
 			}
 		}
 		var userClaims int64
-		if err := tx.Model(&model.GamePromotionClaim{}).Where(
-			"tenant_id=? AND site_id=? AND promotion_id=? AND user_id=? AND status=? AND deleted_at IS NULL",
-			trigger.TenantID, trigger.SiteID, promotion.ID, trigger.UserID, ClaimStatusCompleted,
-		).Count(&userClaims).Error; err != nil {
+		if err := tx.Model(&model.GamePromotionClaim{}).Where("site_id = ? AND promotion_id = ? AND user_id = ? AND status = ? AND deleted_at IS NULL", trigger.SiteID, promotion.ID, trigger.UserID, ClaimStatusCompleted).Count(&userClaims).Error; err != nil {
 			return err
 		}
 		if promotion.PerUserLimit > 0 && uint(userClaims) >= promotion.PerUserLimit {
@@ -187,7 +176,7 @@ func (s *Service) processPromotion(ctx context.Context, promotionID uint64, trig
 			return nil
 		}
 		var rulesReward []model.GamePromotionRewardRule
-		if err := tx.Where("tenant_id=? AND site_id=? AND promotion_id=? AND enabled=1 AND deleted_at IS NULL", trigger.TenantID, trigger.SiteID, promotion.ID).
+		if err := tx.Where("site_id = ? AND promotion_id = ? AND enabled = 1 AND deleted_at IS NULL", trigger.SiteID, promotion.ID).
 			Order("sort_order,id").Find(&rulesReward).Error; err != nil {
 			return err
 		}
@@ -204,10 +193,7 @@ func (s *Service) processPromotion(ctx context.Context, promotionID uint64, trig
 			return nil
 		}
 		var wallet model.GameUserWallets
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where(
-			"tenant_id=? AND site_id=? AND user_id=? AND currency=? AND deleted_at IS NULL",
-			trigger.TenantID, trigger.SiteID, trigger.UserID, trigger.Currency,
-		).First(&wallet).Error; err != nil {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("site_id = ? AND user_id = ? AND currency = ? AND deleted_at IS NULL", trigger.SiteID, trigger.UserID, trigger.Currency).First(&wallet).Error; err != nil {
 			return err
 		}
 		if wallet.Status != 1 {
@@ -215,7 +201,7 @@ func (s *Service) processPromotion(ctx context.Context, promotionID uint64, trig
 		}
 		now := time.Now()
 		claim := model.GamePromotionClaim{
-			TenantID: trigger.TenantID, SiteID: trigger.SiteID, PromotionID: promotion.ID, UserID: trigger.UserID,
+			SiteID: trigger.SiteID, PromotionID: promotion.ID, UserID: trigger.UserID,
 			TriggerType: TriggerDepositSucceeded, TriggerEventID: trigger.EventID, TriggerOrderNo: trigger.OrderNo,
 			IdempotencyKey: claimKey, Currency: trigger.Currency, BaseAmount: decimalPtr(trigger.Amount), RewardAmount: decimalPtr(decimal.Zero),
 			Status: "PROCESSING", TraceID: trigger.TraceID, CorrelationID: trigger.CorrelationID,
@@ -247,7 +233,7 @@ func (s *Service) processPromotion(ctx context.Context, promotionID uint64, trig
 			}
 			txnKey := fmt.Sprintf("promotion:%d:reward:%d", claim.ID, reward.Rule.ID)
 			txn := model.GameWalletTransactions{
-				TenantID: trigger.TenantID, SiteID: trigger.SiteID, TxnNo: promotionNo("PMT"), UserID: trigger.UserID,
+				SiteID: trigger.SiteID, TxnNo: promotionNo("PMT"), UserID: trigger.UserID,
 				WalletID: wallet.ID, WalletType: walletType, Direction: "IN", Category: "PROMOTION_REWARD", SourceType: "promotion",
 				SourceID: promotion.ID, IdempotencyKey: &txnKey, OrderNo: trigger.OrderNo, Amount: decimalPtr(reward.Amount), Currency: trigger.Currency,
 				Status: 1, BalanceBefore: decimalPtr(balanceBefore), BalanceAfter: decimalPtr(balanceAfter),
@@ -266,7 +252,7 @@ func (s *Service) processPromotion(ctx context.Context, promotionID uint64, trig
 				bonusRecordID = bonusRecord.ID
 			}
 			entry := model.GamePromotionClaimReward{
-				TenantID: trigger.TenantID, SiteID: trigger.SiteID, ClaimID: claim.ID, PromotionID: promotion.ID,
+				SiteID: trigger.SiteID, ClaimID: claim.ID, PromotionID: promotion.ID,
 				RewardRuleID: reward.Rule.ID, RewardType: reward.Rule.RewardType, CalculationType: reward.Rule.CalculationType,
 				Currency: trigger.Currency, BaseAmount: decimalPtr(trigger.Amount), RewardAmount: decimalPtr(reward.Amount),
 				WageringMultiplier: reward.Rule.WageringMultiplier, WalletTransactionID: txn.ID, BonusRecordID: bonusRecordID, Status: ClaimStatusCompleted,
@@ -330,7 +316,7 @@ func conditionMatches(rule model.GamePromotionParticipationRule, trigger Deposit
 	}
 }
 
-func compareDecimal(actual, expected decimal.Decimal, operator string) bool {
+func compareDecimal(actual decimal.Decimal, expected decimal.Decimal, operator string) bool {
 	switch strings.ToUpper(operator) {
 	case "EQ":
 		return actual.Equal(expected)
@@ -349,7 +335,7 @@ func compareDecimal(actual, expected decimal.Decimal, operator string) bool {
 	}
 }
 
-func compareText(actual, expected, operator string) bool {
+func compareText(actual string, expected string, operator string) bool {
 	switch strings.ToUpper(operator) {
 	case "EQ":
 		return strings.EqualFold(strings.TrimSpace(actual), strings.TrimSpace(expected))
@@ -378,7 +364,7 @@ func createBonusRecord(tx *gorm.DB, promotion promotionRecord, reward calculated
 	}
 	bonusNo := promotionNo("BONUS")
 	record := model.GameBonusRecords{
-		TenantID: trigger.TenantID, SiteID: trigger.SiteID, OrderNo: bonusNo, BonusID: bonusNo, UserID: trigger.UserID,
+		SiteID: trigger.SiteID, OrderNo: bonusNo, BonusID: bonusNo, UserID: trigger.UserID,
 		SourceType: "PROMOTION", SourceID: promotion.ID, PromotionID: promotion.ID, BonusType: "PROMOTION",
 		Amount: decimalPtr(reward.Amount), Currency: trigger.Currency, RequirementMultiplier: decimalPtr(multiplier),
 		RequiredValidBet: decimalPtr(required), CompletedValidBet: decimalPtr(decimal.Zero), CurrentWagering: decimalPtr(decimal.Zero),
@@ -392,12 +378,12 @@ func promotionNo(prefix string) string {
 	return prefix + strings.ReplaceAll(uuid.NewString(), "-", "")
 }
 
-func promotionMetadata(claimID, rewardRuleID uint64, eventID string) string {
+func promotionMetadata(claimID uint64, rewardRuleID uint64, eventID string) string {
 	data, _ := json.Marshal(map[string]any{"claimID": claimID, "rewardRuleID": rewardRuleID, "eventID": eventID})
 	return string(data)
 }
 
-func csvContains(csv, value string) bool {
+func csvContains(csv string, value string) bool {
 	if strings.TrimSpace(csv) == "" {
 		return true
 	}

@@ -7,7 +7,7 @@ import (
 // gameActivityAssets business-level http error codes.
 // the gameActivityAssetsNO value range is 1~999, if the same error code is used, it will cause panic.
 var (
-	gameActivityAssetsNO = 1
+	gameActivityAssetsNO       = 1
 	gameActivityAssetsName     = "gameActivityAssets"
 	gameActivityAssetsBaseCode = errcode.HCode(gameActivityAssetsNO)
 

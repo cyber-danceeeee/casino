@@ -165,7 +165,7 @@ func (h *AdminReportsHandler) exportAction(c *gin.Context, retry bool) {
 
 func reportActor(c *gin.Context) reportadmin.Actor {
 	a, _ := adminauth.FromContext(c)
-	return reportadmin.Actor{ID: a.ID, Username: a.Username, IP: c.ClientIP(), UserAgent: c.GetHeader("User-Agent"), CorrelationID: c.GetHeader("X-Request-ID"), Scope: adminTenancyScope(c)}
+	return reportadmin.Actor{ID: a.ID, Username: a.Username, IP: c.ClientIP(), UserAgent: c.GetHeader("User-Agent"), CorrelationID: c.GetHeader("X-Request-ID"), Scope: adminContentScope(c)}
 }
 func reportID(c *gin.Context) (uint64, bool) {
 	id, e := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -191,7 +191,7 @@ func reportQuery(c *gin.Context, keys []string) reportadmin.Query {
 			values[key] = value
 		}
 	}
-	return reportadmin.Query{Page: p, PageSize: ps, Values: values, Scope: adminTenancyScope(c)}
+	return reportadmin.Query{Page: p, PageSize: ps, Values: values, Scope: adminContentScope(c)}
 }
 func reportWrite(c *gin.Context, data any, err error) {
 	if err != nil {

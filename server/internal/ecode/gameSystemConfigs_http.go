@@ -7,7 +7,7 @@ import (
 // gameSystemConfigs business-level http error codes.
 // the gameSystemConfigsNO value range is 1~999, if the same error code is used, it will cause panic.
 var (
-	gameSystemConfigsNO = 41
+	gameSystemConfigsNO       = 41
 	gameSystemConfigsName     = "gameSystemConfigs"
 	gameSystemConfigsBaseCode = errcode.HCode(gameSystemConfigsNO)
 

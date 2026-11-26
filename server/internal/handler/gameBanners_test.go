@@ -103,7 +103,7 @@ func Test_gameBannersHandler_Create(t *testing.T) {
 	}
 
 	t.Logf("%+v", result)
-	
+
 }
 
 func Test_gameBannersHandler_DeleteByID(t *testing.T) {

@@ -14,10 +14,10 @@ import (
 	"github.com/go-dev-frame/sponge/pkg/gin/response"
 	"gorm.io/gorm"
 
+	"casino/internal/content"
 	"casino/internal/database"
 	"casino/internal/model"
 	"casino/internal/storage"
-	"casino/internal/tenancy"
 )
 
 type h5GameDTO struct {
@@ -70,7 +70,7 @@ type h5GameListFilters struct {
 
 func (h *gameGamesHandler) PublicList(c *gin.Context) {
 	db := database.GetDB()
-	scope := h5TenancyScope(c)
+	scope := h5ContentScope(c)
 	if blocked, code, message := h5MaintenanceBlocked(c, db, scope); blocked {
 		h5MachineError(c, http.StatusServiceUnavailable, code, message)
 		return
@@ -90,15 +90,15 @@ func (h *gameGamesHandler) PublicList(c *gin.Context) {
 	queryScope := scope
 	q, categoryKey := h5BuildPublicGameQuery(c, db, queryScope, filters)
 	if categoryKey == "hot" {
-		// HOT must only use games already visible to this tenant. Redis is only
-		// the ranking source; it must never expand the tenant's game catalogue.
+		// HOT must only use games already visible to this site. Redis is only
+		// the ranking source; it must never expand the site's game catalogue.
 		h5RespondHotGames(c, db, q, queryScope, scope, page, pageSize)
 		return
 	}
 
 	var total int64
 	_ = q.Count(&total).Error
-	if total == 0 && scope.TenantScoped() && !filters.FavoriteOnly {
+	if total == 0 && scope.SiteScoped() && !filters.FavoriteOnly {
 		queryScope = h5PlatformCatalogScope()
 		q, categoryKey = h5BuildPublicGameQuery(c, db, queryScope, filters)
 		if categoryKey == "hot" {
@@ -135,7 +135,7 @@ func (h *gameGamesHandler) PublicList(c *gin.Context) {
 	})
 }
 
-func h5BuildPublicGameQuery(c *gin.Context, db *gorm.DB, scope tenancy.Scope, filters h5GameListFilters) (*gorm.DB, string) {
+func h5BuildPublicGameQuery(c *gin.Context, db *gorm.DB, scope content.Scope, filters h5GameListFilters) (*gorm.DB, string) {
 	q := db.Model(&model.GameGames{}).
 		Joins("JOIN game_game_providers gp ON gp.id = game_games.provider_id AND gp.deleted_at IS NULL").
 		Where("game_games.status = ? AND game_games.provider_enabled = ? AND game_games.platform_enabled = ? AND gp.status = ?", 1, true, true, 1)
@@ -199,8 +199,8 @@ func h5BuildPublicGameQuery(c *gin.Context, db *gorm.DB, scope tenancy.Scope, fi
 	return q, categoryKey
 }
 
-func h5FindPublicGameByID(db *gorm.DB, scope tenancy.Scope, id uint64, onlineOnly bool) (model.GameGames, tenancy.Scope, error) {
-	find := func(currentScope tenancy.Scope) (model.GameGames, error) {
+func h5FindPublicGameByID(db *gorm.DB, scope content.Scope, id uint64, onlineOnly bool) (model.GameGames, content.Scope, error) {
+	find := func(currentScope content.Scope) (model.GameGames, error) {
 		var game model.GameGames
 		query := h5ApplyReadableScope(db.Model(&model.GameGames{}), "", currentScope).Where("id = ?", id)
 		if onlineOnly {
@@ -212,7 +212,7 @@ func h5FindPublicGameByID(db *gorm.DB, scope tenancy.Scope, id uint64, onlineOnl
 	if err == nil {
 		return game, scope, nil
 	}
-	if scope.TenantScoped() && errors.Is(err, gorm.ErrRecordNotFound) {
+	if scope.SiteScoped() && errors.Is(err, gorm.ErrRecordNotFound) {
 		platformScope := h5PlatformCatalogScope()
 		if platformGame, platformErr := find(platformScope); platformErr == nil {
 			return platformGame, platformScope, nil
@@ -223,7 +223,7 @@ func h5FindPublicGameByID(db *gorm.DB, scope tenancy.Scope, id uint64, onlineOnl
 
 func (h *gameGamesHandler) PublicDetail(c *gin.Context) {
 	db := database.GetDB()
-	scope := h5TenancyScope(c)
+	scope := h5ContentScope(c)
 	if blocked, code, message := h5MaintenanceBlocked(c, db, scope); blocked {
 		h5MachineError(c, http.StatusServiceUnavailable, code, message)
 		return
@@ -246,7 +246,7 @@ func (h *gameGamesHandler) PublicDetail(c *gin.Context) {
 
 func (h *gameGamesHandler) Launch(c *gin.Context) {
 	db := database.GetDB()
-	scope := h5TenancyScope(c)
+	scope := h5ContentScope(c)
 	if blocked, code, message := h5MaintenanceBlocked(c, db, scope); blocked {
 		h5MachineError(c, http.StatusServiceUnavailable, code, message)
 		return
@@ -268,10 +268,10 @@ func (h *gameGamesHandler) Launch(c *gin.Context) {
 		h5Error(c, http.StatusUnauthorized, "authentication required")
 		return
 	}
-	scope = h5UserTenancyScope(db, user.ID, scope)
+	scope = h5UserContentScope(db, user.ID, scope)
 	token := h5Token("launch")
 	log := &model.GameGameLaunchLogs{
-		TenantID:     scope.TenantID,
+
 		SiteID:       scope.SiteID,
 		UserID:       user.ID,
 		GameID:       game.ID,
@@ -280,7 +280,7 @@ func (h *gameGamesHandler) Launch(c *gin.Context) {
 		LaunchStatus: 2,
 		ClientIP:     c.ClientIP(),
 	}
-	if err := db.Create(log).Error; err == nil && gameScope.TenantScoped() && gameScope.TenantID == scope.TenantID && gameScope.SiteID == scope.SiteID {
+	if err := db.Create(log).Error; err == nil && gameScope.SiteScoped() && gameScope.SiteID == scope.SiteID {
 		_ = h5HotRankingStore().RecordLaunch(c.Request.Context(), scope, game.ID)
 	}
 
@@ -365,7 +365,7 @@ func h5PageSize(c *gin.Context, defaultSize int) int {
 	return pageSize
 }
 
-func h5ProvidersByID(db *gorm.DB, scope tenancy.Scope, games []model.GameGames) map[uint64]model.GameGameProviders {
+func h5ProvidersByID(db *gorm.DB, scope content.Scope, games []model.GameGames) map[uint64]model.GameGameProviders {
 	providerIDs := make([]uint64, 0)
 	seen := map[uint64]bool{}
 	for _, game := range games {
@@ -384,7 +384,7 @@ func h5ProvidersByID(db *gorm.DB, scope tenancy.Scope, games []model.GameGames) 
 	for _, provider := range providers {
 		out[provider.ID] = provider
 	}
-	if scope.TenantScoped() && len(out) < len(providerIDs) {
+	if scope.SiteScoped() && len(out) < len(providerIDs) {
 		var platformProviders []model.GameGameProviders
 		_ = h5ApplyReadableScope(db.Model(&model.GameGameProviders{}), "", h5PlatformCatalogScope()).
 			Where("id IN ?", providerIDs).
@@ -398,14 +398,14 @@ func h5ProvidersByID(db *gorm.DB, scope tenancy.Scope, games []model.GameGames) 
 	return out
 }
 
-func h5RespondHotGames(c *gin.Context, db *gorm.DB, base *gorm.DB, catalogScope, activityScope tenancy.Scope, page, pageSize int) {
+func h5RespondHotGames(c *gin.Context, db *gorm.DB, base *gorm.DB, catalogScope content.Scope, activityScope content.Scope, page int, pageSize int) {
 	const hotLimit = 12
 	page = 1
 	pageSize = hotLimit
 	games := h5ResolveHotGames(c.Request.Context(), base, activityScope)
 
 	providerScope := catalogScope
-	if activityScope.TenantScoped() {
+	if activityScope.SiteScoped() {
 		providerScope = activityScope
 	}
 	providers := h5ProvidersByID(db, providerScope, games)
@@ -418,7 +418,7 @@ func h5RespondHotGames(c *gin.Context, db *gorm.DB, base *gorm.DB, catalogScope,
 	})
 }
 
-func h5ResolveHotGames(ctx context.Context, base *gorm.DB, activityScope tenancy.Scope) []model.GameGames {
+func h5ResolveHotGames(ctx context.Context, base *gorm.DB, activityScope content.Scope) []model.GameGames {
 	const hotLimit = 12
 	games := make([]model.GameGames, 0, hotLimit)
 
@@ -448,9 +448,9 @@ func h5ResolveHotGames(ctx context.Context, base *gorm.DB, activityScope tenancy
 		return games
 	}
 
-	// A tenant may have fewer than twelve eligible games. Repeat only those
-	// tenant games so the HOT response still has twelve items without leaking
-	// games that the tenant has not imported.
+	// A site may have fewer than twelve eligible games. Repeat only those
+	// site games so the HOT response still has twelve items without leaking
+	// games that the site has not imported.
 	if len(games) == 0 {
 		return games
 	}

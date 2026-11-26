@@ -326,7 +326,7 @@ DATE_FORMAT(GREATEST(COALESCE(u.last_login_at,u.created_at),COALESCE(w.last_tran
 	return Result{SummaryByCurrency: summary, List: pageRows, Total: total, Page: page, PageSize: ps, Charts: []Chart{}, MetricBasis: metricBasis()}, nil
 }
 
-func summarizeUsers(rows []UserRow, from, to string, db *gorm.DB, q Query) []map[string]any {
+func summarizeUsers(rows []UserRow, from string, to string, db *gorm.DB, q Query) []map[string]any {
 	type agg struct {
 		users               map[uint64]bool
 		depositors, bettors int64
@@ -368,7 +368,7 @@ func (s *UserReportService) Detail(id uint64, q Query) (map[string]any, error) {
 	return map[string]any{"overview": r.List, "financialSummary": r.SummaryByCurrency, "bettingSummary": r.List, "bonusSummary": r.List, "activityTrend": r.Charts}, nil
 }
 
-func maxInt64(a, b int64) int64 {
+func maxInt64(a int64, b int64) int64 {
 	if a > b {
 		return a
 	}

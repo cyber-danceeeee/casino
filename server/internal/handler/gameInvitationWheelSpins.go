@@ -232,7 +232,7 @@ func (h *gameInvitationWheelSpinsHandler) List(c *gin.Context) {
 
 	response.Success(c, gin.H{
 		"gameInvitationWheelSpinss": data,
-		"total":        total,
+		"total":                     total,
 	})
 }
 

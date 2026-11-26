@@ -10,7 +10,6 @@ import (
 type GameTransactionFacts struct {
 	sgorm.Model `gorm:"embedded"`
 
-	TenantID                    uint64    `gorm:"column:tenant_id;type:bigint unsigned;not null" json:"tenantID"`
 	SiteID                      uint64    `gorm:"column:site_id;type:bigint unsigned;not null" json:"siteID"`
 	ProviderID                  uint64    `gorm:"column:provider_id;type:bigint unsigned;not null" json:"providerID"`
 	ProviderCode                string    `gorm:"column:provider_code;type:varchar(64);not null" json:"providerCode"`
@@ -22,7 +21,6 @@ type GameTransactionFacts struct {
 	WalletTransactionID         uint64    `gorm:"column:wallet_transaction_id;type:bigint unsigned;not null" json:"walletTransactionID"`
 	BetRecordID                 uint64    `gorm:"column:bet_record_id;type:bigint unsigned;not null" json:"betRecordID"`
 	RollbackRecordID            uint64    `gorm:"column:rollback_record_id;type:bigint unsigned;not null" json:"rollbackRecordID"`
-	LedgerTransactionID         uint64    `gorm:"column:ledger_transaction_id;type:bigint unsigned;not null" json:"ledgerTransactionID"`
 	Operation                   string    `gorm:"column:operation;type:varchar(32);not null" json:"operation"`
 	ProviderStatus              string    `gorm:"column:provider_status;type:varchar(32);not null" json:"providerStatus"`
 	BusinessDate                time.Time `gorm:"column:business_date;type:date;not null" json:"businessDate"`
@@ -31,7 +29,6 @@ type GameTransactionFacts struct {
 	WalletAmountMinor           int64     `gorm:"column:wallet_amount_minor;type:bigint;not null" json:"walletAmountMinor"`
 	BetAmountMinor              int64     `gorm:"column:bet_amount_minor;type:bigint;not null" json:"betAmountMinor"`
 	WinAmountMinor              int64     `gorm:"column:win_amount_minor;type:bigint;not null" json:"winAmountMinor"`
-	LedgerAmountMinor           int64     `gorm:"column:ledger_amount_minor;type:bigint;not null" json:"ledgerAmountMinor"`
 	SourceType                  string    `gorm:"column:source_type;type:varchar(64);not null;uniqueIndex:uk_game_transaction_fact_source" json:"sourceType"`
 	SourceID                    uint64    `gorm:"column:source_id;type:bigint unsigned;not null;uniqueIndex:uk_game_transaction_fact_source" json:"sourceID"`
 	SourceCreatedAt             time.Time `gorm:"column:source_created_at;type:datetime(3);not null" json:"sourceCreatedAt"`
@@ -45,8 +42,8 @@ func (GameTransactionFacts) TableName() string { return "game_transaction_facts"
 type ProviderReconciliationRuns struct {
 	sgorm.Model `gorm:"embedded"`
 
-	RunNo                    string     `gorm:"column:run_no;type:varchar(64);not null;uniqueIndex:uk_provider_reconciliation_run_no" json:"runNo"`
-	TenantID                 uint64     `gorm:"column:tenant_id;type:bigint unsigned;not null;uniqueIndex:uk_provider_reconciliation_scope" json:"tenantID"`
+	RunNo string `gorm:"column:run_no;type:varchar(64);not null;uniqueIndex:uk_provider_reconciliation_run_no" json:"runNo"`
+
 	SiteID                   uint64     `gorm:"column:site_id;type:bigint unsigned;not null;uniqueIndex:uk_provider_reconciliation_scope" json:"siteID"`
 	ProviderID               uint64     `gorm:"column:provider_id;type:bigint unsigned;not null" json:"providerID"`
 	ProviderCode             string     `gorm:"column:provider_code;type:varchar(64);not null;uniqueIndex:uk_provider_reconciliation_scope" json:"providerCode"`
@@ -58,7 +55,6 @@ type ProviderReconciliationRuns struct {
 	CallbackCount            int64      `gorm:"column:callback_count;type:bigint;not null" json:"callbackCount"`
 	WalletTransactionCount   int64      `gorm:"column:wallet_transaction_count;type:bigint;not null" json:"walletTransactionCount"`
 	BetRecordCount           int64      `gorm:"column:bet_record_count;type:bigint;not null" json:"betRecordCount"`
-	LedgerTransactionCount   int64      `gorm:"column:ledger_transaction_count;type:bigint;not null" json:"ledgerTransactionCount"`
 	DiscrepancyCount         int64      `gorm:"column:discrepancy_count;type:bigint;not null" json:"discrepancyCount"`
 	OpenDiscrepancyCount     int64      `gorm:"column:open_discrepancy_count;type:bigint;not null" json:"openDiscrepancyCount"`
 	StartedAt                time.Time  `gorm:"column:started_at;type:datetime(3);not null" json:"startedAt"`
@@ -73,9 +69,9 @@ func (ProviderReconciliationRuns) TableName() string { return "provider_reconcil
 type ProviderReconciliationItems struct {
 	sgorm.Model `gorm:"embedded"`
 
-	RunID                    uint64     `gorm:"column:run_id;type:bigint unsigned;not null" json:"runID"`
-	ItemNo                   string     `gorm:"column:item_no;type:varchar(64);not null;uniqueIndex:uk_provider_reconciliation_item_no" json:"itemNo"`
-	TenantID                 uint64     `gorm:"column:tenant_id;type:bigint unsigned;not null" json:"tenantID"`
+	RunID  uint64 `gorm:"column:run_id;type:bigint unsigned;not null" json:"runID"`
+	ItemNo string `gorm:"column:item_no;type:varchar(64);not null;uniqueIndex:uk_provider_reconciliation_item_no" json:"itemNo"`
+
 	SiteID                   uint64     `gorm:"column:site_id;type:bigint unsigned;not null" json:"siteID"`
 	ProviderID               uint64     `gorm:"column:provider_id;type:bigint unsigned;not null" json:"providerID"`
 	ProviderCode             string     `gorm:"column:provider_code;type:varchar(64);not null" json:"providerCode"`
@@ -93,7 +89,6 @@ type ProviderReconciliationItems struct {
 	WalletTransactionID      uint64     `gorm:"column:wallet_transaction_id;type:bigint unsigned;not null" json:"walletTransactionID"`
 	BetRecordID              uint64     `gorm:"column:bet_record_id;type:bigint unsigned;not null" json:"betRecordID"`
 	RollbackRecordID         uint64     `gorm:"column:rollback_record_id;type:bigint unsigned;not null" json:"rollbackRecordID"`
-	LedgerTransactionID      uint64     `gorm:"column:ledger_transaction_id;type:bigint unsigned;not null" json:"ledgerTransactionID"`
 	ExpectedAmountMinor      int64      `gorm:"column:expected_amount_minor;type:bigint;not null" json:"expectedAmountMinor"`
 	ActualAmountMinor        int64      `gorm:"column:actual_amount_minor;type:bigint;not null" json:"actualAmountMinor"`
 	DifferenceAmountMinor    int64      `gorm:"column:difference_amount_minor;type:bigint;not null" json:"differenceAmountMinor"`

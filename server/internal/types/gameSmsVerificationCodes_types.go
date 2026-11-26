@@ -10,46 +10,44 @@ var _ time.Time
 
 // Tip: suggested filling in the binding rules https://github.com/go-playground/validator in request struct fields tag.
 
-
 // CreateGameSmsVerificationCodesRequest request params
 type CreateGameSmsVerificationCodesRequest struct {
-	PhoneCountryCode  string `json:"phoneCountryCode" binding:""`
-	Phone  string `json:"phone" binding:""`
-	CodeHash  string `json:"codeHash" binding:""`
-	Scene  string `json:"scene" binding:""` // login, register, bind_phone, reset_password
-	Status  int `json:"status" binding:""` // 1 unused, 2 used, 3 expired
-	ExpiredAt  *time.Time `json:"expiredAt" binding:""`
-	UsedAt  *time.Time `json:"usedAt" binding:""`
+	PhoneCountryCode string     `json:"phoneCountryCode" binding:""`
+	Phone            string     `json:"phone" binding:""`
+	CodeHash         string     `json:"codeHash" binding:""`
+	Scene            string     `json:"scene" binding:""`  // login, register, bind_phone, reset_password
+	Status           int        `json:"status" binding:""` // 1 unused, 2 used, 3 expired
+	ExpiredAt        *time.Time `json:"expiredAt" binding:""`
+	UsedAt           *time.Time `json:"usedAt" binding:""`
 }
 
 // UpdateGameSmsVerificationCodesByIDRequest request params
 type UpdateGameSmsVerificationCodesByIDRequest struct {
 	ID uint64 `json:"id" binding:""` // uint64 id
 
-	PhoneCountryCode  string `json:"phoneCountryCode" binding:""`
-	Phone  string `json:"phone" binding:""`
-	CodeHash  string `json:"codeHash" binding:""`
-	Scene  string `json:"scene" binding:""` // login, register, bind_phone, reset_password
-	Status  int `json:"status" binding:""` // 1 unused, 2 used, 3 expired
-	ExpiredAt  *time.Time `json:"expiredAt" binding:""`
-	UsedAt  *time.Time `json:"usedAt" binding:""`
+	PhoneCountryCode string     `json:"phoneCountryCode" binding:""`
+	Phone            string     `json:"phone" binding:""`
+	CodeHash         string     `json:"codeHash" binding:""`
+	Scene            string     `json:"scene" binding:""`  // login, register, bind_phone, reset_password
+	Status           int        `json:"status" binding:""` // 1 unused, 2 used, 3 expired
+	ExpiredAt        *time.Time `json:"expiredAt" binding:""`
+	UsedAt           *time.Time `json:"usedAt" binding:""`
 }
 
 // GameSmsVerificationCodesObjDetail detail
 type GameSmsVerificationCodesObjDetail struct {
 	ID uint64 `json:"id"` // convert to uint64 id
 
-	PhoneCountryCode  string `json:"phoneCountryCode"`
-	Phone  string `json:"phone"`
-	CodeHash  string `json:"codeHash"`
-	Scene  string `json:"scene"` // login, register, bind_phone, reset_password
-	Status  int `json:"status"` // 1 unused, 2 used, 3 expired
-	ExpiredAt  *time.Time `json:"expiredAt"`
-	UsedAt  *time.Time `json:"usedAt"`
-	CreatedAt  *time.Time `json:"createdAt"`
-	UpdatedAt  *time.Time `json:"updatedAt"`
+	PhoneCountryCode string     `json:"phoneCountryCode"`
+	Phone            string     `json:"phone"`
+	CodeHash         string     `json:"codeHash"`
+	Scene            string     `json:"scene"`  // login, register, bind_phone, reset_password
+	Status           int        `json:"status"` // 1 unused, 2 used, 3 expired
+	ExpiredAt        *time.Time `json:"expiredAt"`
+	UsedAt           *time.Time `json:"usedAt"`
+	CreatedAt        *time.Time `json:"createdAt"`
+	UpdatedAt        *time.Time `json:"updatedAt"`
 }
-
 
 // CreateGameSmsVerificationCodesReply only for api docs
 type CreateGameSmsVerificationCodesReply struct {

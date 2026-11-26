@@ -10,21 +10,21 @@ import (
 	"gorm.io/gorm/clause"
 
 	"casino/internal/bonusaudit"
+	"casino/internal/content"
 	"casino/internal/eventbus"
 	"casino/internal/model"
-	"casino/internal/tenancy"
 )
 
-func (s *Service) IsLargeAdjustment(id uint64, scope tenancy.Scope) (bool, error) {
+func (s *Service) IsLargeAdjustment(id uint64, scope content.Scope) (bool, error) {
 	var amount decimal.Decimal
 	db := s.db.Table("game_manual_adjustments").Select("amount").Where("id = ? AND deleted_at IS NULL", id)
-	if err := tenancy.ApplySite(db, "", scope).Scan(&amount).Error; err != nil {
+	if err := content.ApplySite(db, "", scope).Scan(&amount).Error; err != nil {
 		return false, wrapInternal(err)
 	}
 	return amount.GreaterThanOrEqual(decimal.NewFromInt(100000)), nil
 }
 
-func (s *Service) CreateWithdrawal(userID, withdrawAccountID uint64, amount decimal.Decimal, actor Actor) (model.GameWithdrawOrders, error) {
+func (s *Service) CreateWithdrawal(userID uint64, withdrawAccountID uint64, amount decimal.Decimal, actor Actor) (model.GameWithdrawOrders, error) {
 	var result model.GameWithdrawOrders
 	if !amount.GreaterThan(decimal.Zero) {
 		return result, ErrInvalidAmount
@@ -32,12 +32,12 @@ func (s *Service) CreateWithdrawal(userID, withdrawAccountID uint64, amount deci
 	err := s.db.Transaction(func(tx *gorm.DB) error {
 		var account model.GameWithdrawAccounts
 		accountQuery := tx.Model(&model.GameWithdrawAccounts{}).Where("id = ? AND user_id = ? AND status = 1 AND deleted_at IS NULL", withdrawAccountID, userID)
-		if err := tenancy.ApplySite(accountQuery, "", actor.Scope).Take(&account).Error; err != nil {
+		if err := content.ApplySite(accountQuery, "", actor.Scope).Take(&account).Error; err != nil {
 			return newError("WITHDRAW_ACCOUNT_NOT_FOUND", "withdrawal account not found")
 		}
 		var wallet model.GameUserWallets
 		walletQuery := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Model(&model.GameUserWallets{}).Where("user_id = ? AND deleted_at IS NULL", userID)
-		if err := tenancy.ApplySite(walletQuery, "", actor.Scope).Take(&wallet).Error; err != nil {
+		if err := content.ApplySite(walletQuery, "", actor.Scope).Take(&wallet).Error; err != nil {
 			return ErrWalletNotFound
 		}
 		if wallet.Status != walletActive {
@@ -55,7 +55,7 @@ func (s *Service) CreateWithdrawal(userID, withdrawAccountID uint64, amount deci
 		afterFrozen := beforeFrozen.Add(amount)
 		now := time.Now()
 		result = model.GameWithdrawOrders{
-			TenantID: wallet.TenantID, SiteID: wallet.SiteID,
+			SiteID:  wallet.SiteID,
 			OrderNo: uniqueNo("W"), UserID: userID, WithdrawAccountID: withdrawAccountID,
 			PaymentMethod: account.AccountType, Amount: moneyPtr(amount), FeeAmount: moneyPtr(decimal.Zero),
 			ActualAmount: moneyPtr(amount), Currency: wallet.Currency, Status: 1, AuditStatus: 1,
@@ -71,7 +71,7 @@ func (s *Service) CreateWithdrawal(userID, withdrawAccountID uint64, amount deci
 		if err != nil {
 			return err
 		}
-		freeze := model.GameWalletFreezes{TenantID: wallet.TenantID, SiteID: wallet.SiteID, FreezeNo: uniqueNo("FRZ"), WalletID: wallet.ID, UserID: userID, Amount: moneyPtr(amount), Currency: wallet.Currency, Reason: "withdrawal submitted", ReferenceType: "withdrawal", ReferenceID: result.ID, ReferenceNo: result.OrderNo, Status: 1, FreezeTransactionID: txnID, FrozenAt: now}
+		freeze := model.GameWalletFreezes{SiteID: wallet.SiteID, FreezeNo: uniqueNo("FRZ"), WalletID: wallet.ID, UserID: userID, Amount: moneyPtr(amount), Currency: wallet.Currency, Reason: "withdrawal submitted", ReferenceType: "withdrawal", ReferenceID: result.ID, ReferenceNo: result.OrderNo, Status: 1, FreezeTransactionID: txnID, FrozenAt: now}
 		if err = tx.Create(&freeze).Error; err != nil {
 			return err
 		}
@@ -81,7 +81,7 @@ func (s *Service) CreateWithdrawal(userID, withdrawAccountID uint64, amount deci
 	return result, wrapInternal(err)
 }
 
-func ensureWithdrawalAuditComplete(tx *gorm.DB, scope tenancy.Scope, userID uint64, currency string) error {
+func ensureWithdrawalAuditComplete(tx *gorm.DB, scope content.Scope, userID uint64, currency string) error {
 	remaining, err := bonusaudit.RemainingForUser(tx, scope, userID, currency)
 	if err != nil {
 		return err
@@ -113,7 +113,7 @@ func (s *Service) SetWalletStatus(id uint64, frozen bool, reason string, actor A
 		if before == after {
 			return ErrInvalidState
 		}
-		if err := tenancy.ApplySite(tx.Model(&model.GameUserWallets{}), "", actor.Scope).Where("id=?", id).Updates(map[string]any{"status": after}).Error; err != nil {
+		if err := content.ApplySite(tx.Model(&model.GameUserWallets{}), "", actor.Scope).Where("id=?", id).Updates(map[string]any{"status": after}).Error; err != nil {
 			return err
 		}
 		return s.audit(tx, actor, permission, action, "wallet", id, wallet.UserID, map[string]any{"status": walletStatus(before)}, map[string]any{"status": walletStatus(after)}, reason, nil, wallet.Currency)
@@ -142,7 +142,7 @@ func (s *Service) CreateAdjustment(command CreateAdjustmentCommand, actor Actor)
 	err = s.db.Transaction(func(tx *gorm.DB) error {
 		var existing model.GameManualAdjustments
 		existingQuery := tx.Model(&model.GameManualAdjustments{}).Where("idempotency_key=? AND deleted_at IS NULL", command.IdempotencyKey)
-		if err := tenancy.ApplySite(existingQuery, "", actor.Scope).Take(&existing).Error; err == nil {
+		if err := content.ApplySite(existingQuery, "", actor.Scope).Take(&existing).Error; err == nil {
 			result = existing.ID
 			return nil
 		} else if err != gorm.ErrRecordNotFound {
@@ -171,7 +171,7 @@ func (s *Service) CreateAdjustment(command CreateAdjustmentCommand, actor Actor)
 		if kind == "DEBIT" && balance.LessThan(amount) {
 			return ErrInsufficientBalance
 		}
-		row := model.GameManualAdjustments{TenantID: wallet.TenantID, SiteID: wallet.SiteID, AdjustmentNo: uniqueNo("ADJ"), IdempotencyKey: command.IdempotencyKey, UserID: command.UserID, WalletID: wallet.ID, AdjustmentType: kind, Amount: moneyPtr(amount), Currency: wallet.Currency, ReasonCode: strings.TrimSpace(command.ReasonCode), DetailedReason: strings.TrimSpace(command.DetailedReason), SupportingReference: strings.TrimSpace(command.SupportingReference), InternalRemark: strings.TrimSpace(command.InternalRemark), Status: "PENDING_APPROVAL", RequestedBalance: moneyPtr(balance), BalanceBefore: moneyPtr(balance), BalanceAfter: moneyPtr(balance), ApplicantID: actor.ID, ApplicantUsername: actor.Username}
+		row := model.GameManualAdjustments{SiteID: wallet.SiteID, AdjustmentNo: uniqueNo("ADJ"), IdempotencyKey: command.IdempotencyKey, UserID: command.UserID, WalletID: wallet.ID, AdjustmentType: kind, Amount: moneyPtr(amount), Currency: wallet.Currency, ReasonCode: strings.TrimSpace(command.ReasonCode), DetailedReason: strings.TrimSpace(command.DetailedReason), SupportingReference: strings.TrimSpace(command.SupportingReference), InternalRemark: strings.TrimSpace(command.InternalRemark), Status: "PENDING_APPROVAL", RequestedBalance: moneyPtr(balance), BalanceBefore: moneyPtr(balance), BalanceAfter: moneyPtr(balance), ApplicantID: actor.ID, ApplicantUsername: actor.Username}
 		if e = tx.Create(&row).Error; e != nil {
 			return e
 		}
@@ -188,7 +188,7 @@ func (s *Service) ApproveAdjustment(id uint64, command ReasonCommand, actor Acto
 	return wrapInternal(s.db.Transaction(func(tx *gorm.DB) error {
 		var row model.GameManualAdjustments
 		rowQuery := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Model(&model.GameManualAdjustments{}).Where("id=? AND deleted_at IS NULL", id)
-		if err := tenancy.ApplySite(rowQuery, "", actor.Scope).Take(&row).Error; err != nil {
+		if err := content.ApplySite(rowQuery, "", actor.Scope).Take(&row).Error; err != nil {
 			if err == gorm.ErrRecordNotFound {
 				return ErrAdjustmentNotFound
 			}
@@ -214,7 +214,7 @@ func (s *Service) ApproveAdjustment(id uint64, command ReasonCommand, actor Acto
 			return err
 		}
 		now := time.Now()
-		if err = tenancy.ApplySite(tx.Model(&model.GameUserWallets{}), "", actor.Scope).Where("id=?", wallet.ID).Updates(map[string]any{"cash_balance": after, "last_transaction_at": now}).Error; err != nil {
+		if err = content.ApplySite(tx.Model(&model.GameUserWallets{}), "", actor.Scope).Where("id=?", wallet.ID).Updates(map[string]any{"cash_balance": after, "last_transaction_at": now}).Error; err != nil {
 			return err
 		}
 		txnID, err := createLedger(tx, wallet, uniqueNo("TXN"), "MANUAL_ADJUSTMENT", direction, "manual_adjustment", row.ID, row.AdjustmentNo, amount, before, after, money(wallet.FrozenBalance), money(wallet.FrozenBalance), actor, row.DetailedReason, nullableString("adjustment:"+row.IdempotencyKey))
@@ -222,10 +222,10 @@ func (s *Service) ApproveAdjustment(id uint64, command ReasonCommand, actor Acto
 			return err
 		}
 		updates := map[string]any{"status": "COMPLETED", "balance_before": before, "balance_after": after, "approver_id": actor.ID, "approver_username": actor.Username, "approval_reason": strings.TrimSpace(command.Reason), "wallet_transaction_id": txnID, "approved_at": now, "completed_at": now}
-		if err = tenancy.ApplySite(tx.Model(&model.GameManualAdjustments{}), "", actor.Scope).Where("id=?", id).Updates(updates).Error; err != nil {
+		if err = content.ApplySite(tx.Model(&model.GameManualAdjustments{}), "", actor.Scope).Where("id=?", id).Updates(updates).Error; err != nil {
 			return err
 		}
-		approval := model.GameManualAdjustmentApprovals{TenantID: row.TenantID, SiteID: row.SiteID, AdjustmentID: id, OperatorID: actor.ID, OperatorUsername: actor.Username, Decision: "APPROVED", BeforeStatus: row.Status, AfterStatus: "COMPLETED", Reason: strings.TrimSpace(command.Reason)}
+		approval := model.GameManualAdjustmentApprovals{SiteID: row.SiteID, AdjustmentID: id, OperatorID: actor.ID, OperatorUsername: actor.Username, Decision: "APPROVED", BeforeStatus: row.Status, AfterStatus: "COMPLETED", Reason: strings.TrimSpace(command.Reason)}
 		if err = tx.Create(&approval).Error; err != nil {
 			return err
 		}
@@ -242,7 +242,7 @@ func (a Actor) IsSuperAdmin() bool {
 	return false
 }
 
-func validateAdjustmentApproval(status string, applicantID, approverID uint64, allowSelfApproval bool) error {
+func validateAdjustmentApproval(status string, applicantID uint64, approverID uint64, allowSelfApproval bool) error {
 	if status != "PENDING_APPROVAL" {
 		return ErrInvalidState
 	}
@@ -252,7 +252,7 @@ func validateAdjustmentApproval(status string, applicantID, approverID uint64, a
 	return nil
 }
 
-func adjustedBalance(kind string, balance, amount decimal.Decimal) (decimal.Decimal, string, error) {
+func adjustedBalance(kind string, balance decimal.Decimal, amount decimal.Decimal) (decimal.Decimal, string, error) {
 	if kind == "CREDIT" {
 		return balance.Add(amount), "IN", nil
 	}
@@ -291,14 +291,14 @@ func (s *Service) RejectAdjustment(id uint64, command ReasonCommand, actor Actor
 func (s *Service) CancelAdjustment(id uint64, command ReasonCommand, actor Actor) error {
 	return s.finishAdjustmentWithoutPosting(id, "CANCELLED", "fund:adjustment:cancel", "adjustment.cancel", command, actor)
 }
-func (s *Service) finishAdjustmentWithoutPosting(id uint64, status, permission, action string, command ReasonCommand, actor Actor) error {
+func (s *Service) finishAdjustmentWithoutPosting(id uint64, status string, permission string, action string, command ReasonCommand, actor Actor) error {
 	if err := requireReason(command.Reason); err != nil {
 		return err
 	}
 	return wrapInternal(s.db.Transaction(func(tx *gorm.DB) error {
 		var row model.GameManualAdjustments
 		rowQuery := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Model(&model.GameManualAdjustments{}).Where("id=? AND deleted_at IS NULL", id)
-		if err := tenancy.ApplySite(rowQuery, "", actor.Scope).Take(&row).Error; err != nil {
+		if err := content.ApplySite(rowQuery, "", actor.Scope).Take(&row).Error; err != nil {
 			if err == gorm.ErrRecordNotFound {
 				return ErrAdjustmentNotFound
 			}
@@ -310,10 +310,10 @@ func (s *Service) finishAdjustmentWithoutPosting(id uint64, status, permission, 
 		if status == "CANCELLED" && row.ApplicantID != actor.ID {
 			return newError("ONLY_APPLICANT_CAN_CANCEL", "only applicant can cancel pending adjustment")
 		}
-		if err := tenancy.ApplySite(tx.Model(&model.GameManualAdjustments{}), "", actor.Scope).Where("id=?", id).Updates(map[string]any{"status": status, "approver_id": actor.ID, "approver_username": actor.Username, "approval_reason": strings.TrimSpace(command.Reason)}).Error; err != nil {
+		if err := content.ApplySite(tx.Model(&model.GameManualAdjustments{}), "", actor.Scope).Where("id=?", id).Updates(map[string]any{"status": status, "approver_id": actor.ID, "approver_username": actor.Username, "approval_reason": strings.TrimSpace(command.Reason)}).Error; err != nil {
 			return err
 		}
-		approval := model.GameManualAdjustmentApprovals{TenantID: row.TenantID, SiteID: row.SiteID, AdjustmentID: id, OperatorID: actor.ID, OperatorUsername: actor.Username, Decision: status, BeforeStatus: row.Status, AfterStatus: status, Reason: command.Reason}
+		approval := model.GameManualAdjustmentApprovals{SiteID: row.SiteID, AdjustmentID: id, OperatorID: actor.ID, OperatorUsername: actor.Username, Decision: status, BeforeStatus: row.Status, AfterStatus: status, Reason: command.Reason}
 		if err := tx.Create(&approval).Error; err != nil {
 			return err
 		}
@@ -328,7 +328,7 @@ func (s *Service) ReviewDeposit(id uint64, command ReasonCommand, actor Actor) e
 	return wrapInternal(s.db.Transaction(func(tx *gorm.DB) error {
 		var row model.GameDepositOrders
 		rowQuery := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Model(&model.GameDepositOrders{}).Where("id=? AND deleted_at IS NULL", id)
-		if err := tenancy.ApplySite(rowQuery, "", actor.Scope).Take(&row).Error; err != nil {
+		if err := content.ApplySite(rowQuery, "", actor.Scope).Take(&row).Error; err != nil {
 			if err == gorm.ErrRecordNotFound {
 				return ErrDepositNotFound
 			}
@@ -355,7 +355,7 @@ func (s *Service) ConfirmDeposit(id uint64, command DepositConfirmCommand, actor
 	return wrapInternal(s.db.Transaction(func(tx *gorm.DB) error {
 		var row model.GameDepositOrders
 		rowQuery := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Model(&model.GameDepositOrders{}).Where("id=? AND deleted_at IS NULL", id)
-		if err := tenancy.ApplySite(rowQuery, "", actor.Scope).Take(&row).Error; err != nil {
+		if err := content.ApplySite(rowQuery, "", actor.Scope).Take(&row).Error; err != nil {
 			if err == gorm.ErrRecordNotFound {
 				return ErrDepositNotFound
 			}
@@ -369,7 +369,7 @@ func (s *Service) ConfirmDeposit(id uint64, command DepositConfirmCommand, actor
 		}
 		var wallet model.GameUserWallets
 		walletQuery := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Model(&model.GameUserWallets{}).Where("user_id=? AND currency=? AND deleted_at IS NULL", row.UserID, row.Currency)
-		if err := tenancy.ApplySite(walletQuery, "", actor.Scope).Take(&wallet).Error; err != nil {
+		if err := content.ApplySite(walletQuery, "", actor.Scope).Take(&wallet).Error; err != nil {
 			return ErrWalletNotFound
 		}
 		if wallet.Status != walletActive {
@@ -390,15 +390,11 @@ func (s *Service) ConfirmDeposit(id uint64, command DepositConfirmCommand, actor
 			return err
 		}
 		var depositSequence int64
-		if err := tx.Model(&model.GameDepositOrders{}).Where(
-			"tenant_id=? AND site_id=? AND user_id=? AND status=2 AND deleted_at IS NULL", row.TenantID, row.SiteID, row.UserID,
-		).Count(&depositSequence).Error; err != nil {
+		if err := tx.Model(&model.GameDepositOrders{}).Where("site_id = ? AND user_id = ? AND status = 2 AND deleted_at IS NULL", row.SiteID, row.UserID).Count(&depositSequence).Error; err != nil {
 			return err
 		}
 		var country string
-		if err := tx.Model(&model.GameUsers{}).Select("country_code").Where(
-			"id=? AND tenant_id=? AND site_id=? AND deleted_at IS NULL", row.UserID, row.TenantID, row.SiteID,
-		).Scan(&country).Error; err != nil {
+		if err := tx.Model(&model.GameUsers{}).Select("country_code").Where("id = ? AND site_id = ? AND deleted_at IS NULL", row.UserID, row.SiteID).Scan(&country).Error; err != nil {
 			return err
 		}
 		correlationID := strings.TrimSpace(actor.CorrelationID)
@@ -406,7 +402,7 @@ func (s *Service) ConfirmDeposit(id uint64, command DepositConfirmCommand, actor
 			correlationID = row.OrderNo
 		}
 		if _, err := eventbus.New(tx).PublishTx(tx, eventbus.Event{
-			Scope: tenancy.Scope{TenantID: row.TenantID, SiteID: row.SiteID}, TenantID: row.TenantID, SiteID: row.SiteID,
+			Scope: content.Scope{SiteID: row.SiteID}, SiteID: row.SiteID,
 			EventType: eventbus.EventPlayerDepositSucceeded, AggregateType: "deposit_order", AggregateID: fmt.Sprint(row.ID),
 			Source: "fundadmin", IdempotencyKey: "deposit:" + row.OrderNo + ":succeeded", TraceID: correlationID, CorrelationID: correlationID,
 			OccurredAt: now, TargetConsumers: []string{eventbus.ConsumerPromotionDeposit},
@@ -429,7 +425,7 @@ func (s *Service) CancelDeposit(id uint64, command ReasonCommand, actor Actor) e
 	return wrapInternal(s.db.Transaction(func(tx *gorm.DB) error {
 		var row model.GameDepositOrders
 		rowQuery := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Model(&model.GameDepositOrders{}).Where("id=? AND deleted_at IS NULL", id)
-		if err := tenancy.ApplySite(rowQuery, "", actor.Scope).Take(&row).Error; err != nil {
+		if err := content.ApplySite(rowQuery, "", actor.Scope).Take(&row).Error; err != nil {
 			if err == gorm.ErrRecordNotFound {
 				return ErrDepositNotFound
 			}
@@ -454,7 +450,7 @@ func (s *Service) ReviewWithdrawal(id uint64, stage string, command ReasonComman
 	return wrapInternal(s.db.Transaction(func(tx *gorm.DB) error {
 		var row model.GameWithdrawOrders
 		rowQuery := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Model(&model.GameWithdrawOrders{}).Where("id=? AND deleted_at IS NULL", id)
-		if err := tenancy.ApplySite(rowQuery, "", actor.Scope).Take(&row).Error; err != nil {
+		if err := content.ApplySite(rowQuery, "", actor.Scope).Take(&row).Error; err != nil {
 			if err == gorm.ErrRecordNotFound {
 				return ErrWithdrawalNotFound
 			}
@@ -474,7 +470,7 @@ func (s *Service) ReviewWithdrawal(id uint64, stage string, command ReasonComman
 		if err := tx.Model(&row).Updates(map[string]any{"status": next, "reviewer_id": actor.ID, "reviewer_username": actor.Username, "review_remark": command.Reason, "reviewed_at": now}).Error; err != nil {
 			return err
 		}
-		approval := model.GameWithdrawalApprovals{TenantID: row.TenantID, SiteID: row.SiteID, WithdrawalOrderID: id, OperatorID: actor.ID, OperatorUsername: actor.Username, Stage: stage, Decision: "PASSED", BeforeStatus: withdrawalStatus(row.Status), AfterStatus: withdrawalStatus(next), Reason: command.Reason}
+		approval := model.GameWithdrawalApprovals{SiteID: row.SiteID, WithdrawalOrderID: id, OperatorID: actor.ID, OperatorUsername: actor.Username, Stage: stage, Decision: "PASSED", BeforeStatus: withdrawalStatus(row.Status), AfterStatus: withdrawalStatus(next), Reason: command.Reason}
 		if err := tx.Create(&approval).Error; err != nil {
 			return err
 		}
@@ -489,7 +485,7 @@ func (s *Service) ApproveWithdrawal(id uint64, command ReasonCommand, actor Acto
 	return wrapInternal(s.db.Transaction(func(tx *gorm.DB) error {
 		var row model.GameWithdrawOrders
 		rowQuery := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Model(&model.GameWithdrawOrders{}).Where("id=? AND deleted_at IS NULL", id)
-		if err := tenancy.ApplySite(rowQuery, "", actor.Scope).Take(&row).Error; err != nil {
+		if err := content.ApplySite(rowQuery, "", actor.Scope).Take(&row).Error; err != nil {
 			if err == gorm.ErrRecordNotFound {
 				return ErrWithdrawalNotFound
 			}
@@ -502,11 +498,11 @@ func (s *Service) ApproveWithdrawal(id uint64, command ReasonCommand, actor Acto
 		if err := tx.Model(&row).Updates(map[string]any{"status": 9, "audit_status": 2, "reviewer_id": actor.ID, "reviewer_username": actor.Username, "review_remark": command.Reason, "approved_at": now}).Error; err != nil {
 			return err
 		}
-		approval := model.GameWithdrawalApprovals{TenantID: row.TenantID, SiteID: row.SiteID, WithdrawalOrderID: id, OperatorID: actor.ID, OperatorUsername: actor.Username, Stage: "FINANCE", Decision: "APPROVED", BeforeStatus: "FINANCE_REVIEW", AfterStatus: "PROCESSING", Reason: command.Reason}
+		approval := model.GameWithdrawalApprovals{SiteID: row.SiteID, WithdrawalOrderID: id, OperatorID: actor.ID, OperatorUsername: actor.Username, Stage: "FINANCE", Decision: "APPROVED", BeforeStatus: "FINANCE_REVIEW", AfterStatus: "PROCESSING", Reason: command.Reason}
 		if err := tx.Create(&approval).Error; err != nil {
 			return err
 		}
-		payout := model.GameWithdrawalPayoutLogs{TenantID: row.TenantID, SiteID: row.SiteID, WithdrawalOrderID: id, RequestResult: "NOT_CONFIGURED", RetryCount: 0, FailureReason: "payout provider is not configured", RawMetadata: "{}", RequestedAt: now}
+		payout := model.GameWithdrawalPayoutLogs{SiteID: row.SiteID, WithdrawalOrderID: id, RequestResult: "NOT_CONFIGURED", RetryCount: 0, FailureReason: "payout provider is not configured", RawMetadata: "{}", RequestedAt: now}
 		if err := tx.Create(&payout).Error; err != nil {
 			return err
 		}
@@ -521,7 +517,7 @@ func (s *Service) RejectWithdrawal(id uint64, command ReasonCommand, actor Actor
 	return wrapInternal(s.db.Transaction(func(tx *gorm.DB) error {
 		var row model.GameWithdrawOrders
 		rowQuery := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Model(&model.GameWithdrawOrders{}).Where("id=? AND deleted_at IS NULL", id)
-		if err := tenancy.ApplySite(rowQuery, "", actor.Scope).Take(&row).Error; err != nil {
+		if err := content.ApplySite(rowQuery, "", actor.Scope).Take(&row).Error; err != nil {
 			if err == gorm.ErrRecordNotFound {
 				return ErrWithdrawalNotFound
 			}
@@ -537,7 +533,7 @@ func (s *Service) RejectWithdrawal(id uint64, command ReasonCommand, actor Actor
 		if err := tx.Model(&row).Updates(map[string]any{"status": 4, "audit_status": 3, "reviewer_id": actor.ID, "reviewer_username": actor.Username, "review_remark": command.Reason, "completed_at": now}).Error; err != nil {
 			return err
 		}
-		approval := model.GameWithdrawalApprovals{TenantID: row.TenantID, SiteID: row.SiteID, WithdrawalOrderID: id, OperatorID: actor.ID, OperatorUsername: actor.Username, Stage: "FINAL", Decision: "REJECTED", BeforeStatus: withdrawalStatus(row.Status), AfterStatus: "REJECTED", Reason: command.Reason}
+		approval := model.GameWithdrawalApprovals{SiteID: row.SiteID, WithdrawalOrderID: id, OperatorID: actor.ID, OperatorUsername: actor.Username, Stage: "FINAL", Decision: "REJECTED", BeforeStatus: withdrawalStatus(row.Status), AfterStatus: "REJECTED", Reason: command.Reason}
 		if err := tx.Create(&approval).Error; err != nil {
 			return err
 		}
@@ -551,7 +547,7 @@ func (s *Service) releaseWithdrawalFreeze(tx *gorm.DB, row *model.GameWithdrawOr
 	}
 	var freeze model.GameWalletFreezes
 	freezeQuery := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Model(&model.GameWalletFreezes{}).Where("id=?", row.FreezeRecordID)
-	if err := tenancy.ApplySite(freezeQuery, "", actor.Scope).Take(&freeze).Error; err != nil {
+	if err := content.ApplySite(freezeQuery, "", actor.Scope).Take(&freeze).Error; err != nil {
 		return err
 	}
 	if freeze.Status != 1 {
@@ -587,7 +583,7 @@ func (s *Service) RetryWithdrawal(id uint64, command ReasonCommand, actor Actor)
 	return wrapInternal(s.db.Transaction(func(tx *gorm.DB) error {
 		var row model.GameWithdrawOrders
 		rowQuery := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Model(&model.GameWithdrawOrders{}).Where("id=? AND deleted_at IS NULL", id)
-		if err := tenancy.ApplySite(rowQuery, "", actor.Scope).Take(&row).Error; err != nil {
+		if err := content.ApplySite(rowQuery, "", actor.Scope).Take(&row).Error; err != nil {
 			if err == gorm.ErrRecordNotFound {
 				return ErrWithdrawalNotFound
 			}
@@ -600,7 +596,7 @@ func (s *Service) RetryWithdrawal(id uint64, command ReasonCommand, actor Actor)
 		if err := tx.Model(&row).Updates(map[string]any{"status": 9, "payout_retry_count": gorm.Expr("payout_retry_count+1"), "failure_reason": ""}).Error; err != nil {
 			return err
 		}
-		payout := model.GameWithdrawalPayoutLogs{TenantID: row.TenantID, SiteID: row.SiteID, WithdrawalOrderID: id, RequestResult: "RETRY_NOT_CONFIGURED", RetryCount: row.PayoutRetryCount + 1, FailureReason: "payout provider is not configured", RawMetadata: "{}", RequestedAt: now}
+		payout := model.GameWithdrawalPayoutLogs{SiteID: row.SiteID, WithdrawalOrderID: id, RequestResult: "RETRY_NOT_CONFIGURED", RetryCount: row.PayoutRetryCount + 1, FailureReason: "payout provider is not configured", RawMetadata: "{}", RequestedAt: now}
 		if err := tx.Create(&payout).Error; err != nil {
 			return err
 		}
@@ -640,7 +636,7 @@ func (s *Service) GenerateReconciliation(command GenerateReconciliationCommand, 
 		start := date
 		end := date.Add(24 * time.Hour)
 		orderQuery := tx.Table(orderTable).Where("created_at>=? AND created_at<? AND currency=? AND deleted_at IS NULL", start, end, currency)
-		orderQuery = tenancy.ApplySite(orderQuery, "", actor.Scope)
+		orderQuery = content.ApplySite(orderQuery, "", actor.Scope)
 		if business == "ADJUSTMENT" {
 			orderQuery = orderQuery.Where("status=?", "COMPLETED")
 		} else {
@@ -658,7 +654,7 @@ func (s *Service) GenerateReconciliation(command GenerateReconciliationCommand, 
 			return e
 		}
 		ledgerQuery := tx.Table("game_wallet_transactions").Where("source_type=? AND created_at>=? AND created_at<? AND currency=? AND status=1 AND deleted_at IS NULL", source, start, end, currency)
-		ledgerQuery = tenancy.ApplySite(ledgerQuery, "", actor.Scope)
+		ledgerQuery = content.ApplySite(ledgerQuery, "", actor.Scope)
 		var ledgerCount int64
 		var ledgerAmount decimal.Decimal
 		if e := ledgerQuery.Count(&ledgerCount).Error; e != nil {
@@ -678,18 +674,18 @@ func (s *Service) GenerateReconciliation(command GenerateReconciliationCommand, 
 			status = "DIFFERENCE"
 		}
 		now := time.Now()
-		record := model.GameReconciliationRecords{TenantID: actor.Scope.TenantID, SiteID: actor.Scope.SiteID, ReconciliationNo: uniqueNo("REC"), BusinessDate: date, BusinessType: business, ChannelCode: strings.TrimSpace(command.ChannelCode), Currency: currency, ReconciliationMode: "INTERNAL", PlatformOrderCount: uint(orderCount), PlatformAmount: moneyPtr(orderAmount), ChannelOrderCount: uint(ledgerCount), ChannelAmount: moneyPtr(ledgerAmount), DifferenceCount: uint(diffCount), DifferenceAmount: moneyPtr(absDifference), Status: status, GeneratedByID: actor.ID, GeneratedBy: actor.Username, GeneratedAt: now, CompletedAt: &now}
+		record := model.GameReconciliationRecords{SiteID: actor.Scope.SiteID, ReconciliationNo: uniqueNo("REC"), BusinessDate: date, BusinessType: business, ChannelCode: strings.TrimSpace(command.ChannelCode), Currency: currency, ReconciliationMode: "INTERNAL", PlatformOrderCount: uint(orderCount), PlatformAmount: moneyPtr(orderAmount), ChannelOrderCount: uint(ledgerCount), ChannelAmount: moneyPtr(ledgerAmount), DifferenceCount: uint(diffCount), DifferenceAmount: moneyPtr(absDifference), Status: status, GeneratedByID: actor.ID, GeneratedBy: actor.Username, GeneratedAt: now, CompletedAt: &now}
 		if e := tx.Create(&record).Error; e != nil {
 			return e
 		}
 		result = record.ID
 		if status == "DIFFERENCE" {
-			diff := model.GameReconciliationDifferences{TenantID: actor.Scope.TenantID, SiteID: actor.Scope.SiteID, ReconciliationID: record.ID, PlatformStatus: "COMPLETED", ChannelStatus: "LEDGER_POSTED", PlatformAmount: moneyPtr(orderAmount), ChannelAmount: moneyPtr(ledgerAmount), DifferenceType: "AMOUNT_OR_COUNT_MISMATCH", DifferenceAmount: moneyPtr(absDifference), ResolutionStatus: "OPEN", DetectedAt: now}
+			diff := model.GameReconciliationDifferences{SiteID: actor.Scope.SiteID, ReconciliationID: record.ID, PlatformStatus: "COMPLETED", ChannelStatus: "LEDGER_POSTED", PlatformAmount: moneyPtr(orderAmount), ChannelAmount: moneyPtr(ledgerAmount), DifferenceType: "AMOUNT_OR_COUNT_MISMATCH", DifferenceAmount: moneyPtr(absDifference), ResolutionStatus: "OPEN", DetectedAt: now}
 			if e := tx.Create(&diff).Error; e != nil {
 				return e
 			}
 		}
-		log := model.GameReconciliationLogs{TenantID: actor.Scope.TenantID, SiteID: actor.Scope.SiteID, ReconciliationID: record.ID, Level: "INFO", Message: "Internal reconciliation generated from platform orders and immutable wallet ledger"}
+		log := model.GameReconciliationLogs{SiteID: actor.Scope.SiteID, ReconciliationID: record.ID, Level: "INFO", Message: "Internal reconciliation generated from platform orders and immutable wallet ledger"}
 		if e := tx.Create(&log).Error; e != nil {
 			return e
 		}
@@ -698,14 +694,14 @@ func (s *Service) GenerateReconciliation(command GenerateReconciliationCommand, 
 	return result, wrapInternal(err)
 }
 
-func (s *Service) ResolveDifference(reconciliationID, differenceID uint64, command ReasonCommand, actor Actor) error {
+func (s *Service) ResolveDifference(reconciliationID uint64, differenceID uint64, command ReasonCommand, actor Actor) error {
 	if err := requireReason(command.Reason); err != nil {
 		return err
 	}
 	return wrapInternal(s.db.Transaction(func(tx *gorm.DB) error {
 		var diff model.GameReconciliationDifferences
 		diffQuery := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Model(&model.GameReconciliationDifferences{}).Where("id=? AND reconciliation_id=? AND deleted_at IS NULL", differenceID, reconciliationID)
-		if err := tenancy.ApplySite(diffQuery, "", actor.Scope).Take(&diff).Error; err != nil {
+		if err := content.ApplySite(diffQuery, "", actor.Scope).Take(&diff).Error; err != nil {
 			if err == gorm.ErrRecordNotFound {
 				return ErrDifferenceNotFound
 			}
@@ -718,17 +714,17 @@ func (s *Service) ResolveDifference(reconciliationID, differenceID uint64, comma
 		if err := tx.Model(&diff).Updates(map[string]any{"resolution_status": "RESOLVED", "resolution_reason": command.Reason, "resolved_by_id": actor.ID, "resolved_by": actor.Username, "resolved_at": now}).Error; err != nil {
 			return err
 		}
-		resolution := model.GameReconciliationResolutions{TenantID: diff.TenantID, SiteID: diff.SiteID, ReconciliationID: reconciliationID, DifferenceID: differenceID, OperatorID: actor.ID, OperatorUsername: actor.Username, Action: "RESOLVE", Reason: command.Reason}
+		resolution := model.GameReconciliationResolutions{SiteID: diff.SiteID, ReconciliationID: reconciliationID, DifferenceID: differenceID, OperatorID: actor.ID, OperatorUsername: actor.Username, Action: "RESOLVE", Reason: command.Reason}
 		if err := tx.Create(&resolution).Error; err != nil {
 			return err
 		}
 		var open int64
 		openQuery := tx.Table("game_reconciliation_differences").Where("reconciliation_id=? AND resolution_status='OPEN' AND deleted_at IS NULL", reconciliationID)
-		if err := tenancy.ApplySite(openQuery, "", actor.Scope).Count(&open).Error; err != nil {
+		if err := content.ApplySite(openQuery, "", actor.Scope).Count(&open).Error; err != nil {
 			return err
 		}
 		if open == 0 {
-			if err := tenancy.ApplySite(tx.Model(&model.GameReconciliationRecords{}), "", actor.Scope).Where("id=?", reconciliationID).Update("status", "RESOLVED").Error; err != nil {
+			if err := content.ApplySite(tx.Model(&model.GameReconciliationRecords{}), "", actor.Scope).Where("id=?", reconciliationID).Update("status", "RESOLVED").Error; err != nil {
 				return err
 			}
 		}

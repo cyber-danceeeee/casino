@@ -96,7 +96,7 @@ func Test_gameUserVipLogsDao_UpdateByID(t *testing.T) {
 	// zero id error
 	err = d.IDao.(GameUserVipLogsDao).UpdateByID(d.Ctx, &model.GameUserVipLogs{})
 	assert.Error(t, err)
-	
+
 }
 
 func Test_gameUserVipLogsDao_GetByID(t *testing.T) {

@@ -9,7 +9,6 @@ import (
 type GameBetOrders struct {
 	sgorm.Model `gorm:"embedded"`
 
-	TenantID                 uint64     `gorm:"column:tenant_id" json:"tenantID"`
 	SiteID                   uint64     `gorm:"column:site_id" json:"siteID"`
 	BetNo                    string     `gorm:"column:bet_no" json:"betNo"`
 	PlatformBetID            string     `gorm:"column:platform_bet_id" json:"platformBetID"`
@@ -40,7 +39,6 @@ func (GameBetOrders) TableName() string { return "game_bet_records" }
 type GameRounds struct {
 	sgorm.Model `gorm:"embedded"`
 
-	TenantID            uint64     `gorm:"column:tenant_id" json:"tenantID"`
 	SiteID              uint64     `gorm:"column:site_id" json:"siteID"`
 	ProviderCode        string     `gorm:"column:provider_code" json:"providerCode"`
 	ProviderRoundID     string     `gorm:"column:provider_round_id" json:"providerRoundID"`
@@ -63,7 +61,6 @@ func (GameRounds) TableName() string { return "game_rounds" }
 type GameRollbacks struct {
 	sgorm.Model `gorm:"embedded"`
 
-	TenantID                      uint64     `gorm:"column:tenant_id" json:"tenantID"`
 	SiteID                        uint64     `gorm:"column:site_id" json:"siteID"`
 	RollbackID                    string     `gorm:"column:rollback_id" json:"rollbackID"`
 	ProviderCode                  string     `gorm:"column:provider_code" json:"providerCode"`
@@ -90,7 +87,6 @@ func (GameRollbacks) TableName() string { return "game_rollbacks" }
 type GameProviderCallbackLogs struct {
 	sgorm.Model `gorm:"embedded"`
 
-	TenantID               uint64 `gorm:"column:tenant_id" json:"tenantID"`
 	SiteID                 uint64 `gorm:"column:site_id" json:"siteID"`
 	CallbackID             string `gorm:"column:callback_id" json:"callbackID"`
 	ProviderCode           string `gorm:"column:provider_code" json:"providerCode"`
@@ -126,7 +122,6 @@ func (GameProviderCallbackLogs) TableName() string { return "game_provider_callb
 type GameAbnormalBetEvents struct {
 	sgorm.Model `gorm:"embedded"`
 
-	TenantID           uint64 `gorm:"column:tenant_id" json:"tenantID"`
 	SiteID             uint64 `gorm:"column:site_id" json:"siteID"`
 	RiskEventID        string `gorm:"column:risk_event_id" json:"riskEventID"`
 	BetRecordID        uint64 `gorm:"column:bet_record_id" json:"betRecordID"`
@@ -150,8 +145,8 @@ type GameAbnormalBetEvents struct {
 func (GameAbnormalBetEvents) TableName() string { return "game_abnormal_bet_events" }
 
 type GameAbnormalBetReviewHistories struct {
-	sgorm.Model      `gorm:"embedded"`
-	TenantID         uint64 `gorm:"column:tenant_id" json:"tenantID"`
+	sgorm.Model `gorm:"embedded"`
+
 	SiteID           uint64 `gorm:"column:site_id" json:"siteID"`
 	AbnormalBetID    uint64 `gorm:"column:abnormal_bet_id" json:"abnormalBetID"`
 	Action           string `gorm:"column:action" json:"action"`
@@ -165,8 +160,8 @@ type GameAbnormalBetReviewHistories struct {
 func (GameAbnormalBetReviewHistories) TableName() string { return "game_abnormal_bet_review_histories" }
 
 type GameAbnormalBetNotes struct {
-	sgorm.Model      `gorm:"embedded"`
-	TenantID         uint64 `gorm:"column:tenant_id" json:"tenantID"`
+	sgorm.Model `gorm:"embedded"`
+
 	SiteID           uint64 `gorm:"column:site_id" json:"siteID"`
 	AbnormalBetID    uint64 `gorm:"column:abnormal_bet_id" json:"abnormalBetID"`
 	OperatorID       uint64 `gorm:"column:operator_id" json:"operatorID"`

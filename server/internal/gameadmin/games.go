@@ -9,17 +9,17 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"casino/internal/content"
 	"casino/internal/game/domain"
 	"casino/internal/model"
-	"casino/internal/tenancy"
 )
 
 func (s *Service) ListGames(q ListQuery) (PageResult, error) {
 	var rows []gameRecord
 	db := s.db.Table("game_games g").Select(gameListSelect(q.Scope)).
 		Joins("JOIN game_game_providers p ON p.id=g.provider_id AND p.deleted_at IS NULL").Where("g.deleted_at IS NULL")
-	db = tenancy.ApplySite(db, "g", q.Scope)
-	db = tenancy.ApplySite(db, "p", q.Scope)
+	db = content.ApplySite(db, "g", q.Scope)
+	db = content.ApplySite(db, "p", q.Scope)
 	db = applyGameListFilters(db, q)
 	result, err := paginate(db.Order("g.sort ASC,g.id DESC"), q, &rows)
 	for i := range rows {
@@ -29,7 +29,7 @@ func (s *Service) ListGames(q ListQuery) (PageResult, error) {
 	return result, err
 }
 
-func gameListSelect(scope tenancy.Scope) string {
+func gameListSelect(scope content.Scope) string {
 	return `g.id,g.game_code,g.provider_id,p.provider_code,g.provider_game_code,g.name,g.name_i18n,g.slug,g.game_type,g.rtp,g.volatility,g.category,
 		g.cover_url,g.local_thumbnail_url,g.background_url,g.launch_image_url,g.maintenance_message,g.maintenance_message_draft,g.supports_demo,g.supports_free_spins,
 		g.provider_enabled,g.platform_enabled,g.platform_enabled_draft,g.is_hot,g.is_hot_draft,g.is_featured,g.is_featured_draft,g.is_new,g.is_new_draft,
@@ -68,22 +68,15 @@ func applyGameListFilters(db *gorm.DB, q ListQuery) *gorm.DB {
 }
 
 func (s *Service) ListImportableGames(q ListQuery) (PageResult, error) {
-	if !q.Scope.TenantScoped() || q.Scope.SiteID == 0 {
-		return PageResult{}, newError("TENANT_SCOPE_REQUIRED", "tenant site scope is required")
+	if !q.Scope.SiteScoped() || q.Scope.SiteID == 0 {
+		return PageResult{}, newError("SITE_REQUIRED", "H5 scope is required")
 	}
 	var rows []gameRecord
 	db := s.db.Table("game_games g").Select(gameListSelect(q.Scope)).
-		Joins("JOIN game_game_providers p ON p.id=g.provider_id AND p.tenant_id=0 AND p.site_id=0 AND p.deleted_at IS NULL").
-		Joins("JOIN game_game_providers tp ON tp.provider_code=p.provider_code AND tp.tenant_id=? AND tp.site_id=? AND tp.status=1 AND tp.deleted_at IS NULL", q.Scope.TenantID, q.Scope.SiteID).
-		Where("g.tenant_id=0 AND g.site_id=0 AND g.deleted_at IS NULL").
-		Where(`NOT EXISTS (
-			SELECT 1
-			FROM game_games tg
-			JOIN game_game_providers tgp ON tgp.id=tg.provider_id AND tgp.deleted_at IS NULL
-			WHERE tg.tenant_id=? AND tg.site_id=? AND tg.deleted_at IS NULL
-			  AND tgp.provider_code=p.provider_code
-			  AND tg.provider_game_code=g.provider_game_code
-		)`, q.Scope.TenantID, q.Scope.SiteID)
+		Joins("JOIN game_game_providers AS p ON p.id = g.provider_id AND p.site_id = 0 AND p.deleted_at IS NULL").
+		Joins("JOIN game_game_providers AS tp ON tp.provider_code = p.provider_code AND tp.site_id = ? AND tp.status = 1 AND tp.deleted_at IS NULL", q.Scope.SiteID).
+		Where("g.site_id = 0 AND g.deleted_at IS NULL").
+		Where("NOT EXISTS(SELECT 1 FROM game_games AS tg JOIN game_game_providers AS tgp ON tgp.id = tg.provider_id AND tgp.deleted_at IS NULL WHERE tg.site_id = ? AND tg.deleted_at IS NULL AND tgp.provider_code = p.provider_code AND tg.provider_game_code = g.provider_game_code)", q.Scope.SiteID)
 	db = applyGameListFilters(db, q)
 	result, err := paginate(db.Order("p.sort ASC,g.sort ASC,g.id DESC"), q, &rows)
 	for i := range rows {
@@ -93,21 +86,21 @@ func (s *Service) ListImportableGames(q ListQuery) (PageResult, error) {
 	return result, err
 }
 
-func (s *Service) ListImportableProviderGameTypes(providerCode string, scope tenancy.Scope) ([]providerGameTypeOption, error) {
+func (s *Service) ListImportableProviderGameTypes(providerCode string, scope content.Scope) ([]providerGameTypeOption, error) {
 	providerCode = strings.TrimSpace(providerCode)
 	if providerCode == "" {
 		return nil, newError("INVALID_REQUEST", "provider code is required")
 	}
-	if !scope.TenantScoped() || scope.SiteID == 0 {
-		return nil, newError("TENANT_SCOPE_REQUIRED", "tenant site scope is required")
+	if !scope.SiteScoped() || scope.SiteID == 0 {
+		return nil, newError("SITE_REQUIRED", "H5 scope is required")
 	}
-	var tenantProvider struct {
+	var siteProvider struct {
 		ID uint64 `gorm:"column:id"`
 	}
 	if err := s.db.Table("game_game_providers").
 		Select("id").
-		Where("tenant_id=? AND site_id=? AND provider_code=? AND status=1 AND deleted_at IS NULL", scope.TenantID, scope.SiteID, providerCode).
-		Take(&tenantProvider).Error; err != nil {
+		Where("site_id = ? AND provider_code = ? AND status = 1 AND deleted_at IS NULL", scope.SiteID, providerCode).
+		Take(&siteProvider).Error; err != nil {
 		return nil, notFound(err, "PROVIDER_NOT_AUTHORIZED")
 	}
 	var platformProvider struct {
@@ -115,7 +108,7 @@ func (s *Service) ListImportableProviderGameTypes(providerCode string, scope ten
 	}
 	if err := s.db.Table("game_game_providers").
 		Select("id").
-		Where("tenant_id=0 AND site_id=0 AND provider_code=? AND deleted_at IS NULL", providerCode).
+		Where("site_id = 0 AND provider_code = ? AND deleted_at IS NULL", providerCode).
 		Take(&platformProvider).Error; err != nil {
 		return nil, notFound(err, "PROVIDER_NOT_FOUND")
 	}
@@ -125,12 +118,8 @@ func (s *Service) ListImportableProviderGameTypes(providerCode string, scope ten
 			CASE WHEN TRIM(g.category)<>'' THEN 'providerCategory' ELSE 'gameType' END source,
 			CASE WHEN TRIM(g.category)<>'' THEN g.category ELSE g.game_type END code,
 			COUNT(g.id) game_count`, providerCode).
-		Where("g.tenant_id=0 AND g.site_id=0 AND g.provider_id=? AND g.deleted_at IS NULL", platformProvider.ID).
-		Where(`NOT EXISTS (
-			SELECT 1
-			FROM game_games tg
-			WHERE tg.tenant_id=? AND tg.site_id=? AND tg.provider_id=? AND tg.provider_game_code=g.provider_game_code AND tg.deleted_at IS NULL
-		)`, scope.TenantID, scope.SiteID, tenantProvider.ID).
+		Where("g.site_id = 0 AND g.provider_id = ? AND g.deleted_at IS NULL", platformProvider.ID).
+		Where("NOT EXISTS(SELECT 1 FROM game_games AS tg WHERE tg.site_id = ? AND tg.provider_id = ? AND tg.provider_game_code = g.provider_game_code AND tg.deleted_at IS NULL)", scope.SiteID, siteProvider.ID).
 		Group("source,code").
 		Having("code<>''").
 		Order("source ASC,code ASC").
@@ -139,8 +128,8 @@ func (s *Service) ListImportableProviderGameTypes(providerCode string, scope ten
 }
 
 func (s *Service) ImportGames(in GameImportInput, actor Actor) (map[string]any, error) {
-	if !actor.Scope.TenantScoped() || actor.Scope.SiteID == 0 {
-		return nil, newError("TENANT_SCOPE_REQUIRED", "tenant site scope is required")
+	if !actor.Scope.SiteScoped() || actor.Scope.SiteID == 0 {
+		return nil, newError("SITE_REQUIRED", "H5 scope is required")
 	}
 	gameIDs := uniqueIDs(in.IDs)
 	if len(gameIDs) == 0 {
@@ -154,7 +143,7 @@ func (s *Service) ImportGames(in GameImportInput, actor Actor) (map[string]any, 
 	err := s.db.Transaction(func(tx *gorm.DB) error {
 		var sources []model.GameGames
 		if err := tx.Model(&model.GameGames{}).
-			Where("tenant_id=0 AND site_id=0 AND id IN ? AND deleted_at IS NULL", gameIDs).
+			Where("site_id = 0 AND id IN (?) AND deleted_at IS NULL", gameIDs).
 			Order("id ASC").
 			Find(&sources).Error; err != nil {
 			return err
@@ -168,7 +157,7 @@ func (s *Service) ImportGames(in GameImportInput, actor Actor) (map[string]any, 
 		}
 		var platformProviders []model.GameGameProviders
 		if err := tx.Model(&model.GameGameProviders{}).
-			Where("tenant_id=0 AND site_id=0 AND id IN ? AND deleted_at IS NULL", uniqueIDs(providerIDs)).
+			Where("site_id = 0 AND id IN (?) AND deleted_at IS NULL", uniqueIDs(providerIDs)).
 			Find(&platformProviders).Error; err != nil {
 			return err
 		}
@@ -185,15 +174,15 @@ func (s *Service) ImportGames(in GameImportInput, actor Actor) (map[string]any, 
 		if len(providerCodes) != len(uniqueIDs(providerIDs)) {
 			return newError("PROVIDER_NOT_FOUND", "record not found")
 		}
-		var tenantProviders []model.GameGameProviders
+		var siteProviders []model.GameGameProviders
 		if err := tx.Model(&model.GameGameProviders{}).
-			Where("tenant_id=? AND site_id=? AND provider_code IN ? AND status=1 AND deleted_at IS NULL", actor.Scope.TenantID, actor.Scope.SiteID, uniqueStrings(authorizedCodes)).
-			Find(&tenantProviders).Error; err != nil {
+			Where("site_id = ? AND provider_code IN (?) AND status = 1 AND deleted_at IS NULL", actor.Scope.SiteID, uniqueStrings(authorizedCodes)).
+			Find(&siteProviders).Error; err != nil {
 			return err
 		}
-		tenantProviderByCode := map[string]model.GameGameProviders{}
-		for _, provider := range tenantProviders {
-			tenantProviderByCode[strings.TrimSpace(provider.ProviderCode)] = provider
+		siteProviderByCode := map[string]model.GameGameProviders{}
+		for _, provider := range siteProviders {
+			siteProviderByCode[strings.TrimSpace(provider.ProviderCode)] = provider
 		}
 		existingKeys := map[string]bool{}
 		var existing []struct {
@@ -203,7 +192,7 @@ func (s *Service) ImportGames(in GameImportInput, actor Actor) (map[string]any, 
 		if err := tx.Table("game_games tg").
 			Select("p.provider_code,tg.provider_game_code").
 			Joins("JOIN game_game_providers p ON p.id=tg.provider_id AND p.deleted_at IS NULL").
-			Where("tg.tenant_id=? AND tg.site_id=? AND tg.deleted_at IS NULL", actor.Scope.TenantID, actor.Scope.SiteID).
+			Where("tg.site_id = ? AND tg.deleted_at IS NULL", actor.Scope.SiteID).
 			Find(&existing).Error; err != nil {
 			return err
 		}
@@ -216,19 +205,19 @@ func (s *Service) ImportGames(in GameImportInput, actor Actor) (map[string]any, 
 		skippedIDs := make([]uint64, 0)
 		for _, src := range sources {
 			providerCode := providerCodes[src.ProviderID]
-			tenantProvider, ok := tenantProviderByCode[providerCode]
+			siteProvider, ok := siteProviderByCode[providerCode]
 			if !ok {
-				return newError("PROVIDER_NOT_AUTHORIZED", "provider is not authorized for tenant")
+				return newError("PROVIDER_NOT_AUTHORIZED", "provider is not authorized for site")
 			}
 			if existingKeys[gameImportKey(providerCode, src.ProviderGameCode)] {
 				skippedIDs = append(skippedIDs, src.ID)
 				continue
 			}
 			rows = append(rows, map[string]any{
-				"tenant_id":                 actor.Scope.TenantID,
+
 				"site_id":                   actor.Scope.SiteID,
 				"game_code":                 src.GameCode,
-				"provider_id":               tenantProvider.ID,
+				"provider_id":               siteProvider.ID,
 				"provider_game_code":        src.ProviderGameCode,
 				"name":                      src.Name,
 				"name_i18n":                 jsonObjectOrDefault(src.NameI18n),
@@ -245,7 +234,7 @@ func (s *Service) ImportGames(in GameImportInput, actor Actor) (map[string]any, 
 				"maintenance_message_draft": src.MaintenanceMessage,
 				"supports_demo":             src.SupportsDemo,
 				"supports_free_spins":       src.SupportsFreeSpins,
-				"provider_enabled":          src.ProviderEnabled && tenantProvider.Status == 1,
+				"provider_enabled":          src.ProviderEnabled && siteProvider.Status == 1,
 				"platform_enabled":          false,
 				"platform_enabled_draft":    false,
 				"is_hot":                    false,
@@ -284,7 +273,7 @@ func (s *Service) ImportGames(in GameImportInput, actor Actor) (map[string]any, 
 		}
 		importedCount := int64(0)
 		if len(rows) > 0 {
-			db := insertTenantGameImportRows(tx, rows)
+			db := insertSiteGameImportRows(tx, rows)
 			if db.Error != nil {
 				return duplicateCode(db.Error, "GAME_ALREADY_IMPORTED", "one or more games are already imported")
 			}
@@ -300,11 +289,11 @@ func (s *Service) ImportGames(in GameImportInput, actor Actor) (map[string]any, 
 	return result, err
 }
 
-func gameImportKey(providerCode, providerGameCode string) string {
+func gameImportKey(providerCode string, providerGameCode string) string {
 	return strings.ToLower(strings.TrimSpace(providerCode)) + ":" + strings.TrimSpace(providerGameCode)
 }
 
-func insertTenantGameImportRows(tx *gorm.DB, rows []map[string]any) *gorm.DB {
+func insertSiteGameImportRows(tx *gorm.DB, rows []map[string]any) *gorm.DB {
 	db := tx.Table("game_games")
 	if tx.Dialector != nil && tx.Dialector.Name() == "mysql" {
 		return db.Clauses(clause.Insert{Modifier: "IGNORE"}).Create(rows)
@@ -319,13 +308,13 @@ func jsonObjectOrDefault(value string) string {
 	return value
 }
 
-func (s *Service) ListProviderGameTypes(providerCode string, scope tenancy.Scope) ([]providerGameTypeOption, error) {
+func (s *Service) ListProviderGameTypes(providerCode string, scope content.Scope) ([]providerGameTypeOption, error) {
 	providerCode = strings.TrimSpace(providerCode)
 	if providerCode == "" {
 		return nil, newError("INVALID_REQUEST", "provider code is required")
 	}
 	var exists int64
-	if err := tenancy.ApplySite(s.db.Table("game_game_providers"), "", scope).Where("provider_code=? AND deleted_at IS NULL", providerCode).Count(&exists).Error; err != nil {
+	if err := content.ApplySite(s.db.Table("game_game_providers"), "", scope).Where("provider_code=? AND deleted_at IS NULL", providerCode).Count(&exists).Error; err != nil {
 		return nil, err
 	}
 	if exists == 0 {
@@ -342,8 +331,8 @@ func (s *Service) ListProviderGameTypes(providerCode string, scope tenancy.Scope
 		Group("source,code,p.provider_code").
 		Having("code<>''").
 		Order("source ASC,code ASC")
-	db = tenancy.ApplySite(db, "g", scope)
-	db = tenancy.ApplySite(db, "p", scope)
+	db = content.ApplySite(db, "g", scope)
+	db = content.ApplySite(db, "p", scope)
 	err := db.Find(&rows).Error
 	return rows, err
 }
@@ -364,7 +353,7 @@ func (s *Service) ApplyProviderCategoryMapping(in ProviderCategoryMappingInput, 
 		var provider struct {
 			ID uint64 `gorm:"column:id"`
 		}
-		if err := tenancy.ApplySite(tx.Table("game_game_providers"), "", actor.Scope).Select("id").Where("provider_code=? AND deleted_at IS NULL", providerCode).Take(&provider).Error; err != nil {
+		if err := content.ApplySite(tx.Table("game_game_providers"), "", actor.Scope).Select("id").Where("provider_code=? AND deleted_at IS NULL", providerCode).Take(&provider).Error; err != nil {
 			return notFound(err, "PROVIDER_NOT_FOUND")
 		}
 		var categories []categoryRecord
@@ -378,7 +367,7 @@ func (s *Service) ApplyProviderCategoryMapping(in ProviderCategoryMappingInput, 
 		if len(categories) != len(categoryIDs) {
 			return newError("INVALID_RELATION", "one or more relation targets do not exist")
 		}
-		gameQuery := tenancy.ApplySite(tx.Table("game_games"), "", actor.Scope).Where("provider_id=? AND deleted_at IS NULL", provider.ID)
+		gameQuery := content.ApplySite(tx.Table("game_games"), "", actor.Scope).Where("provider_id=? AND deleted_at IS NULL", provider.ID)
 		if source == "gameType" {
 			gameQuery = gameQuery.Where("game_type=?", code)
 		} else {
@@ -424,11 +413,11 @@ func (s *Service) ApplyProviderCategoryMapping(in ProviderCategoryMappingInput, 
 	return result, err
 }
 
-func (s *Service) GameDetail(id uint64, scope tenancy.Scope) (map[string]any, error) {
+func (s *Service) GameDetail(id uint64, scope content.Scope) (map[string]any, error) {
 	var row gameRecord
 	db := s.db.Table("game_games g").Select("g.*,p.provider_code").Joins("JOIN game_game_providers p ON p.id=g.provider_id").Where("g.id=? AND g.deleted_at IS NULL", id)
-	db = tenancy.ApplySite(db, "g", scope)
-	db = tenancy.ApplySite(db, "p", scope)
+	db = content.ApplySite(db, "g", scope)
+	db = content.ApplySite(db, "p", scope)
 	if err := db.Take(&row).Error; err != nil {
 		return nil, notFound(err, "GAME_NOT_FOUND")
 	}
@@ -444,16 +433,16 @@ func (s *Service) GameDetail(id uint64, scope tenancy.Scope) (map[string]any, er
 	}
 	var tags []tagRecord
 	tagDB := s.db.Table("game_game_tags t").Select("t.*").Joins("JOIN game_game_tag_relations r ON r.tag_id=t.id AND r.deleted_at IS NULL").Where("r.game_id=? AND t.deleted_at IS NULL", id)
-	tagDB = tenancy.ApplySite(tagDB, "t", scope)
-	tagDB = tenancy.ApplySite(tagDB, "r", scope)
+	tagDB = content.ApplySite(tagDB, "t", scope)
+	tagDB = content.ApplySite(tagDB, "r", scope)
 	_ = tagDB.Order("t.sort_order,t.id").Find(&tags).Error
 	for i := range tags {
 		signTagAsset(&tags[i])
 	}
 	var collections []collectionRecord
 	collectionDB := s.db.Table("game_game_collections c").Select("c.*").Joins("JOIN game_game_collection_relations r ON r.collection_id=c.id AND r.deleted_at IS NULL").Where("r.game_id=? AND c.deleted_at IS NULL", id)
-	collectionDB = tenancy.ApplySite(collectionDB, "c", scope)
-	collectionDB = tenancy.ApplySite(collectionDB, "r", scope)
+	collectionDB = content.ApplySite(collectionDB, "c", scope)
+	collectionDB = content.ApplySite(collectionDB, "r", scope)
 	_ = collectionDB.Order("r.sort_order,r.id").Find(&collections).Error
 	for i := range collections {
 		signCollectionAsset(&collections[i])
@@ -490,7 +479,7 @@ func (s *Service) GameDetail(id uint64, scope tenancy.Scope) (map[string]any, er
 func (s *Service) UpdateGame(id uint64, in GameInput, actor Actor) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		var row gameRecord
-		if err := tenancy.ApplySite(tx.Table("game_games").Clauses(clause.Locking{Strength: "UPDATE"}), "", actor.Scope).Where("id=? AND deleted_at IS NULL", id).Take(&row).Error; err != nil {
+		if err := content.ApplySite(tx.Table("game_games").Clauses(clause.Locking{Strength: "UPDATE"}), "", actor.Scope).Where("id=? AND deleted_at IS NULL", id).Take(&row).Error; err != nil {
 			return notFound(err, "GAME_NOT_FOUND")
 		}
 		nameI18n := row.NameI18n
@@ -548,7 +537,7 @@ func (s *Service) UpdateGame(id uint64, in GameInput, actor Actor) error {
 		updates["sort_draft"] = in.SortOrder
 		updates["status_draft"] = effectiveStatus(row.ProviderEnabled, in.PlatformEnabled)
 		updates["maintenance_message_draft"] = strings.TrimSpace(in.MaintenanceMessage)
-		if err := tenancy.ApplySite(tx.Table("game_games"), "", actor.Scope).Where("id=?", id).Updates(updates).Error; err != nil {
+		if err := content.ApplySite(tx.Table("game_games"), "", actor.Scope).Where("id=?", id).Updates(updates).Error; err != nil {
 			return err
 		}
 		return audit(tx, actor, "game:update", "update_draft", "game", id, row, updates, in.Reason)
@@ -557,7 +546,7 @@ func (s *Service) UpdateGame(id uint64, in GameInput, actor Actor) error {
 
 func (s *Service) SetGameStatus(id uint64, command ReasonCommand, actor Actor) error {
 	var row gameRecord
-	if err := tenancy.ApplySite(s.db.Table("game_games"), "", actor.Scope).Where("id=? AND deleted_at IS NULL", id).Take(&row).Error; err != nil {
+	if err := content.ApplySite(s.db.Table("game_games"), "", actor.Scope).Where("id=? AND deleted_at IS NULL", id).Take(&row).Error; err != nil {
 		return notFound(err, "GAME_NOT_FOUND")
 	}
 	return s.UpdateGame(id, GameInput{
@@ -683,7 +672,7 @@ func (s *Service) BatchUpdateGames(in GameBatchInput, actor Actor) (map[string]a
 	result := map[string]any{}
 	err := s.db.Transaction(func(tx *gorm.DB) error {
 		var before []gameRecord
-		if err := tenancy.ApplySite(tx.Table("game_games").Clauses(clause.Locking{Strength: "UPDATE"}), "", actor.Scope).Where("id IN ? AND deleted_at IS NULL", gameIDs).Find(&before).Error; err != nil {
+		if err := content.ApplySite(tx.Table("game_games").Clauses(clause.Locking{Strength: "UPDATE"}), "", actor.Scope).Where("id IN ? AND deleted_at IS NULL", gameIDs).Find(&before).Error; err != nil {
 			return err
 		}
 		if len(before) != len(gameIDs) {
@@ -697,7 +686,7 @@ func (s *Service) BatchUpdateGames(in GameBatchInput, actor Actor) (map[string]a
 			} else {
 				values = gameDraftUpdate(actor, updates)
 			}
-			db := tenancy.ApplySite(tx.Table("game_games"), "", actor.Scope).Where("id IN ? AND deleted_at IS NULL", gameIDs).Updates(values)
+			db := content.ApplySite(tx.Table("game_games"), "", actor.Scope).Where("id IN ? AND deleted_at IS NULL", gameIDs).Updates(values)
 			if db.Error != nil {
 				return db.Error
 			}
@@ -710,7 +699,7 @@ func (s *Service) BatchUpdateGames(in GameBatchInput, actor Actor) (map[string]a
 			} else {
 				values = gameDraftUpdate(actor, values)
 			}
-			db := tenancy.ApplySite(tx.Table("game_games"), "", actor.Scope).Where("id=? AND deleted_at IS NULL", gameID).Updates(values)
+			db := content.ApplySite(tx.Table("game_games"), "", actor.Scope).Where("id=? AND deleted_at IS NULL", gameID).Updates(values)
 			if db.Error != nil {
 				return db.Error
 			}
@@ -735,7 +724,7 @@ func (s *Service) BatchUpdateGames(in GameBatchInput, actor Actor) (map[string]a
 					if err != nil {
 						return newError("INVALID_REQUEST", "invalid category configuration")
 					}
-					if err := tenancy.ApplySite(tx.Table("game_games"), "", actor.Scope).
+					if err := content.ApplySite(tx.Table("game_games"), "", actor.Scope).
 						Where("id=? AND deleted_at IS NULL", gameID).
 						Updates(map[string]any{"category_ids_draft": string(encoded), "updated_at": time.Now()}).Error; err != nil {
 						return err
@@ -827,7 +816,7 @@ func (s *Service) batchReplaceRelations(tx *gorm.DB, actor Actor, gameIDs []uint
 	}
 	if len(targetIDs) > 0 {
 		var count int64
-		targetDB := tenancy.ApplySite(tx.Table(config.targetTable), "", actor.Scope)
+		targetDB := content.ApplySite(tx.Table(config.targetTable), "", actor.Scope)
 		if kind == "category" {
 			var err error
 			targetDB, err = applyCategoryWriteScope(tx.Table(config.targetTable), "", actor.Scope)
@@ -843,7 +832,7 @@ func (s *Service) batchReplaceRelations(tx *gorm.DB, actor Actor, gameIDs []uint
 		}
 	}
 	now := time.Now()
-	relationDB := tenancy.ApplySite(tx.Table(config.relationTable), "", actor.Scope)
+	relationDB := content.ApplySite(tx.Table(config.relationTable), "", actor.Scope)
 	if kind == "category" {
 		relationDB = applyCategoryResourceScope(tx.Table(config.relationTable), "", actor.Scope)
 	}
@@ -855,7 +844,7 @@ func (s *Service) batchReplaceRelations(tx *gorm.DB, actor Actor, gameIDs []uint
 		for _, gameID := range gameIDs {
 			for index, targetID := range targetIDs {
 				row := map[string]any{
-					"tenant_id":    actor.Scope.TenantID,
+
 					"site_id":      actor.Scope.SiteID,
 					"game_id":      gameID,
 					config.foreign: targetID,
@@ -897,14 +886,14 @@ func (s *Service) batchReplaceRelations(tx *gorm.DB, actor Actor, gameIDs []uint
 		primaryID = category.ID
 		primaryCode = category.Code
 	}
-	return tenancy.ApplySite(tx.Table("game_games"), "", actor.Scope).Where("id IN ? AND deleted_at IS NULL", gameIDs).Updates(map[string]any{
+	return content.ApplySite(tx.Table("game_games"), "", actor.Scope).Where("id IN ? AND deleted_at IS NULL", gameIDs).Updates(map[string]any{
 		"platform_category_id":   primaryID,
 		"platform_category_code": primaryCode,
 		"updated_at":             now,
 	}).Error
 }
 
-func effectiveStatus(providerEnabled, platformEnabled bool) int {
+func effectiveStatus(providerEnabled bool, platformEnabled bool) int {
 	if providerEnabled && platformEnabled {
 		return 1
 	}
@@ -914,7 +903,7 @@ func effectiveStatus(providerEnabled, platformEnabled bool) int {
 func (s *Service) SetGameCategories(id uint64, in RelationInput, actor Actor) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		var count int64
-		if err := tenancy.ApplySite(tx.Table("game_games"), "", actor.Scope).Where("id=? AND deleted_at IS NULL", id).Count(&count).Error; err != nil {
+		if err := content.ApplySite(tx.Table("game_games"), "", actor.Scope).Where("id=? AND deleted_at IS NULL", id).Count(&count).Error; err != nil {
 			return err
 		}
 		if count == 0 {
@@ -958,19 +947,19 @@ func (s *Service) replaceRelations(gameID uint64, in RelationInput, actor Actor,
 	}[kind]
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		var count int64
-		if err := tenancy.ApplySite(tx.Table("game_games"), "", actor.Scope).Where("id=? AND deleted_at IS NULL", gameID).Count(&count).Error; err != nil {
+		if err := content.ApplySite(tx.Table("game_games"), "", actor.Scope).Where("id=? AND deleted_at IS NULL", gameID).Count(&count).Error; err != nil {
 			return err
 		}
 		if count == 0 {
 			return newError("GAME_NOT_FOUND", "record not found")
 		}
 		var before []uint64
-		_ = tenancy.ApplySite(tx.Table(config.table), "", actor.Scope).Where("game_id=? AND deleted_at IS NULL", gameID).Pluck(config.foreign, &before).Error
-		if err := tenancy.ApplySite(tx.Table(config.table), "", actor.Scope).Where("game_id=? AND deleted_at IS NULL", gameID).Update("deleted_at", time.Now()).Error; err != nil {
+		_ = content.ApplySite(tx.Table(config.table), "", actor.Scope).Where("game_id=? AND deleted_at IS NULL", gameID).Pluck(config.foreign, &before).Error
+		if err := content.ApplySite(tx.Table(config.table), "", actor.Scope).Where("game_id=? AND deleted_at IS NULL", gameID).Update("deleted_at", time.Now()).Error; err != nil {
 			return err
 		}
 		for index, targetID := range uniqueIDs(in.IDs) {
-			row := map[string]any{"tenant_id": actor.Scope.TenantID, "site_id": actor.Scope.SiteID, "game_id": gameID, config.foreign: targetID, "created_at": time.Now(), "updated_at": time.Now(), "deleted_at": nil}
+			row := map[string]any{"site_id": actor.Scope.SiteID, "game_id": gameID, config.foreign: targetID, "created_at": time.Now(), "updated_at": time.Now(), "deleted_at": nil}
 			if kind == "category" {
 				row["sort"] = index
 			}
@@ -1010,11 +999,11 @@ func uniqueStrings(values []string) []string {
 	return result
 }
 
-func (s *Service) LaunchDemo(ctx context.Context, id uint64, scope tenancy.Scope) (map[string]any, error) {
+func (s *Service) LaunchDemo(ctx context.Context, id uint64, scope content.Scope) (map[string]any, error) {
 	var game gameRecord
 	db := s.db.Table("game_games g").Select("g.*,p.provider_code").Joins("JOIN game_game_providers p ON p.id=g.provider_id").Where("g.id=? AND g.deleted_at IS NULL", id)
-	db = tenancy.ApplySite(db, "g", scope)
-	db = tenancy.ApplySite(db, "p", scope)
+	db = content.ApplySite(db, "g", scope)
+	db = content.ApplySite(db, "p", scope)
 	if err := db.Take(&game).Error; err != nil {
 		return nil, notFound(err, "GAME_NOT_FOUND")
 	}

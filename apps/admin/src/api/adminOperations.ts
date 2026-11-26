@@ -53,7 +53,7 @@ export type OperationAsset = {
 };
 
 export type AssetType = "IMAGE" | "AUDIO" | "VIDEO" | "LOTTIE";
-export type AssetScope = "PLATFORM" | "TENANT";
+export type AssetScope = "PLATFORM" | "SITE";
 export type AssetUsage =
   | "GENERAL"
   | "LOGO"
@@ -68,7 +68,6 @@ export type AssetUsage =
 
 export type AssetLibraryRecord = {
   id: number;
-  tenantID: number;
   siteID: number;
   assetScope: AssetScope;
   assetType: AssetType;
@@ -100,7 +99,6 @@ export type AssetReference = {
   table: string;
   column: string;
   recordID: number;
-  tenantID: number;
   siteID: number;
   targetType: string;
 };
@@ -162,7 +160,6 @@ export type BannerConfiguration = {
 
 export type SiteBannerRecord = {
   id: number;
-  tenantID: number;
   siteID: number;
   name: string;
   publishStatus: "DRAFT" | "PUBLISHED";
@@ -224,7 +221,6 @@ export type H5NavigationConfiguration = {
 
 export type H5NavigationRecord = {
   id: number;
-  tenantID: number;
   siteID: number;
   menuCode: string;
   publishStatus: "DRAFT" | "PUBLISHED";

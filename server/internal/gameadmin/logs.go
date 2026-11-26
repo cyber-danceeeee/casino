@@ -5,8 +5,8 @@ import (
 
 	"gorm.io/gorm"
 
+	"casino/internal/content"
 	"casino/internal/model"
-	"casino/internal/tenancy"
 )
 
 const syncRawPreviewLimit = 20_000
@@ -14,7 +14,7 @@ const syncRawPreviewLimit = 20_000
 func (s *Service) ListSyncLogs(q ListQuery) (PageResult, error) {
 	var rows []syncLogRecord
 	db := s.db.Model(&syncLogRecord{}).Where("deleted_at IS NULL")
-	db = tenancy.ApplySite(db, "", q.Scope)
+	db = content.ApplySite(db, "", q.Scope)
 	db = equal(db, "provider_code", q.Values["providerCode"])
 	db = equal(db, "status", q.Values["status"])
 	db = contains(db, "triggered_by", q.Values["triggeredBy"])
@@ -34,16 +34,16 @@ type syncItemRecord struct {
 	ErrorMessage   string `json:"errorMessage"`
 }
 
-func (s *Service) SyncLogDetail(id uint64, scope tenancy.Scope) (map[string]any, error) {
+func (s *Service) SyncLogDetail(id uint64, scope content.Scope) (map[string]any, error) {
 	var row syncLogRecord
-	if err := tenancy.ApplySite(s.db.Model(&syncLogRecord{}), "", scope).Where("id=? AND deleted_at IS NULL", id).Take(&row).Error; err != nil {
+	if err := content.ApplySite(s.db.Model(&syncLogRecord{}), "", scope).Where("id=? AND deleted_at IS NULL", id).Take(&row).Error; err != nil {
 		return nil, notFound(err, "SYNC_LOG_NOT_FOUND")
 	}
 	var failedTotal, changedTotal int64
-	_ = tenancy.ApplySite(s.db.Table("game_provider_sync_log_items"), "", scope).
+	_ = content.ApplySite(s.db.Table("game_provider_sync_log_items"), "", scope).
 		Where("sync_log_id=? AND change_type IN ? AND deleted_at IS NULL", id, []string{"FAILED", "THUMBNAIL_FAILED"}).
 		Count(&failedTotal).Error
-	_ = tenancy.ApplySite(s.db.Table("game_provider_sync_log_items"), "", scope).
+	_ = content.ApplySite(s.db.Table("game_provider_sync_log_items"), "", scope).
 		Where("sync_log_id=? AND change_type IN ? AND deleted_at IS NULL", id, []string{"NEW", "UPDATED", "DISABLED"}).
 		Count(&changedTotal).Error
 	return map[string]any{
@@ -62,15 +62,15 @@ func (s *Service) SyncLogItems(id uint64, itemType string, q ListQuery) (PageRes
 		return PageResult{}, err
 	}
 	var rows []syncItemRecord
-	db := tenancy.ApplySite(s.db.Table("game_provider_sync_log_items"), "", q.Scope).
+	db := content.ApplySite(s.db.Table("game_provider_sync_log_items"), "", q.Scope).
 		Where("sync_log_id=? AND change_type IN ? AND deleted_at IS NULL", id, types).
 		Order("id ASC")
 	return paginate(db, q, &rows)
 }
 
-func (s *Service) SyncLogRawResponse(id uint64, scope tenancy.Scope) (map[string]any, error) {
+func (s *Service) SyncLogRawResponse(id uint64, scope content.Scope) (map[string]any, error) {
 	var row syncLogRecord
-	if err := tenancy.ApplySite(s.db.Model(&syncLogRecord{}), "", scope).Where("id=? AND deleted_at IS NULL", id).Take(&row).Error; err != nil {
+	if err := content.ApplySite(s.db.Model(&syncLogRecord{}), "", scope).Where("id=? AND deleted_at IS NULL", id).Take(&row).Error; err != nil {
 		return nil, notFound(err, "SYNC_LOG_NOT_FOUND")
 	}
 	return syncRawProviderPreview(row.RawResponse), nil
@@ -78,20 +78,20 @@ func (s *Service) SyncLogRawResponse(id uint64, scope tenancy.Scope) (map[string
 
 func (s *Service) SyncLogOperationLogs(id uint64, q ListQuery) (PageResult, error) {
 	var row syncLogRecord
-	if err := tenancy.ApplySite(s.db.Model(&syncLogRecord{}), "", q.Scope).Where("id=? AND deleted_at IS NULL", id).Take(&row).Error; err != nil {
+	if err := content.ApplySite(s.db.Model(&syncLogRecord{}), "", q.Scope).Where("id=? AND deleted_at IS NULL", id).Take(&row).Error; err != nil {
 		return PageResult{}, notFound(err, "SYNC_LOG_NOT_FOUND")
 	}
 	var rows []model.GameAdminOperationLogs
-	db := tenancy.ApplySite(s.db.Model(&model.GameAdminOperationLogs{}), "", q.Scope).Where(
+	db := content.ApplySite(s.db.Model(&model.GameAdminOperationLogs{}), "", q.Scope).Where(
 		"target_type='game_provider' AND action='synchronize' AND JSON_UNQUOTE(JSON_EXTRACT(after_state, '$.syncID'))=?",
 		row.SyncNo,
 	).Order("id DESC")
 	return paginate(db, q, &rows)
 }
 
-func (s *Service) ensureSyncLogExists(id uint64, scope tenancy.Scope) error {
+func (s *Service) ensureSyncLogExists(id uint64, scope content.Scope) error {
 	var count int64
-	if err := tenancy.ApplySite(s.db.Model(&syncLogRecord{}), "", scope).Where("id=? AND deleted_at IS NULL", id).Count(&count).Error; err != nil {
+	if err := content.ApplySite(s.db.Model(&syncLogRecord{}), "", scope).Where("id=? AND deleted_at IS NULL", id).Count(&count).Error; err != nil {
 		return err
 	}
 	if count == 0 {
@@ -180,8 +180,8 @@ func (s *Service) ListLaunchLogs(q ListQuery) (PageResult, error) {
 		Joins("JOIN game_game_providers p ON p.id=l.provider_id").
 		Joins("LEFT JOIN game_country_configs cc ON cc.id=l.country_id AND cc.deleted_at IS NULL").
 		Where("l.deleted_at IS NULL")
-	db = tenancy.ApplySite(db, "l", q.Scope)
-	db = tenancy.ApplySite(db, "u", q.Scope)
+	db = content.ApplySite(db, "l", q.Scope)
+	db = content.ApplySite(db, "u", q.Scope)
 	db = applyGameCatalogReadableScope(db, "g", q.Scope)
 	db = applyGameCatalogReadableScope(db, "p", q.Scope)
 	db = contains(db, "l.session_id", q.Values["sessionID"])
@@ -214,7 +214,7 @@ func (s *Service) ListLaunchLogs(q ListQuery) (PageResult, error) {
 	return paginate(db.Order("l.id DESC"), q, &rows)
 }
 
-func (s *Service) LaunchLogDetail(id uint64, scope tenancy.Scope) (map[string]any, error) {
+func (s *Service) LaunchLogDetail(id uint64, scope content.Scope) (map[string]any, error) {
 	var row launchLogRecord
 	db := s.db.Table("game_game_launch_logs l").Select(`l.id,l.launch_no,l.session_id,l.user_id,u.user_no,CASE WHEN NULLIF(u.phone,'') IS NOT NULL THEN TRIM(CONCAT_WS(' ',NULLIF(u.phone_country_code,''),u.phone)) ELSE u.username END username,l.game_id,g.game_code,g.name game_name,p.provider_code,g.provider_game_code provider_game_id,l.launch_type,
 		COALESCE(NULLIF(l.currency_code_snapshot,''),l.currency) currency,COALESCE(NULLIF(l.language_code_snapshot,''),l.language) language,
@@ -227,8 +227,8 @@ func (s *Service) LaunchLogDetail(id uint64, scope tenancy.Scope) (map[string]an
 		Joins("JOIN game_game_providers p ON p.id=l.provider_id").
 		Joins("LEFT JOIN game_country_configs cc ON cc.id=l.country_id AND cc.deleted_at IS NULL").
 		Where("l.id=? AND l.deleted_at IS NULL", id)
-	db = tenancy.ApplySite(db, "l", scope)
-	db = tenancy.ApplySite(db, "u", scope)
+	db = content.ApplySite(db, "l", scope)
+	db = content.ApplySite(db, "u", scope)
 	db = applyGameCatalogReadableScope(db, "g", scope)
 	db = applyGameCatalogReadableScope(db, "p", scope)
 	if err := db.Take(&row).Error; err != nil {
@@ -255,19 +255,19 @@ func (s *Service) LaunchLogDetail(id uint64, scope tenancy.Scope) (map[string]an
 	return map[string]any{"overview": row, "sessionTimeline": timeline, "providerRequest": row.ProviderRequest, "providerResponse": row.ProviderResponse, "countryConfiguration": country, "operationLogs": s.operationLogs("game_launch", id)}, nil
 }
 
-// Launch records belong to the tenant, while games and providers are normally
+// Launch records belong to the site, while games and providers are normally
 // platform-owned catalog records. The joins must therefore allow the platform
-// catalog without widening the tenant-owned launch record scope.
-func applyGameCatalogReadableScope(db *gorm.DB, alias string, scope tenancy.Scope) *gorm.DB {
+// catalog without widening the H5 launch record scope.
+func applyGameCatalogReadableScope(db *gorm.DB, alias string, scope content.Scope) *gorm.DB {
 	prefix := ""
 	if strings.TrimSpace(alias) != "" {
 		prefix = strings.TrimSpace(alias) + "."
 	}
 	if scope.Platform {
-		return db.Where(prefix + "tenant_id = 0 AND " + prefix + "site_id = 0")
+		return db.Where(prefix + "site_id = 0")
 	}
-	if !scope.TenantScoped() {
+	if !scope.SiteScoped() {
 		return db.Where("1 = 0")
 	}
-	return db.Where("("+prefix+"tenant_id = 0 AND "+prefix+"site_id = 0) OR ("+prefix+"tenant_id = ? AND ("+prefix+"site_id = 0 OR "+prefix+"site_id = ?))", scope.TenantID, scope.SiteID)
+	return db.Where(prefix+"site_id IN (0, ?)", scope.SiteID)
 }

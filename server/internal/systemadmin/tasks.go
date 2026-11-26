@@ -9,9 +9,10 @@ import (
 	"sync"
 	"time"
 
+	"casino/internal/content"
 	"casino/internal/eventbus"
 	"casino/internal/reportadmin"
-	"casino/internal/tenancy"
+
 	"gorm.io/gorm"
 )
 
@@ -238,7 +239,7 @@ func (s *Service) runTask(id uint64, triggeredBy string, actor Actor) error {
 			return err
 		}
 		_, err := eventbus.New(tx).PublishTx(tx, eventbus.Event{
-			Scope: tenancy.Scope{Platform: true}, EventType: eventbus.EventSystemTaskRequested,
+			Scope: content.Scope{Platform: true}, EventType: eventbus.EventSystemTaskRequested,
 			AggregateType: "system_task_execution", AggregateID: fmt.Sprint(execution.ID), Source: "systemadmin", Producer: "systemadmin",
 			IdempotencyKey: "system-task-execution:" + execution.ExecutionNo, RequestID: actor.CorrelationID,
 			TraceID: actor.CorrelationID, CorrelationID: actor.CorrelationID, TargetConsumers: []string{eventbus.ConsumerSystemTask},
@@ -410,7 +411,7 @@ func cronBounds(index int) (int, int) {
 		return 0, 6
 	}
 }
-func validCronField(spec string, min, max int) bool {
+func validCronField(spec string, min int, max int) bool {
 	if spec == "*" {
 		return true
 	}
@@ -451,7 +452,7 @@ func validCronField(spec string, min, max int) bool {
 	}
 	return true
 }
-func cronMatch(spec string, value, min, max int) bool {
+func cronMatch(spec string, value int, min int, max int) bool {
 	if !validCronField(spec, min, max) {
 		return false
 	}

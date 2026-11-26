@@ -18,11 +18,10 @@ import UserStatusTag from "@/components/users/UserStatusTag.vue";
 import H5PreviewFrame from "@/components/brand/H5PreviewFrame.vue";
 import { useAdminPermissions } from "@/composables/useAdminPermissions";
 import { formatBackendTime, selectedTimeToBackend } from "@/utils/timezone";
-import { generateTemporaryPassword } from "@/utils/temporaryPassword";
+
 import {
   systemAPI,
   uploadPlatformAsset,
-  type TenantProvisionResult,
   type SystemDetail,
   type SystemRecord,
 } from "@/api/adminSystem";
@@ -35,7 +34,7 @@ const moduleKey = computed(() => String(route.meta.moduleKey || "admins"));
 const config = computed(() => {
   const source = systemConfigs[moduleKey.value];
   if (!source) return source;
-  const internal = new Set(["tenantID", "tenant", "siteID", "site"]);
+  const internal = new Set(["siteID", "site"]);
   return { ...source, filters: source.filters.filter((field) => !internal.has(field.key)), columns: source.columns.filter((field) => !internal.has(field.key)), form: source.form?.filter((field) => !internal.has(field.key)) };
 });
 const query = reactive<Record<string, string | string[]>>({});
@@ -96,58 +95,6 @@ const sitePreview = ref<SystemDetail>({});
 const sitePublishingID = ref(0);
 const apkUploading = ref(false);
 const platformLogoPreview = ref("");
-const provisionVisible = ref(false);
-const provisionLoading = ref(false);
-const provisionResult = ref<TenantProvisionResult | null>(null);
-const provisionForm = reactive<Record<string, any>>({
-  tenantCode: "",
-  tenantName: "",
-  companyName: "",
-  primaryDomain: "",
-  h5Domain: "",
-  adminDomain: "",
-  countryCode: "PK",
-  currencyCode: "PKR",
-  language: "en",
-  timezone: "Asia/Karachi",
-  appName: "",
-  logo: "",
-  primaryColor: "#E53935",
-  secondaryColor: "#FFB300",
-  buttonColor: "#E53935",
-  ownerUsername: "",
-  ownerPassword: generateTemporaryPassword(),
-  ownerEmail: "",
-  reason: "provision tenant brand",
-});
-const provisionTimezoneOptions = [
-  "Asia/Karachi",
-  "Asia/Shanghai",
-  "Asia/Kuala_Lumpur",
-  "Asia/Tokyo",
-  "Asia/Bangkok",
-  "Asia/Jakarta",
-  "America/New_York",
-  "America/Los_Angeles",
-  "America/Mexico_City",
-  "UTC",
-];
-const deliveryFields = computed<Array<[string, string, unknown]>>(() => {
-  const row = provisionResult.value;
-  if (!row) return [];
-  return [
-    ["brandName", t("systemCenter.fields.name"), row.brandName],
-    ["tenantID", t("systemCenter.fields.tenantID"), row.tenantID],
-    ["siteID", t("systemCenter.fields.siteID"), row.siteID],
-    ["h5Url", t("systemCenter.fields.h5Url"), row.h5Url || domainURL(row.h5Domain)],
-    ["adminUrl", t("systemCenter.fields.adminUrl"), row.adminUrl || domainURL(row.adminDomain)],
-    ["adminUsername", t("systemCenter.fields.adminUsername"), row.adminUsername],
-    ["temporaryPassword", t("systemCenter.fields.temporaryPassword"), row.temporaryPassword],
-    ["deliveryEmail", t("systemCenter.fields.ownerEmail"), row.deliveryEmail],
-    ["domainStatus", t("systemCenter.fields.domainStatus"), row.domainStatus],
-    ["initialConfigVersion", t("systemCenter.fields.initialConfigVersion"), `v${row.initialConfigVersion || 1}`],
-  ];
-});
 let monitorTimer: number | undefined;
 const countryImageAssetKeys = new Set([
   "logoUrl",
@@ -167,7 +114,6 @@ const countryColorKeys = new Set([
 ]);
 const hiddenDetailIDKeys = new Set([
   "id",
-  "tenantid",
   "siteid",
   "adminid",
   "roleid",
@@ -657,110 +603,6 @@ async function openCreate() {
   resetForm();
   editVisible.value = true;
   if (moduleKey.value === "menus") await loadMenuEditorOptions();
-}
-function resetProvisionForm() {
-  Object.assign(provisionForm, {
-    tenantCode: "",
-    tenantName: "",
-    companyName: "",
-    primaryDomain: "",
-    h5Domain: "",
-    adminDomain: "",
-    countryCode: "PK",
-    currencyCode: "PKR",
-    language: "en",
-    timezone: "Asia/Karachi",
-    appName: "",
-    logo: "",
-    primaryColor: "#E53935",
-    secondaryColor: "#FFB300",
-    buttonColor: "#E53935",
-    ownerUsername: "",
-    ownerPassword: generateTemporaryPassword(),
-    ownerEmail: "",
-    reason: "provision tenant brand",
-  });
-  provisionResult.value = null;
-}
-function openProvisionBrand() {
-  resetProvisionForm();
-  provisionVisible.value = true;
-}
-async function submitProvisionBrand() {
-  const required = ["tenantCode", "tenantName", "primaryDomain", "ownerUsername", "ownerPassword", "ownerEmail"];
-  if (required.some((key) => !String(provisionForm[key] || "").trim())) {
-    ElMessage.warning(t("systemCenter.validation.requiredFields"));
-    return;
-  }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(provisionForm.ownerEmail))) {
-    ElMessage.warning(t("createBrand.messages.invalidEmail"));
-    return;
-  }
-  provisionLoading.value = true;
-  try {
-    provisionResult.value = await systemAPI.tenants.provision({ ...provisionForm });
-    ElMessage.success(t("systemCenter.messages.brandProvisioned"));
-    await load();
-  } catch {
-    ElMessage.error(t("systemCenter.messages.operationFailed"));
-  } finally {
-    provisionLoading.value = false;
-  }
-}
-function domainURL(domain?: string) {
-  const value = String(domain || "").trim();
-  if (!value) return "";
-  if (/^https?:\/\//i.test(value)) return value;
-  return `https://${value}`;
-}
-function deliveryText() {
-  return deliveryFields.value.map(([, label, value]) => `${label}: ${value || "-"}`).join("\n");
-}
-async function copyDeliveryInfo() {
-  try {
-    await navigator.clipboard.writeText(deliveryText());
-    ElMessage.success(t("systemCenter.messages.operationSucceeded"));
-  } catch {
-    ElMessage.error(t("systemCenter.messages.operationFailed"));
-  }
-}
-function openDeliveryURL(url?: string) {
-  const value = String(url || "").trim();
-  if (!value) return;
-  window.open(value, "_blank", "noopener,noreferrer");
-}
-async function resetDeliveryPassword() {
-  if (!provisionResult.value?.adminID) return;
-  try {
-    const reason = await reasonPrompt("systemCenter.actions.resetPassword");
-    const result = await systemAPI.admins.resetPassword(provisionResult.value.adminID, reason);
-    provisionResult.value = {
-      ...provisionResult.value,
-      temporaryPassword: result.temporaryPassword,
-    };
-    ElMessage.success(t("systemCenter.messages.operationSucceeded"));
-  } catch (error) {
-    if (error !== "cancel" && error !== "close") {
-      ElMessage.error(t("systemCenter.messages.operationFailed"));
-    }
-  }
-}
-async function disableProvisionedBrand() {
-  if (!provisionResult.value?.tenantID) return;
-  try {
-    const reason = await reasonPrompt("systemCenter.actions.changeStatus");
-    await systemAPI.tenants.status(provisionResult.value.tenantID, false, reason);
-    provisionResult.value = {
-      ...provisionResult.value,
-      domainStatus: "DISABLED",
-    };
-    ElMessage.success(t("systemCenter.messages.operationSucceeded"));
-    await load();
-  } catch (error) {
-    if (error !== "cancel" && error !== "close") {
-      ElMessage.error(t("systemCenter.messages.operationFailed"));
-    }
-  }
 }
 async function openEdit(row: SystemRecord) {
   editID.value = rowID(row);
@@ -1555,9 +1397,9 @@ onBeforeUnmount(() => {
           ><el-button
             v-if="canCreate"
             type="primary"
-            @click="moduleKey === 'tenants' ? openProvisionBrand() : openCreate()"
+            @click="openCreate()"
           >{{
-            t(moduleKey === 'tenants' ? "systemCenter.actions.createBrand" : "common.create")
+            t("common.create")
           }}</el-button></template
         >
         <el-table
@@ -2340,78 +2182,6 @@ onBeforeUnmount(() => {
           t(isSiteModule ? (actor?.platform ? "systemCenter.actions.saveSite" : "systemCenter.actions.saveSiteDraft") : "common.confirm")
         }}</el-button></template
       >
-    </el-dialog>
-
-    <el-dialog
-      v-model="provisionVisible"
-      :title="t('systemCenter.dialogs.createBrand')"
-      width="min(880px,94vw)"
-      destroy-on-close
-    >
-      <el-form
-        v-loading="provisionLoading"
-        label-position="left"
-        label-width="150px"
-      >
-        <el-row :gutter="16">
-          <el-col :xs="24" :md="12"><el-form-item :label="label('tenantCode')" required><el-input v-model="provisionForm.tenantCode" /></el-form-item></el-col>
-          <el-col :xs="24" :md="12"><el-form-item :label="label('tenantName')" required><el-input v-model="provisionForm.tenantName" /></el-form-item></el-col>
-          <el-col :xs="24" :md="12"><el-form-item :label="label('companyName')"><el-input v-model="provisionForm.companyName" /></el-form-item></el-col>
-          <el-col :xs="24" :md="12"><el-form-item :label="label('appName')"><el-input v-model="provisionForm.appName" /></el-form-item></el-col>
-          <el-col :xs="24" :md="8"><el-form-item :label="label('primaryDomain')" required><el-input v-model="provisionForm.primaryDomain" /></el-form-item></el-col>
-          <el-col :xs="24" :md="8"><el-form-item :label="label('h5Domain')"><el-input v-model="provisionForm.h5Domain" /></el-form-item></el-col>
-          <el-col :xs="24" :md="8"><el-form-item :label="label('adminDomain')"><el-input v-model="provisionForm.adminDomain" /></el-form-item></el-col>
-          <el-col :xs="24" :md="8"><el-form-item :label="label('countryCode')"><el-input v-model="provisionForm.countryCode" /></el-form-item></el-col>
-          <el-col :xs="24" :md="8"><el-form-item :label="label('currencyCode')"><el-input v-model="provisionForm.currencyCode" /></el-form-item></el-col>
-          <el-col :xs="24" :md="8"><el-form-item :label="label('defaultLanguage')"><el-input v-model="provisionForm.language" /></el-form-item></el-col>
-          <el-col :xs="24" :md="12"><el-form-item :label="label('timezone')"><el-select v-model="provisionForm.timezone" filterable><el-option v-for="item in provisionTimezoneOptions" :key="item" :label="item" :value="item" /></el-select></el-form-item></el-col>
-          <el-col :xs="24" :md="12"><el-form-item :label="label('logo')"><el-input v-model="provisionForm.logo" placeholder="https://..." /></el-form-item></el-col>
-          <el-col :xs="24" :md="8"><el-form-item :label="label('primaryColor')"><div class="color-field"><el-color-picker v-model="provisionForm.primaryColor" /><el-input v-model="provisionForm.primaryColor" /></div></el-form-item></el-col>
-          <el-col :xs="24" :md="8"><el-form-item :label="label('secondaryColor')"><div class="color-field"><el-color-picker v-model="provisionForm.secondaryColor" /><el-input v-model="provisionForm.secondaryColor" /></div></el-form-item></el-col>
-          <el-col :xs="24" :md="8"><el-form-item :label="label('buttonColor')"><div class="color-field"><el-color-picker v-model="provisionForm.buttonColor" /><el-input v-model="provisionForm.buttonColor" /></div></el-form-item></el-col>
-          <el-col :xs="24" :md="12"><el-form-item :label="label('ownerUsername')" required><el-input v-model="provisionForm.ownerUsername" /></el-form-item></el-col>
-          <el-col :xs="24" :md="12"><el-form-item :label="label('ownerPassword')" required><el-input v-model="provisionForm.ownerPassword" disabled><template #append><el-tooltip :content="t('createBrand.actions.regeneratePassword')"><el-button :icon="ElementPlusIcons.RefreshRight" :aria-label="t('createBrand.actions.regeneratePassword')" @click="provisionForm.ownerPassword = generateTemporaryPassword()" /></el-tooltip></template></el-input></el-form-item></el-col>
-          <el-col :xs="24" :md="12"><el-form-item :label="label('ownerEmail')" required><el-input v-model="provisionForm.ownerEmail" type="email" autocomplete="email" /></el-form-item></el-col>
-          <el-col :xs="24"><el-form-item :label="label('reason')"><el-input v-model="provisionForm.reason" type="textarea" /></el-form-item></el-col>
-        </el-row>
-      </el-form>
-      <section v-if="provisionResult" class="delivery-card">
-        <div class="delivery-card__header">
-          <div>
-            <p>{{ t("systemCenter.messages.brandProvisioned") }}</p>
-            <h3>{{ provisionResult.brandName || provisionResult.primaryDomain }}</h3>
-          </div>
-          <el-tag effect="plain" type="warning">{{ provisionResult.domainStatus || "PENDING" }}</el-tag>
-        </div>
-        <el-descriptions class="provision-result" :column="2" border>
-          <el-descriptions-item
-            v-for="[key, labelText, value] in deliveryFields"
-            :key="key"
-            :label="labelText"
-          >
-            <span :class="{ 'delivery-password': key === 'temporaryPassword' }">
-              {{ value || "-" }}
-            </span>
-          </el-descriptions-item>
-        </el-descriptions>
-        <div class="delivery-card__actions">
-          <el-button @click="copyDeliveryInfo">{{ t("systemCenter.actions.copyDeliveryInfo") }}</el-button>
-          <el-button @click="openDeliveryURL(provisionResult.h5Url || domainURL(provisionResult.h5Domain))">
-            {{ t("systemCenter.actions.openH5") }}
-          </el-button>
-          <el-button @click="openDeliveryURL(provisionResult.adminUrl || domainURL(provisionResult.adminDomain))">
-            {{ t("systemCenter.actions.openBrandAdmin") }}
-          </el-button>
-          <el-button @click="resetDeliveryPassword">{{ t("systemCenter.actions.resetAdminPassword") }}</el-button>
-          <el-button type="danger" plain @click="disableProvisionedBrand">{{ t("systemCenter.actions.disableBrand") }}</el-button>
-        </div>
-      </section>
-      <template #footer>
-        <el-button @click="provisionVisible = false">{{ t("common.close") }}</el-button>
-        <el-button type="primary" :loading="provisionLoading" @click="submitProvisionBrand">
-          {{ t("systemCenter.actions.createBrand") }}
-        </el-button>
-      </template>
     </el-dialog>
 
     <el-dialog

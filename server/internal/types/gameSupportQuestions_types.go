@@ -10,40 +10,38 @@ var _ time.Time
 
 // Tip: suggested filling in the binding rules https://github.com/go-playground/validator in request struct fields tag.
 
-
 // CreateGameSupportQuestionsRequest request params
 type CreateGameSupportQuestionsRequest struct {
-	CategoryID  uint64 `json:"categoryID" binding:""`
-	Question  string `json:"question" binding:""`
-	AnswerHTML  string `json:"answerHTML" binding:""`
-	Sort  int `json:"sort" binding:""`
-	Status  int `json:"status" binding:""` // 1 enabled, 2 disabled
+	CategoryID uint64 `json:"categoryID" binding:""`
+	Question   string `json:"question" binding:""`
+	AnswerHTML string `json:"answerHTML" binding:""`
+	Sort       int    `json:"sort" binding:""`
+	Status     int    `json:"status" binding:""` // 1 enabled, 2 disabled
 }
 
 // UpdateGameSupportQuestionsByIDRequest request params
 type UpdateGameSupportQuestionsByIDRequest struct {
 	ID uint64 `json:"id" binding:""` // uint64 id
 
-	CategoryID  uint64 `json:"categoryID" binding:""`
-	Question  string `json:"question" binding:""`
-	AnswerHTML  string `json:"answerHTML" binding:""`
-	Sort  int `json:"sort" binding:""`
-	Status  int `json:"status" binding:""` // 1 enabled, 2 disabled
+	CategoryID uint64 `json:"categoryID" binding:""`
+	Question   string `json:"question" binding:""`
+	AnswerHTML string `json:"answerHTML" binding:""`
+	Sort       int    `json:"sort" binding:""`
+	Status     int    `json:"status" binding:""` // 1 enabled, 2 disabled
 }
 
 // GameSupportQuestionsObjDetail detail
 type GameSupportQuestionsObjDetail struct {
 	ID uint64 `json:"id"` // convert to uint64 id
 
-	CategoryID  uint64 `json:"categoryID"`
-	Question  string `json:"question"`
-	AnswerHTML  string `json:"answerHTML"`
-	Sort  int `json:"sort"`
-	Status  int `json:"status"` // 1 enabled, 2 disabled
+	CategoryID uint64     `json:"categoryID"`
+	Question   string     `json:"question"`
+	AnswerHTML string     `json:"answerHTML"`
+	Sort       int        `json:"sort"`
+	Status     int        `json:"status"` // 1 enabled, 2 disabled
 	CreatedAt  *time.Time `json:"createdAt"`
 	UpdatedAt  *time.Time `json:"updatedAt"`
 }
-
 
 // CreateGameSupportQuestionsReply only for api docs
 type CreateGameSupportQuestionsReply struct {

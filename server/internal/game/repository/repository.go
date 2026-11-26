@@ -13,9 +13,9 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"casino/internal/content"
 	"casino/internal/game/domain"
 	"casino/internal/model"
-	"casino/internal/tenancy"
 )
 
 type Repository struct {
@@ -28,7 +28,6 @@ const (
 )
 
 type SyncSummary struct {
-	TenantID     uint64     `json:"tenantID,omitempty"`
 	SiteID       uint64     `json:"siteID,omitempty"`
 	ProviderCode string     `json:"providerCode"`
 	Synced       int        `json:"synced"`
@@ -67,19 +66,19 @@ func (r *Repository) EnsureCatalogSchema(ctx context.Context) error {
 }
 
 func (r *Repository) EnsureProvider(ctx context.Context, code string, name string, apiBaseURL string, enabled bool) (*model.GameGameProviders, error) {
-	return r.EnsureProviderScoped(ctx, tenancy.Scope{}, code, name, apiBaseURL, enabled)
+	return r.EnsureProviderScoped(ctx, content.Scope{}, code, name, apiBaseURL, enabled)
 }
 
-func (r *Repository) EnsureProviderScoped(ctx context.Context, scope tenancy.Scope, code string, name string, apiBaseURL string, enabled bool) (*model.GameGameProviders, error) {
+func (r *Repository) EnsureProviderScoped(ctx context.Context, scope content.Scope, code string, name string, apiBaseURL string, enabled bool) (*model.GameGameProviders, error) {
 	status := 3
 	if enabled {
 		status = 1
 	}
 	var provider model.GameGameProviders
-	err := tenancy.ApplySite(r.db.WithContext(ctx).Model(&model.GameGameProviders{}), "", scope).Where("provider_code = ?", code).First(&provider).Error
+	err := content.ApplySite(r.db.WithContext(ctx).Model(&model.GameGameProviders{}), "", scope).Where("provider_code = ?", code).First(&provider).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		provider = model.GameGameProviders{
-			TenantID:     scope.TenantID,
+
 			SiteID:       scope.SiteID,
 			ProviderCode: code,
 			Name:         name,
@@ -98,7 +97,7 @@ func (r *Repository) EnsureProviderScoped(ctx context.Context, scope tenancy.Sco
 		"name":         name,
 		"api_base_url": apiBaseURL,
 	}
-	if err := tenancy.ApplySite(r.db.WithContext(ctx).Model(&provider), "", scope).Updates(updates).Error; err != nil {
+	if err := content.ApplySite(r.db.WithContext(ctx).Model(&provider), "", scope).Updates(updates).Error; err != nil {
 		return nil, err
 	}
 	provider.Name = name
@@ -114,9 +113,9 @@ func (r *Repository) ProviderByCode(ctx context.Context, code string) (*model.Ga
 	return &provider, nil
 }
 
-func (r *Repository) ProviderByCodeScoped(ctx context.Context, scope tenancy.Scope, code string) (*model.GameGameProviders, error) {
+func (r *Repository) ProviderByCodeScoped(ctx context.Context, scope content.Scope, code string) (*model.GameGameProviders, error) {
 	var provider model.GameGameProviders
-	query := tenancy.ApplySite(r.db.WithContext(ctx).Model(&model.GameGameProviders{}), "", scope).
+	query := content.ApplySite(r.db.WithContext(ctx).Model(&model.GameGameProviders{}), "", scope).
 		Where("provider_code = ?", code)
 	if err := query.First(&provider).Error; err != nil {
 		return nil, err
@@ -126,7 +125,7 @@ func (r *Repository) ProviderByCodeScoped(ctx context.Context, scope tenancy.Sco
 
 func (r *Repository) UpsertGame(ctx context.Context, provider *model.GameGameProviders, game domain.Game) (created bool, updated bool, err error) {
 	now := time.Now()
-	scope := tenancy.Scope{TenantID: provider.TenantID, SiteID: provider.SiteID}
+	scope := content.Scope{SiteID: provider.SiteID}
 	rawMetadata := string(game.RawMetadata)
 	rawMetadata = syncedJSONOrDefault(rawMetadata, "{}")
 	rawMetadataHash := metadataHash(rawMetadata)
@@ -142,12 +141,12 @@ func (r *Repository) UpsertGame(ctx context.Context, provider *model.GameGamePro
 	}
 
 	var existing model.GameGames
-	err = tenancy.ApplySite(r.db.WithContext(ctx).Model(&model.GameGames{}), "", scope).
+	err = content.ApplySite(r.db.WithContext(ctx).Model(&model.GameGames{}), "", scope).
 		Where("provider_id = ? AND provider_game_code = ?", provider.ID, game.ProviderGameID).
 		First(&existing).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		row := &model.GameGames{
-			TenantID:             scope.TenantID,
+
 			SiteID:               scope.SiteID,
 			GameCode:             gameCode(game.ProviderCode, game.Slug),
 			ProviderID:           provider.ID,
@@ -211,7 +210,7 @@ func (r *Repository) UpsertGame(ctx context.Context, provider *model.GameGamePro
 		existing.SupportsFreeSpins != game.SupportsFreeSpins ||
 		existing.ProviderEnabled != game.IsEnabled ||
 		existing.MetadataHash != rawMetadataHash
-	if err := tenancy.ApplySite(r.db.WithContext(ctx).Model(&existing), "", scope).Updates(updates).Error; err != nil {
+	if err := content.ApplySite(r.db.WithContext(ctx).Model(&existing), "", scope).Updates(updates).Error; err != nil {
 		return false, false, err
 	}
 	return false, changed, nil
@@ -223,18 +222,18 @@ func (r *Repository) UpdateGameLocalThumbnail(ctx context.Context, providerID ui
 		return nil
 	}
 	var provider model.GameGameProviders
-	_ = r.db.WithContext(ctx).Model(&model.GameGameProviders{}).Select("tenant_id,site_id").Where("id=?", providerID).Take(&provider).Error
-	scope := tenancy.Scope{TenantID: provider.TenantID, SiteID: provider.SiteID}
-	return tenancy.ApplySite(r.db.WithContext(ctx).Model(&model.GameGames{}), "", scope).
+	_ = r.db.WithContext(ctx).Model(&model.GameGameProviders{}).Select("site_id").Where("id=?", providerID).Take(&provider).Error
+	scope := content.Scope{SiteID: provider.SiteID}
+	return content.ApplySite(r.db.WithContext(ctx).Model(&model.GameGames{}), "", scope).
 		Where("provider_id = ? AND provider_game_code = ? AND deleted_at IS NULL", providerID, providerGameID).
 		Updates(map[string]any{"local_thumbnail_url": localURL, "updated_at": time.Now()}).Error
 }
 
 func (r *Repository) MarkMissingProviderGames(ctx context.Context, providerID uint64, providerGameIDs []string) (int, error) {
 	var provider model.GameGameProviders
-	_ = r.db.WithContext(ctx).Model(&model.GameGameProviders{}).Select("tenant_id,site_id").Where("id=?", providerID).Take(&provider).Error
-	scope := tenancy.Scope{TenantID: provider.TenantID, SiteID: provider.SiteID}
-	db := tenancy.ApplySite(r.db.WithContext(ctx).Model(&model.GameGames{}), "", scope).
+	_ = r.db.WithContext(ctx).Model(&model.GameGameProviders{}).Select("site_id").Where("id=?", providerID).Take(&provider).Error
+	scope := content.Scope{SiteID: provider.SiteID}
+	db := content.ApplySite(r.db.WithContext(ctx).Model(&model.GameGames{}), "", scope).
 		Where("provider_id = ? AND deleted_at IS NULL AND provider_enabled = 1", providerID)
 	if len(providerGameIDs) > 0 {
 		db = db.Where("provider_game_code NOT IN ?", providerGameIDs)
@@ -256,21 +255,21 @@ func syncedJSONOrDefault(value string, fallback string) string {
 	return value
 }
 
-func effectiveGameStatus(providerEnabled, platformEnabled bool) int {
+func effectiveGameStatus(providerEnabled bool, platformEnabled bool) int {
 	if providerEnabled && platformEnabled {
 		return 1
 	}
 	return 3
 }
 
-func (r *Repository) ResolvePlatformCategory(ctx context.Context, scope tenancy.Scope, providerCode string, providerCategoryCode string, gameType string) (*model.GameGameCategories, error) {
+func (r *Repository) ResolvePlatformCategory(ctx context.Context, scope content.Scope, providerCode string, providerCategoryCode string, gameType string) (*model.GameGameCategories, error) {
 	providerCode = normalizeCatalogCode(providerCode)
 	providerCategoryCode = normalizeProviderCategoryCode(providerCategoryCode)
 
 	if providerCode != "" && providerCategoryCode != "" {
 		var mapped model.GameGameCategories
-		query := tenancy.ApplySite(r.db.WithContext(ctx).Table("game_provider_category_mapping AS m"), "m", scope)
-		query = tenancy.ApplySite(query, "c", scope)
+		query := content.ApplySite(r.db.WithContext(ctx).Table("game_provider_category_mapping AS m"), "m", scope)
+		query = content.ApplySite(query, "c", scope)
 		err := query.
 			Select("c.*").
 			Joins("JOIN game_game_categories c ON c.id = m.platform_category_id AND c.deleted_at IS NULL AND c.status = ?", 1).
@@ -291,13 +290,13 @@ func (r *Repository) ResolvePlatformCategory(ctx context.Context, scope tenancy.
 	return r.ensurePlatformCategory(ctx, scope, categoryCode)
 }
 
-func (r *Repository) ensurePlatformCategory(ctx context.Context, scope tenancy.Scope, code string) (*model.GameGameCategories, error) {
+func (r *Repository) ensurePlatformCategory(ctx context.Context, scope content.Scope, code string) (*model.GameGameCategories, error) {
 	def := platformCategoryDefault(code)
 	var category model.GameGameCategories
-	err := tenancy.ApplySite(r.db.WithContext(ctx).Model(&model.GameGameCategories{}), "", scope).Where("category_key = ?", def.CategoryKey).First(&category).Error
+	err := content.ApplySite(r.db.WithContext(ctx).Model(&model.GameGameCategories{}), "", scope).Where("category_key = ?", def.CategoryKey).First(&category).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		category = def
-		category.TenantID = scope.TenantID
+		category.SiteID = scope.SiteID
 		category.SiteID = scope.SiteID
 		if err := r.db.WithContext(ctx).Create(&category).Error; err != nil {
 			return nil, err
@@ -410,7 +409,7 @@ func platformCategoryDefault(code string) model.GameGameCategories {
 func (r *Repository) RecordSyncSuccess(ctx context.Context, summary SyncSummary) error {
 	now := time.Now()
 	row := model.GameProviderSyncs{
-		TenantID:               summary.TenantID,
+
 		SiteID:                 summary.SiteID,
 		ProviderCode:           summary.ProviderCode,
 		LastSuccessfulSyncAt:   &now,
@@ -432,8 +431,8 @@ func (r *Repository) RecordSyncSuccess(ctx context.Context, summary SyncSummary)
 		"last_unchanged_game_count":   summary.Unchanged,
 		"last_provider_error_message": "",
 	}
-	scope := tenancy.Scope{TenantID: summary.TenantID, SiteID: summary.SiteID}
-	result := tenancy.ApplySiteStrict(r.db.WithContext(ctx).Model(&model.GameProviderSyncs{}), "", scope).
+	scope := content.Scope{SiteID: summary.SiteID}
+	result := content.ApplySiteStrict(r.db.WithContext(ctx).Model(&model.GameProviderSyncs{}), "", scope).
 		Where("provider_code = ?", summary.ProviderCode).
 		Updates(updates)
 	if result.Error != nil || result.RowsAffected > 0 {
@@ -443,10 +442,10 @@ func (r *Repository) RecordSyncSuccess(ctx context.Context, summary SyncSummary)
 }
 
 func (r *Repository) RecordSyncFailure(ctx context.Context, providerCode string, err error) error {
-	return r.RecordSyncFailureScoped(ctx, tenancy.Scope{}, providerCode, err)
+	return r.RecordSyncFailureScoped(ctx, content.Scope{}, providerCode, err)
 }
 
-func (r *Repository) RecordSyncFailureScoped(ctx context.Context, scope tenancy.Scope, providerCode string, err error) error {
+func (r *Repository) RecordSyncFailureScoped(ctx context.Context, scope content.Scope, providerCode string, err error) error {
 	now := time.Now()
 	message := ""
 	if err != nil {
@@ -456,14 +455,14 @@ func (r *Repository) RecordSyncFailureScoped(ctx context.Context, scope tenancy.
 		}
 	}
 	row := model.GameProviderSyncs{
-		TenantID:      scope.TenantID,
+
 		SiteID:        scope.SiteID,
 		ProviderCode:  providerCode,
 		LastAttemptAt: &now,
 		LastStatus:    "FAILED",
 		LastError:     message,
 	}
-	result := tenancy.ApplySiteStrict(r.db.WithContext(ctx).Model(&model.GameProviderSyncs{}), "", scope).
+	result := content.ApplySiteStrict(r.db.WithContext(ctx).Model(&model.GameProviderSyncs{}), "", scope).
 		Where("provider_code = ?", providerCode).
 		Updates(map[string]any{
 			"last_attempt_at": now,
@@ -476,18 +475,18 @@ func (r *Repository) RecordSyncFailureScoped(ctx context.Context, scope tenancy.
 	return r.db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&row).Error
 }
 
-func (r *Repository) FindLaunchGame(ctx context.Context, scope tenancy.Scope, providerCode string, gameID string) (*model.GameGameProviders, *model.GameGames, error) {
+func (r *Repository) FindLaunchGame(ctx context.Context, scope content.Scope, providerCode string, gameID string) (*model.GameGameProviders, *model.GameGames, error) {
 	provider, game, err := r.findLaunchGame(ctx, scope, providerCode, gameID)
 	if err == nil {
 		return provider, game, nil
 	}
-	if scope.TenantScoped() && errors.Is(err, gorm.ErrRecordNotFound) {
-		return r.findLaunchGame(ctx, tenancy.Scope{Platform: true}, providerCode, gameID)
+	if scope.SiteScoped() && errors.Is(err, gorm.ErrRecordNotFound) {
+		return r.findLaunchGame(ctx, content.Scope{Platform: true}, providerCode, gameID)
 	}
 	return nil, nil, err
 }
 
-func (r *Repository) findLaunchGame(ctx context.Context, scope tenancy.Scope, providerCode string, gameID string) (*model.GameGameProviders, *model.GameGames, error) {
+func (r *Repository) findLaunchGame(ctx context.Context, scope content.Scope, providerCode string, gameID string) (*model.GameGameProviders, *model.GameGames, error) {
 	provider, err := r.providerByCodeReadable(ctx, scope, providerCode)
 	if err != nil {
 		return nil, nil, err
@@ -502,7 +501,7 @@ func (r *Repository) findLaunchGame(ctx context.Context, scope tenancy.Scope, pr
 	return provider, &game, nil
 }
 
-func (r *Repository) providerByCodeReadable(ctx context.Context, scope tenancy.Scope, code string) (*model.GameGameProviders, error) {
+func (r *Repository) providerByCodeReadable(ctx context.Context, scope content.Scope, code string) (*model.GameGameProviders, error) {
 	var provider model.GameGameProviders
 	query := applyReadableScope(r.db.WithContext(ctx).Model(&model.GameGameProviders{}), "", scope).
 		Where("provider_code = ?", code)
@@ -512,11 +511,11 @@ func (r *Repository) providerByCodeReadable(ctx context.Context, scope tenancy.S
 	return &provider, nil
 }
 
-func applyReadableScope(db *gorm.DB, alias string, scope tenancy.Scope) *gorm.DB {
+func applyReadableScope(db *gorm.DB, alias string, scope content.Scope) *gorm.DB {
 	if scope.Platform {
-		return db.Where(repositoryColumn(alias, "tenant_id")+" = ? AND "+repositoryColumn(alias, "site_id")+" = ?", 0, 0)
+		return db.Where(repositoryColumn(alias, "")+" = ? AND "+repositoryColumn(alias, "site_id")+" = ?", 0, 0)
 	}
-	return tenancy.ApplySite(db, alias, scope)
+	return content.ApplySite(db, alias, scope)
 }
 
 func repositoryColumn(alias string, name string) string {
@@ -526,9 +525,9 @@ func repositoryColumn(alias string, name string) string {
 	return alias + "." + name
 }
 
-func (r *Repository) PlayerMapping(ctx context.Context, scope tenancy.Scope, providerCode string, userID uint64, currency string) (*model.GameProviderPlayers, error) {
+func (r *Repository) PlayerMapping(ctx context.Context, scope content.Scope, providerCode string, userID uint64, currency string) (*model.GameProviderPlayers, error) {
 	var player model.GameProviderPlayers
-	err := tenancy.ApplySite(r.db.WithContext(ctx).Model(&model.GameProviderPlayers{}), "", scope).
+	err := content.ApplySite(r.db.WithContext(ctx).Model(&model.GameProviderPlayers{}), "", scope).
 		Where("provider_code = ? AND user_id = ? AND currency = ?", providerCode, userID, currency).
 		First(&player).Error
 	if err != nil {
@@ -556,7 +555,7 @@ func (r *Repository) CreatePlayerMapping(ctx context.Context, player *model.Game
 	if player.ID > 0 {
 		return nil
 	}
-	existing, err := r.PlayerMapping(ctx, tenancy.Scope{TenantID: player.TenantID, SiteID: player.SiteID}, player.ProviderCode, player.UserID, player.Currency)
+	existing, err := r.PlayerMapping(ctx, content.Scope{SiteID: player.SiteID}, player.ProviderCode, player.UserID, player.Currency)
 	if err != nil {
 		return err
 	}

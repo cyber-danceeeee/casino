@@ -6,9 +6,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-dev-frame/sponge/pkg/gin/response"
 
+	"casino/internal/content"
 	"casino/internal/database"
 	"casino/internal/model"
-	"casino/internal/tenancy"
 )
 
 type gameWithdrawAccountRequest struct {
@@ -49,9 +49,9 @@ func (h *gameWithdrawAccountsHandler) CreateCurrent(c *gin.Context) {
 	if accountType == "" {
 		accountType = "bank"
 	}
-	scope := h5UserTenancyScope(db, user.ID, h5TenancyScope(c))
+	scope := h5UserContentScope(db, user.ID, h5ContentScope(c))
 	account := &model.GameWithdrawAccounts{
-		TenantID:         scope.TenantID,
+
 		SiteID:           scope.SiteID,
 		UserID:           user.ID,
 		AccountType:      accountType,
@@ -65,7 +65,7 @@ func (h *gameWithdrawAccountsHandler) CreateCurrent(c *gin.Context) {
 		Status:           1,
 	}
 	if account.IsDefault == 1 {
-		_ = tenancy.ApplySite(db.Model(&model.GameWithdrawAccounts{}), "", scope).Where("user_id = ?", user.ID).Update("is_default", 0).Error
+		_ = content.ApplySite(db.Model(&model.GameWithdrawAccounts{}), "", scope).Where("user_id = ?", user.ID).Update("is_default", 0).Error
 	}
 	_ = db.Create(account).Error
 	response.Success(c, gin.H{"account": account})

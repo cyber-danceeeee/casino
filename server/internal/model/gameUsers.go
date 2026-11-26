@@ -1,15 +1,15 @@
 package model
 
 import (
-	"github.com/go-dev-frame/sponge/pkg/sgorm"
 	"time"
+
+	"github.com/go-dev-frame/sponge/pkg/sgorm"
 )
 
 // GameUsers Members
 type GameUsers struct {
 	sgorm.Model `gorm:"embedded"` // embed id and time
 
-	TenantID              uint64     `gorm:"column:tenant_id;type:bigint(20) unsigned;default:0;not null" json:"tenantID"`
 	SiteID                uint64     `gorm:"column:site_id;type:bigint(20) unsigned;default:0;not null" json:"siteID"`
 	UserNo                string     `gorm:"column:user_no;type:varchar(32);not null" json:"userNo"` // Public user id
 	Username              string     `gorm:"column:username;type:varchar(64);not null" json:"username"`
@@ -40,11 +40,11 @@ type GameUsers struct {
 
 // GameUsersColumnNames Whitelist for custom query fields to prevent sql injection attacks
 var GameUsersColumnNames = map[string]bool{
-	"id":                       true,
-	"created_at":               true,
-	"updated_at":               true,
-	"deleted_at":               true,
-	"tenant_id":                true,
+	"id":         true,
+	"created_at": true,
+	"updated_at": true,
+	"deleted_at": true,
+
 	"site_id":                  true,
 	"user_no":                  true,
 	"username":                 true,

@@ -13,14 +13,14 @@ import (
 	"strings"
 	"time"
 
+	"casino/internal/content"
 	"casino/internal/eventbus"
 	"casino/internal/storage"
-	"casino/internal/tenancy"
+
 	"gorm.io/gorm"
 )
 
 type SupportExportInput struct {
-	TenantID       uint64            `json:"tenantID"`
 	SiteID         uint64            `json:"siteID"`
 	ExportType     string            `json:"exportType"`
 	Filters        map[string]string `json:"filters"`
@@ -28,9 +28,9 @@ type SupportExportInput struct {
 }
 
 type SupportExportTaskRow struct {
-	ID            uint64     `json:"id"`
-	TaskNo        string     `json:"taskNo" gorm:"column:task_no"`
-	TenantID      uint64     `json:"tenantID" gorm:"column:tenant_id"`
+	ID     uint64 `json:"id"`
+	TaskNo string `json:"taskNo" gorm:"column:task_no"`
+
 	SiteID        uint64     `json:"siteID" gorm:"column:site_id"`
 	ExportType    string     `json:"exportType" gorm:"column:export_type"`
 	Filters       string     `json:"filters"`
@@ -49,7 +49,7 @@ func (s *Service) ListSupportExports(q Query, actor Actor) (Result, error) {
 	rows := []SupportExportTaskRow{}
 	db := s.db.Table("game_support_export_tasks").Where("deleted_at IS NULL")
 	var err error
-	db, err = operationalScope(db, actor, value(q, "tenantID"), value(q, "siteID"))
+	db, err = operationalScope(db, actor, value(q, "siteID"))
 	if err != nil {
 		return Result{}, err
 	}
@@ -59,12 +59,12 @@ func (s *Service) ListSupportExports(q Query, actor Actor) (Result, error) {
 }
 
 func (s *Service) CreateSupportExport(input SupportExportInput, actor Actor) (SupportExportTaskRow, error) {
-	tenantID, siteID, err := operationalTargetScope(s.db, actor, input.TenantID, input.SiteID)
+	siteID, err := operationalTargetScope(s.db, actor, input.SiteID)
 	if err != nil {
 		return SupportExportTaskRow{}, err
 	}
-	if tenantID == 0 {
-		return SupportExportTaskRow{}, NewError("TENANT_REQUIRED", "select one tenant for support export")
+	if siteID == 0 {
+		return SupportExportTaskRow{}, NewError("SITE_REQUIRED", "H5 configuration is required for support export")
 	}
 	exportType := strings.ToUpper(strings.TrimSpace(input.ExportType))
 	if exportType != "PLAYER_TIMELINE" && exportType != "ORDER_SEARCH" {
@@ -90,7 +90,7 @@ func (s *Service) CreateSupportExport(input SupportExportInput, actor Actor) (Su
 	if err != nil {
 		return SupportExportTaskRow{}, err
 	}
-	row := map[string]any{"task_no": taskNo, "tenant_id": tenantID, "site_id": siteID, "export_type": exportType, "filters": marshal(filters), "status": "PENDING", "idempotency_key": key, "created_by": actor.ID, "expires_at": now().Add(24 * time.Hour), "created_at": now(), "updated_at": now()}
+	row := map[string]any{"task_no": taskNo, "site_id": siteID, "export_type": exportType, "filters": marshal(filters), "status": "PENDING", "idempotency_key": key, "created_by": actor.ID, "expires_at": now().Add(24 * time.Hour), "created_at": now(), "updated_at": now()}
 	if err := s.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Table("game_support_export_tasks").Create(row).Error; err != nil {
 			return duplicateError(err)
@@ -99,11 +99,11 @@ func (s *Service) CreateSupportExport(input SupportExportInput, actor Actor) (Su
 		if err := tx.Table("game_support_export_tasks").Select("id").Where("task_no=?", taskNo).Scan(&taskID).Error; err != nil {
 			return err
 		}
-		if err := audit(tx, targetAuditActor(actor, tenantID, siteID), "support:export", "support.export.create", "support_export", taskID, nil, map[string]any{"taskNo": taskNo, "exportType": exportType, "filters": filters}, "support data export"); err != nil {
+		if err := audit(tx, targetAuditActor(actor, siteID), "support:export", "support.export.create", "support_export", taskID, nil, map[string]any{"taskNo": taskNo, "exportType": exportType, "filters": filters}, "support data export"); err != nil {
 			return err
 		}
 		_, err := eventbus.New(tx).PublishTx(tx, eventbus.Event{
-			Scope: tenancy.Scope{TenantID: tenantID, SiteID: siteID, Platform: actor.Platform}, TenantID: tenantID, SiteID: siteID,
+			Scope: content.Scope{SiteID: siteID, Platform: actor.Platform}, SiteID: siteID,
 			EventType: eventbus.EventSupportExportRequested, AggregateType: "support_export", AggregateID: fmt.Sprint(taskID),
 			Source: "systemadmin", Producer: "systemadmin", IdempotencyKey: "support-export:" + taskNo,
 			RequestID: actor.CorrelationID, TraceID: actor.CorrelationID, CorrelationID: actor.CorrelationID,
@@ -169,7 +169,7 @@ func (s *Service) HandleSupportExportEvent(ctx eventbus.Context) error {
 		return NewError("SUPPORT_EXPORT_TASK_REQUIRED", "support export task is required")
 	}
 	var count int64
-	if err := s.db.Table("game_support_export_tasks").Where("id=? AND tenant_id=? AND site_id=? AND deleted_at IS NULL", id, ctx.Event.TenantID, ctx.Event.SiteID).Count(&count).Error; err != nil {
+	if err := s.db.Table("game_support_export_tasks").Where("id = ? AND site_id = ? AND deleted_at IS NULL", id, ctx.Event.SiteID).Count(&count).Error; err != nil {
 		return err
 	}
 	if count == 0 {
@@ -183,11 +183,10 @@ func (s *Service) buildSupportExport(task SupportExportTaskRow) ([]byte, uint64,
 	if err := json.Unmarshal([]byte(task.Filters), &filters); err != nil {
 		return nil, 0, NewError("INVALID_EXPORT_FILTERS", "export filters are invalid")
 	}
-	filters["tenantID"] = fmt.Sprint(task.TenantID)
 	if task.SiteID > 0 {
 		filters["siteID"] = fmt.Sprint(task.SiteID)
 	}
-	actor := Actor{TenantID: task.TenantID, SiteID: task.SiteID, Platform: false, Sensitive: false}
+	actor := Actor{SiteID: task.SiteID, Platform: false, Sensitive: false}
 	query := Query{Page: 1, PageSize: 100, Values: filters}
 	rows := []map[string]any{}
 	switch task.ExportType {
@@ -227,7 +226,7 @@ func (s *Service) buildSupportExport(task SupportExportTaskRow) ([]byte, uint64,
 func (s *Service) ReadSupportExport(id uint64, actor Actor) ([]byte, string, error) {
 	var row SupportExportTaskRow
 	db := s.db.Table("game_support_export_tasks").Where("id=? AND status='SUCCESS' AND deleted_at IS NULL", id)
-	db, _ = operationalScope(db, actor, "", "")
+	db, _ = operationalScope(db, actor, "")
 	if err := db.Take(&row).Error; err != nil {
 		return nil, "", rowNotFound("support_export")
 	}

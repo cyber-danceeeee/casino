@@ -1,15 +1,15 @@
 package model
 
 import (
-	"github.com/go-dev-frame/sponge/pkg/sgorm"
 	"time"
+
+	"github.com/go-dev-frame/sponge/pkg/sgorm"
 )
 
 // GameNotices Notices and messages
 type GameNotices struct {
 	sgorm.Model `gorm:"embedded"` // embed id and time
 
-	TenantID    uint64     `gorm:"column:tenant_id;type:bigint(20) unsigned;default:0;not null" json:"tenantID"`
 	SiteID      uint64     `gorm:"column:site_id;type:bigint(20) unsigned;default:0;not null" json:"siteID"`
 	NoticeCode  string     `gorm:"column:notice_code;type:varchar(64);not null" json:"noticeCode"`
 	NoticeType  string     `gorm:"column:notice_type;type:varchar(32);default:system;not null" json:"noticeType"`
@@ -24,11 +24,11 @@ type GameNotices struct {
 
 // GameNoticesColumnNames Whitelist for custom query fields to prevent sql injection attacks
 var GameNoticesColumnNames = map[string]bool{
-	"id":           true,
-	"created_at":   true,
-	"updated_at":   true,
-	"deleted_at":   true,
-	"tenant_id":    true,
+	"id":         true,
+	"created_at": true,
+	"updated_at": true,
+	"deleted_at": true,
+
 	"site_id":      true,
 	"notice_code":  true,
 	"notice_type":  true,

@@ -96,7 +96,7 @@ func Test_gameBannersDao_UpdateByID(t *testing.T) {
 	// zero id error
 	err = d.IDao.(GameBannersDao).UpdateByID(d.Ctx, &model.GameBanners{})
 	assert.Error(t, err)
-	
+
 }
 
 func Test_gameBannersDao_GetByID(t *testing.T) {

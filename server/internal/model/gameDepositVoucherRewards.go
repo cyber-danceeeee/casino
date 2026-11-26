@@ -9,7 +9,6 @@ import (
 type GameDepositVoucherRewards struct {
 	sgorm.Model `gorm:"embedded"` // embed id and time
 
-	TenantID       uint64           `gorm:"column:tenant_id;type:bigint(20) unsigned;default:0;not null" json:"tenantID"`
 	SiteID         uint64           `gorm:"column:site_id;type:bigint(20) unsigned;default:0;not null" json:"siteID"`
 	VoucherID      uint64           `gorm:"column:voucher_id;type:bigint(20) unsigned;not null;uniqueIndex:uk_voucher_amount" json:"voucherID"`
 	AmountOptionID uint64           `gorm:"column:amount_option_id;type:bigint(20) unsigned;not null" json:"amountOptionID"`
@@ -23,11 +22,11 @@ type GameDepositVoucherRewards struct {
 
 // GameDepositVoucherRewardsColumnNames Whitelist for custom query fields to prevent sql injection attacks
 var GameDepositVoucherRewardsColumnNames = map[string]bool{
-	"id":               true,
-	"created_at":       true,
-	"updated_at":       true,
-	"deleted_at":       true,
-	"tenant_id":        true,
+	"id":         true,
+	"created_at": true,
+	"updated_at": true,
+	"deleted_at": true,
+
 	"site_id":          true,
 	"voucher_id":       true,
 	"amount_option_id": true,

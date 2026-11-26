@@ -7,7 +7,7 @@ import (
 // gameUserSettings business-level http error codes.
 // the gameUserSettingsNO value range is 1~999, if the same error code is used, it will cause panic.
 var (
-	gameUserSettingsNO = 48
+	gameUserSettingsNO       = 48
 	gameUserSettingsName     = "gameUserSettings"
 	gameUserSettingsBaseCode = errcode.HCode(gameUserSettingsNO)
 

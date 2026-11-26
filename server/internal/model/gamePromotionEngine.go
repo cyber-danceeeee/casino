@@ -7,8 +7,8 @@ import (
 )
 
 type GamePromotionClaim struct {
-	ID             uint64           `gorm:"primaryKey" json:"id"`
-	TenantID       uint64           `gorm:"column:tenant_id" json:"tenantID"`
+	ID uint64 `gorm:"primaryKey" json:"id"`
+
 	SiteID         uint64           `gorm:"column:site_id" json:"siteID"`
 	PromotionID    uint64           `gorm:"column:promotion_id" json:"promotionID"`
 	UserID         uint64           `gorm:"column:user_id" json:"userID"`
@@ -33,8 +33,8 @@ type GamePromotionClaim struct {
 func (GamePromotionClaim) TableName() string { return "game_promotion_claims" }
 
 type GamePromotionClaimReward struct {
-	ID                  uint64           `gorm:"primaryKey" json:"id"`
-	TenantID            uint64           `gorm:"column:tenant_id" json:"tenantID"`
+	ID uint64 `gorm:"primaryKey" json:"id"`
+
 	SiteID              uint64           `gorm:"column:site_id" json:"siteID"`
 	ClaimID             uint64           `gorm:"column:claim_id;uniqueIndex:uk_promotion_claim_reward" json:"claimID"`
 	PromotionID         uint64           `gorm:"column:promotion_id" json:"promotionID"`

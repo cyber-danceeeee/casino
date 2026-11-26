@@ -96,7 +96,7 @@ func Test_gameCmsPagesDao_UpdateByID(t *testing.T) {
 	// zero id error
 	err = d.IDao.(GameCmsPagesDao).UpdateByID(d.Ctx, &model.GameCmsPages{})
 	assert.Error(t, err)
-	
+
 }
 
 func Test_gameCmsPagesDao_GetByID(t *testing.T) {

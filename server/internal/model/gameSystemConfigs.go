@@ -8,7 +8,6 @@ import (
 type GameSystemConfigs struct {
 	sgorm.Model `gorm:"embedded"` // embed id and time
 
-	TenantID    uint64 `gorm:"column:tenant_id;type:bigint(20) unsigned;default:0;not null" json:"tenantID"`
 	SiteID      uint64 `gorm:"column:site_id;type:bigint(20) unsigned;default:0;not null" json:"siteID"`
 	ConfigKey   string `gorm:"column:config_key;type:varchar(128);not null" json:"configKey"`
 	ConfigValue string `gorm:"column:config_value;type:mediumtext" json:"configValue"`
@@ -18,11 +17,11 @@ type GameSystemConfigs struct {
 
 // GameSystemConfigsColumnNames Whitelist for custom query fields to prevent sql injection attacks
 var GameSystemConfigsColumnNames = map[string]bool{
-	"id":           true,
-	"created_at":   true,
-	"updated_at":   true,
-	"deleted_at":   true,
-	"tenant_id":    true,
+	"id":         true,
+	"created_at": true,
+	"updated_at": true,
+	"deleted_at": true,
+
 	"site_id":      true,
 	"config_key":   true,
 	"config_value": true,

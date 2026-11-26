@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"casino/internal/tenancy"
+	"casino/internal/content"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -129,7 +129,7 @@ func (s *Service) PublishTx(tx *gorm.DB, event Event) (Record, error) {
 	eventID := uniqueID("EVT")
 	eventType := NormalizeType(event.EventType)
 	envelope := EventEnvelope{
-		EventID: eventID, EventType: eventType, EventVersion: eventVersion, TenantID: event.TenantID, SiteID: event.SiteID,
+		EventID: eventID, EventType: eventType, EventVersion: eventVersion, SiteID: event.SiteID,
 		RequestID: strings.TrimSpace(event.RequestID), Producer: strings.TrimSpace(event.Producer),
 		AggregateType: strings.TrimSpace(event.AggregateType), AggregateID: strings.TrimSpace(event.AggregateID), OccurredAt: occurredAt,
 		TraceID: strings.TrimSpace(event.TraceID), CorrelationID: strings.TrimSpace(event.CorrelationID), CausationID: strings.TrimSpace(event.CausationID),
@@ -142,8 +142,8 @@ func (s *Service) PublishTx(tx *gorm.DB, event Event) (Record, error) {
 		envelope.Producer = strings.TrimSpace(event.Source)
 	}
 	row := eventOutbox{
-		EventID:         eventID,
-		TenantID:        event.TenantID,
+		EventID: eventID,
+
 		SiteID:          event.SiteID,
 		EventType:       eventType,
 		EventVersion:    eventVersion,
@@ -319,7 +319,7 @@ func (s *Service) ensureDeliveries(ctx context.Context, record Record, handlers 
 		now := s.now()
 		for _, item := range handlers {
 			row := eventDelivery{
-				EventID: record.EventID, OutboxID: record.ID, TenantID: record.TenantID, SiteID: record.SiteID,
+				EventID: record.EventID, OutboxID: record.ID, SiteID: record.SiteID,
 				EventType: record.EventType, LegacyName: item.consumer, Consumer: item.consumer, Status: StatusPending, CreatedAt: now, UpdatedAt: now,
 			}
 			if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&row).Error; err != nil {
@@ -356,7 +356,7 @@ func (s *Service) dispatchToConsumer(ctx context.Context, record Record, consume
 	return s.updateDelivery(ctx, delivery.ID, StatusSuccess, "")
 }
 
-func (s *Service) updateDelivery(ctx context.Context, id uint64, status, message string) error {
+func (s *Service) updateDelivery(ctx context.Context, id uint64, status string, message string) error {
 	now := s.now()
 	updates := map[string]any{"status": status, "last_error": truncate(message, 1000), "updated_at": now}
 	if status == StatusSuccess {
@@ -403,7 +403,7 @@ func (s *Service) markDeadTx(tx *gorm.DB, id uint64, attempts uint, message stri
 	}).Error
 }
 
-func (s *Service) Get(ctx context.Context, id uint64, scope tenancy.Scope) (Record, []Delivery, error) {
+func (s *Service) Get(ctx context.Context, id uint64, scope content.Scope) (Record, []Delivery, error) {
 	var row eventOutbox
 	db := s.db.WithContext(ctx).Where("id=? AND deleted_at IS NULL", id)
 	db = applyScope(db, scope)
@@ -424,7 +424,7 @@ func (s *Service) Get(ctx context.Context, id uint64, scope tenancy.Scope) (Reco
 	return recordFromRow(row), out, nil
 }
 
-func (s *Service) ReplayEvent(ctx context.Context, id uint64, scope tenancy.Scope, force bool) (Record, error) {
+func (s *Service) ReplayEvent(ctx context.Context, id uint64, scope content.Scope, force bool) (Record, error) {
 	var record Record
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var row eventOutbox
@@ -460,7 +460,7 @@ func (s *Service) ReplayEvent(ctx context.Context, id uint64, scope tenancy.Scop
 	return record, err
 }
 
-func (s *Service) ReplayRange(ctx context.Context, scope tenancy.Scope, options ReplayRangeOptions) (ReplayResult, error) {
+func (s *Service) ReplayRange(ctx context.Context, scope content.Scope, options ReplayRangeOptions) (ReplayResult, error) {
 	limit := replayLimit(options.Limit)
 	db := applyScope(s.db.WithContext(ctx).Where("deleted_at IS NULL"), scope)
 	if options.FromID > 0 {
@@ -483,7 +483,7 @@ func (s *Service) ReplayRange(ctx context.Context, scope tenancy.Scope, options 
 	return ReplayResult{Replayed: count}, err
 }
 
-func (s *Service) ReplayConsumer(ctx context.Context, scope tenancy.Scope, options ReplayConsumerOptions) (ReplayResult, error) {
+func (s *Service) ReplayConsumer(ctx context.Context, scope content.Scope, options ReplayConsumerOptions) (ReplayResult, error) {
 	consumer := strings.TrimSpace(options.Consumer)
 	if consumer == "" {
 		return ReplayResult{}, ErrConsumerRequired
@@ -545,7 +545,7 @@ func (s *Service) replayRows(ctx context.Context, rows []eventOutbox, force bool
 	return len(rows), err
 }
 
-func (s *Service) List(ctx context.Context, scope tenancy.Scope, values map[string]string, page, pageSize int) ([]Record, int64, error) {
+func (s *Service) List(ctx context.Context, scope content.Scope, values map[string]string, page int, pageSize int) ([]Record, int64, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -646,7 +646,7 @@ func targetHandlers(record Record, handlers []handlerItem) []handlerItem {
 }
 
 func validateEvent(event Event) error {
-	if err := validateScope(event.Scope, event.TenantID, event.SiteID); err != nil {
+	if err := validateScope(event.Scope, event.SiteID); err != nil {
 		return err
 	}
 	if NormalizeType(event.EventType) == "" {
@@ -658,11 +658,11 @@ func validateEvent(event Event) error {
 	return nil
 }
 
-func validateScope(scope tenancy.Scope, tenantID, siteID uint64) error {
+func validateScope(scope content.Scope, siteID uint64) error {
 	if scope.Platform {
 		return nil
 	}
-	if tenantID == 0 || scope.TenantID != tenantID {
+	if siteID == 0 || scope.SiteID != siteID {
 		return ErrInvalidScope
 	}
 	if scope.SiteID > 0 && siteID > 0 && scope.SiteID != siteID {
@@ -671,11 +671,11 @@ func validateScope(scope tenancy.Scope, tenantID, siteID uint64) error {
 	return nil
 }
 
-func applyScope(db *gorm.DB, scope tenancy.Scope) *gorm.DB {
-	if !scope.TenantScoped() {
+func applyScope(db *gorm.DB, scope content.Scope) *gorm.DB {
+	if !scope.SiteScoped() {
 		return db
 	}
-	db = db.Where("tenant_id=?", scope.TenantID)
+	db = db
 	if scope.SiteScoped() {
 		db = db.Where("site_id IN (0, ?)", scope.SiteID)
 	}
@@ -704,7 +704,7 @@ func recordFromRow(row eventOutbox) Record {
 		occurredAt = row.CreatedAt
 	}
 	return Record{
-		ID: row.ID, EventID: row.EventID, TenantID: row.TenantID, SiteID: row.SiteID, EventType: row.EventType,
+		ID: row.ID, EventID: row.EventID, SiteID: row.SiteID, EventType: row.EventType,
 		EventVersion: version, AggregateType: row.AggregateType, AggregateID: row.AggregateID, Source: row.Source, IdempotencyKey: row.IdempotencyKey,
 		TraceID: row.TraceID, RequestID: row.TraceID, CorrelationID: row.CorrelationID, CausationID: row.CausationID, Producer: row.Source, OccurredAt: occurredAt,
 		TargetConsumers: unmarshalStringSlice(row.TargetConsumers), Payload: map[string]any{}, Metadata: unmarshalMap(row.Metadata), Status: row.Status, Attempts: row.Attempts,
@@ -719,7 +719,7 @@ func recordFromRowStrict(row eventOutbox) (Record, error) {
 		return Record{}, err
 	}
 	return Record{
-		ID: row.ID, EventID: row.EventID, TenantID: row.TenantID, SiteID: row.SiteID, EventType: row.EventType,
+		ID: row.ID, EventID: row.EventID, SiteID: row.SiteID, EventType: row.EventType,
 		EventVersion:  envelope.EventVersion,
 		AggregateType: row.AggregateType, AggregateID: row.AggregateID, Source: row.Source, IdempotencyKey: row.IdempotencyKey,
 		TraceID: row.TraceID, RequestID: envelope.RequestID, CorrelationID: row.CorrelationID, CausationID: row.CausationID, Producer: envelope.Producer, OccurredAt: row.OccurredAt,
@@ -730,7 +730,7 @@ func recordFromRowStrict(row eventOutbox) (Record, error) {
 }
 
 func deliveryFromRow(row eventDelivery) Delivery {
-	return Delivery{ID: row.ID, EventID: row.EventID, OutboxID: row.OutboxID, TenantID: row.TenantID, SiteID: row.SiteID, EventType: row.EventType, Consumer: row.Consumer, Status: row.Status, Attempts: row.Attempts, LastError: row.LastError, ConsumedAt: row.ConsumedAt, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
+	return Delivery{ID: row.ID, EventID: row.EventID, OutboxID: row.OutboxID, SiteID: row.SiteID, EventType: row.EventType, Consumer: row.Consumer, Status: row.Status, Attempts: row.Attempts, LastError: row.LastError, ConsumedAt: row.ConsumedAt, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
 }
 
 func envelopeFromRow(row eventOutbox) (EventEnvelope, error) {
@@ -782,7 +782,7 @@ func envelopeFromRow(row eventOutbox) (EventEnvelope, error) {
 		version = DefaultEventVersion
 	}
 	return EventEnvelope{
-		EventID: row.EventID, EventType: row.EventType, EventVersion: version, TenantID: row.TenantID, SiteID: row.SiteID,
+		EventID: row.EventID, EventType: row.EventType, EventVersion: version, SiteID: row.SiteID,
 		RequestID: row.TraceID, Producer: row.Source,
 		AggregateType: row.AggregateType, AggregateID: row.AggregateID, OccurredAt: occurredAt,
 		TraceID: row.TraceID, CorrelationID: row.CorrelationID, CausationID: row.CausationID, TargetConsumers: unmarshalStringSlice(row.TargetConsumers), Payload: payload, Metadata: unmarshalMap(row.Metadata),

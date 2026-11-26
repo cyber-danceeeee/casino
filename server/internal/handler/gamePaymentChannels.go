@@ -232,7 +232,7 @@ func (h *gamePaymentChannelsHandler) List(c *gin.Context) {
 
 	response.Success(c, gin.H{
 		"gamePaymentChannelss": data,
-		"total":        total,
+		"total":                total,
 	})
 }
 

@@ -8,7 +8,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"casino/internal/tenancy"
+	"casino/internal/content"
 )
 
 type gameCategoryDraftItem struct {
@@ -65,7 +65,7 @@ func (s *Service) savePublishedGameCategories(tx *gorm.DB, actor Actor, gameID u
 	if err != nil {
 		return newError("INVALID_REQUEST", "invalid category configuration")
 	}
-	return tenancy.ApplySite(tx.Table("game_games"), "", actor.Scope).
+	return content.ApplySite(tx.Table("game_games"), "", actor.Scope).
 		Where("id=? AND deleted_at IS NULL", gameID).
 		Updates(gamePublishedUpdate(actor, map[string]any{"category_ids_draft": string(encoded)})).Error
 }
@@ -79,14 +79,14 @@ func (s *Service) saveGameCategoryDraft(tx *gorm.DB, actor Actor, gameID uint64,
 	if err != nil {
 		return newError("INVALID_REQUEST", "invalid category draft")
 	}
-	return tenancy.ApplySite(tx.Table("game_games"), "", actor.Scope).
+	return content.ApplySite(tx.Table("game_games"), "", actor.Scope).
 		Where("id=? AND deleted_at IS NULL", gameID).
 		Updates(gameDraftUpdate(actor, map[string]any{"category_ids_draft": string(encoded)})).Error
 }
 
 func (s *Service) loadGameCategoryDraft(tx *gorm.DB, actor Actor, gameID uint64) ([]gameCategoryDraftItem, error) {
 	var raw string
-	if err := tenancy.ApplySite(tx.Table("game_games"), "", actor.Scope).
+	if err := content.ApplySite(tx.Table("game_games"), "", actor.Scope).
 		Select("COALESCE(CAST(category_ids_draft AS CHAR),'')").
 		Where("id=? AND deleted_at IS NULL", gameID).
 		Scan(&raw).Error; err != nil {

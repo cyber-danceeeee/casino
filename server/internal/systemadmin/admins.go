@@ -1,7 +1,6 @@
 package systemadmin
 
 import (
-	"casino/internal/singlesite"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -14,11 +13,10 @@ import (
 )
 
 type AdminRow struct {
-	ID            uint64     `json:"administratorID"`
-	Username      string     `json:"username"`
-	DisplayName   string     `json:"displayName" gorm:"column:display_name"`
-	TenantID      uint64     `json:"tenantID" gorm:"column:tenant_id"`
-	Tenant        string     `json:"tenant"`
+	ID          uint64 `json:"administratorID"`
+	Username    string `json:"username"`
+	DisplayName string `json:"displayName" gorm:"column:display_name"`
+
 	SiteID        uint64     `json:"siteID" gorm:"column:site_id"`
 	Site          string     `json:"site"`
 	DepartmentID  *uint64    `json:"departmentID" gorm:"column:department_id"`
@@ -35,29 +33,27 @@ type AdminRow struct {
 }
 
 func adminSelect() string {
-	return `a.id,a.username,a.display_name,a.tenant_id,COALESCE(t.tenant_name,'Platform') tenant,a.site_id,COALESCE(st.site_name,'') site,a.department_id,COALESCE(d.name_en,'') department,
-		COALESCE(GROUP_CONCAT(DISTINCT r.name_en ORDER BY r.name_en SEPARATOR ', '),'') roles,
-		a.mobile,a.email,a.status,a.mfa_enabled,a.last_login_ip,a.last_login_at,a.created_at,a.updated_at`
+	return `a.id, a.username, a.display_name, a.site_id, COALESCE(st.site_name, '') AS site, a.department_id, COALESCE(d.name_en, '') AS department, COALESCE(GROUP_CONCAT(DISTINCT r.name_en ORDER BY r.name_en SEPARATOR ', '), '') AS roles, a.mobile, a.email, a.status, a.mfa_enabled, a.last_login_ip, a.last_login_at, a.created_at, a.updated_at`
+
 }
 
 func (s *Service) ListAdmins(q Query, actor Actor) (Result, error) {
 	rows := []AdminRow{}
 	db := s.db.Table("game_admin_accounts a").
 		Select(adminSelect()).
-		Joins("LEFT JOIN game_saas_tenants t ON t.id=a.tenant_id AND t.deleted_at IS NULL").
-		Joins("LEFT JOIN game_saas_sites st ON st.id=a.site_id AND st.deleted_at IS NULL").
+		Joins("LEFT JOIN game_site_config st ON st.id=a.site_id AND st.deleted_at IS NULL").
 		Joins("LEFT JOIN game_admin_departments d ON d.id=a.department_id AND d.deleted_at IS NULL").
 		Joins("LEFT JOIN game_admin_account_roles ar ON ar.admin_id=a.id AND ar.deleted_at IS NULL").
 		Joins("LEFT JOIN game_admin_roles r ON r.id=ar.role_id AND r.deleted_at IS NULL").
 		Where("a.deleted_at IS NULL").
-		Group("a.id,t.tenant_name,st.site_name,d.name_en")
+		Group("a.id, st.site_name, d.name_en")
 	if actor.Platform {
-		db = exact(db, "a.tenant_id", value(q, "tenantID"))
+
 		db = exact(db, "a.site_id", value(q, "siteID"))
-		db = like(db, "t.tenant_name", value(q, "tenant"))
+
 		db = like(db, "st.site_name", value(q, "site"))
 	} else {
-		db = db.Where("a.tenant_id=?", actor.TenantID)
+		db = db
 	}
 	db = exact(db, "a.id", value(q, "administratorID"))
 	db = like(db, "a.username", value(q, "username"))
@@ -77,14 +73,13 @@ func (s *Service) ListAdmins(q Query, actor Actor) (Result, error) {
 func (s *Service) AdminDetail(id uint64, actor Actor) (map[string]any, error) {
 	var row AdminRow
 	db := s.db.Table("game_admin_accounts a").Select(adminSelect()).
-		Joins("LEFT JOIN game_saas_tenants t ON t.id=a.tenant_id AND t.deleted_at IS NULL").
-		Joins("LEFT JOIN game_saas_sites st ON st.id=a.site_id AND st.deleted_at IS NULL").
+		Joins("LEFT JOIN game_site_config st ON st.id=a.site_id AND st.deleted_at IS NULL").
 		Joins("LEFT JOIN game_admin_departments d ON d.id=a.department_id AND d.deleted_at IS NULL").
 		Joins("LEFT JOIN game_admin_account_roles ar ON ar.admin_id=a.id AND ar.deleted_at IS NULL").
 		Joins("LEFT JOIN game_admin_roles r ON r.id=ar.role_id AND r.deleted_at IS NULL").
-		Where("a.id=? AND a.deleted_at IS NULL", id).Group("a.id,t.tenant_name,st.site_name,d.name_en")
+		Where("a.id=? AND a.deleted_at IS NULL", id).Group("a.id, st.site_name, d.name_en")
 	if !actor.Platform {
-		db = db.Where("a.tenant_id=?", actor.TenantID)
+		db = db
 	}
 	if err := db.Take(&row).Error; err != nil {
 		return nil, rowNotFound("administrator")
@@ -128,49 +123,16 @@ func validateAdminInput(input AdminInput, creating bool) error {
 }
 
 func (s *Service) normalizeAdminScope(input *AdminInput, actor Actor) error {
-	if scope, ok := singlesite.Scope(); ok {
-		if (input.TenantID != 0 && input.TenantID != scope.TenantID) || (input.SiteID != 0 && input.SiteID != scope.SiteID) {
-			return NewError("INVALID_SCOPE", "administrator must belong to this installation")
-		}
-	}
-
-	if !actor.Platform {
-		input.TenantID = actor.TenantID
-		if input.SiteID == 0 {
-			input.SiteID = actor.SiteID
-		}
-	}
-	if input.TenantID == 0 {
-		input.SiteID = 0
-		return nil
-	}
-	var tenantCount int64
-	if err := s.db.Table("game_saas_tenants").Where("id=? AND enabled=1 AND deleted_at IS NULL", input.TenantID).Count(&tenantCount).Error; err != nil {
-		return err
-	}
-	if tenantCount == 0 {
-		return NewError("TENANT_NOT_FOUND", "tenant not found")
-	}
-	if input.SiteID > 0 {
-		var siteCount int64
-		if err := s.db.Table("game_saas_sites").Where("id=? AND tenant_id=? AND enabled=1 AND deleted_at IS NULL", input.SiteID, input.TenantID).Count(&siteCount).Error; err != nil {
-			return err
-		}
-		if siteCount == 0 {
-			return NewError("SITE_NOT_FOUND", "site not found")
-		}
-	}
+	input.SiteID = 1
 	return nil
 }
 
 func (s *Service) requireAdminScope(id uint64, actor Actor) error {
-	var target struct {
-		TenantID uint64 `gorm:"column:tenant_id"`
-	}
-	if err := s.db.Table("game_admin_accounts").Select("tenant_id").Where("id=? AND deleted_at IS NULL", id).Take(&target).Error; err != nil {
+	var target struct{ SiteID uint64 }
+	if err := s.db.Table("game_admin_accounts").Where("id=? AND deleted_at IS NULL", id).Take(&target).Error; err != nil {
 		return rowNotFound("administrator")
 	}
-	if !actor.Platform && target.TenantID != actor.TenantID {
+	if !actor.Platform && target.SiteID != actor.SiteID {
 		return NewError("PERMISSION_DENIED", "permission denied")
 	}
 	return nil
@@ -188,16 +150,17 @@ func (s *Service) CreateAdmin(input AdminInput, actor Actor) (uint64, error) {
 		return 0, err
 	}
 	row := map[string]any{
-		"username": strings.TrimSpace(input.Username), "display_name": strings.TrimSpace(input.DisplayName), "tenant_id": input.TenantID, "site_id": input.SiteID,
+		"username": strings.TrimSpace(input.Username), "display_name": strings.TrimSpace(input.DisplayName), "site_id": input.SiteID,
 		"password_hash": string(hash), "department_id": input.DepartmentID, "mobile": strings.TrimSpace(input.Mobile),
 		"email": strings.TrimSpace(input.Email), "status": boolValue(boolDefault(input.Status, true)),
 		"last_password_changed_at": now(), "must_change_password": 1, "created_at": now(), "updated_at": now(),
 	}
 	var id uint64
 	err = s.db.Transaction(func(tx *gorm.DB) error {
-		if singlesite.Active() {
+		{
+
 			var binding struct{ ID uint64 }
-			if err := tx.Table("casino_site_binding").Clauses(clause.Locking{Strength: "UPDATE"}).Select("id").Where("id=1").Take(&binding).Error; err != nil {
+			if err := tx.Table("game_site_config").Clauses(clause.Locking{Strength: "UPDATE"}).Select("id").Where("id=1").Take(&binding).Error; err != nil {
 				return err
 			}
 			var existing int64
@@ -208,14 +171,15 @@ func (s *Service) CreateAdmin(input AdminInput, actor Actor) (uint64, error) {
 				return NewError("USERNAME_EXISTS", "administrator username already exists")
 			}
 		}
+
 		result := tx.Table("game_admin_accounts").Create(row)
 		if result.Error != nil {
 			return duplicateError(result.Error)
 		}
-		if err := tx.Table("game_admin_accounts").Select("id").Where("tenant_id=? AND username=? AND deleted_at IS NULL", input.TenantID, row["username"]).Take(&id).Error; err != nil {
+		if err := tx.Table("game_admin_accounts").Select("id").Where("username = ? AND deleted_at IS NULL", row["username"]).Take(&id).Error; err != nil {
 			return err
 		}
-		if err := assignAdminRoles(tx, id, input.TenantID, input.RoleIDs); err != nil {
+		if err := assignAdminRoles(tx, id, input.RoleIDs); err != nil {
 			return err
 		}
 		return audit(tx, actor, "system:admin:create", "system.admin.create", "administrator", id, nil, map[string]any{"username": input.Username, "roles": input.RoleIDs}, "")
@@ -234,7 +198,7 @@ func (s *Service) UpdateAdmin(id uint64, input AdminInput, actor Actor) error {
 	if err := s.db.Table("game_admin_accounts").Where("id=? AND deleted_at IS NULL", id).Take(&before).Error; err != nil {
 		return rowNotFound("administrator")
 	}
-	updates := map[string]any{"display_name": strings.TrimSpace(input.DisplayName), "tenant_id": input.TenantID, "site_id": input.SiteID, "department_id": input.DepartmentID, "mobile": strings.TrimSpace(input.Mobile), "email": strings.TrimSpace(input.Email), "updated_at": now(), "version": gorm.Expr("version+1")}
+	updates := map[string]any{"display_name": strings.TrimSpace(input.DisplayName), "site_id": input.SiteID, "department_id": input.DepartmentID, "mobile": strings.TrimSpace(input.Mobile), "email": strings.TrimSpace(input.Email), "updated_at": now(), "version": gorm.Expr("version+1")}
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Table("game_admin_accounts").Where("id=? AND version=? AND deleted_at IS NULL", id, before["version"]).Updates(updates).Error; err != nil {
 			return err
@@ -243,11 +207,11 @@ func (s *Service) UpdateAdmin(id uint64, input AdminInput, actor Actor) error {
 	})
 }
 
-func assignAdminRoles(tx *gorm.DB, adminID, tenantID uint64, roleIDs []uint64) error {
+func assignAdminRoles(tx *gorm.DB, adminID uint64, roleIDs []uint64) error {
 	roleIDs = uniqueIDs(roleIDs)
 	if len(roleIDs) > 0 {
 		var count int64
-		if err := tx.Table("game_admin_roles").Where("id IN ? AND tenant_id=? AND status=1 AND deleted_at IS NULL", roleIDs, tenantID).Count(&count).Error; err != nil {
+		if err := tx.Table("game_admin_roles").Where("id IN (?) AND status = 1 AND deleted_at IS NULL", roleIDs).Count(&count).Error; err != nil {
 			return err
 		}
 		if int(count) != len(roleIDs) {
@@ -282,17 +246,15 @@ func (s *Service) AssignAdminRoles(id uint64, input IDsInput, actor Actor) error
 	}
 	before := []uint64{}
 	_ = s.db.Table("game_admin_account_roles").Where("admin_id=? AND deleted_at IS NULL", id).Pluck("role_id", &before).Error
-	var target struct {
-		TenantID uint64 `gorm:"column:tenant_id"`
-	}
-	if err := s.db.Table("game_admin_accounts").Select("tenant_id").Where("id=? AND deleted_at IS NULL", id).Take(&target).Error; err != nil {
+	var target struct{ SiteID uint64 }
+	if err := s.db.Table("game_admin_accounts").Where("id=? AND deleted_at IS NULL", id).Take(&target).Error; err != nil {
 		return rowNotFound("administrator")
 	}
-	if !actor.Platform && target.TenantID != actor.TenantID {
+	if !actor.Platform && target.SiteID != actor.SiteID {
 		return NewError("PERMISSION_DENIED", "permission denied")
 	}
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		if err := assignAdminRoles(tx, id, target.TenantID, input.IDs); err != nil {
+		if err := assignAdminRoles(tx, id, input.IDs); err != nil {
 			return err
 		}
 		return audit(tx, actor, "system:admin:assign-role", "system.admin.roles.assign", "administrator", id, before, input.IDs, input.Reason)
@@ -301,17 +263,17 @@ func (s *Service) AssignAdminRoles(id uint64, input IDsInput, actor Actor) error
 
 func (s *Service) actorIsSuper(id uint64) bool {
 	var count int64
-	_ = s.db.Table("game_admin_account_roles ar").Joins("JOIN game_admin_roles r ON r.id=ar.role_id AND r.code='super-admin' AND r.tenant_id=0 AND r.status=1 AND r.deleted_at IS NULL").Where("ar.admin_id=? AND ar.deleted_at IS NULL", id).Count(&count).Error
+	_ = s.db.Table("game_admin_account_roles ar").Joins("JOIN game_admin_roles AS r ON r.id = ar.role_id AND r.code = 'super-admin' AND r.status = 1 AND r.deleted_at IS NULL").Where("ar.admin_id=? AND ar.deleted_at IS NULL", id).Count(&count).Error
 	return count > 0
 }
 func (s *Service) isLastSuper(id uint64) bool {
 	var assigned int64
-	_ = s.db.Table("game_admin_account_roles ar").Joins("JOIN game_admin_roles r ON r.id=ar.role_id AND r.code='super-admin' AND r.tenant_id=0 AND r.deleted_at IS NULL").Where("ar.admin_id=? AND ar.deleted_at IS NULL", id).Count(&assigned).Error
+	_ = s.db.Table("game_admin_account_roles ar").Joins("JOIN game_admin_roles AS r ON r.id = ar.role_id AND r.code = 'super-admin' AND r.deleted_at IS NULL").Where("ar.admin_id=? AND ar.deleted_at IS NULL", id).Count(&assigned).Error
 	if assigned == 0 {
 		return false
 	}
 	var active int64
-	_ = s.db.Table("game_admin_accounts a").Joins("JOIN game_admin_account_roles ar ON ar.admin_id=a.id AND ar.deleted_at IS NULL").Joins("JOIN game_admin_roles r ON r.id=ar.role_id AND r.code='super-admin' AND r.tenant_id=0 AND r.deleted_at IS NULL").Where("a.status=1 AND a.tenant_id=0 AND a.deleted_at IS NULL").Distinct("a.id").Count(&active).Error
+	_ = s.db.Table("game_admin_accounts a").Joins("JOIN game_admin_account_roles ar ON ar.admin_id=a.id AND ar.deleted_at IS NULL").Joins("JOIN game_admin_roles AS r ON r.id = ar.role_id AND r.code = 'super-admin' AND r.deleted_at IS NULL").Where("a.status = 1 AND a.deleted_at IS NULL").Distinct("a.id").Count(&active).Error
 	return active <= 1
 }
 
@@ -338,7 +300,7 @@ func (s *Service) AdminStatus(id uint64, enabled bool, reason string, actor Acto
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		db := tx.Table("game_admin_accounts").Where("id=?", id)
 		if !actor.Platform {
-			db = db.Where("tenant_id=?", actor.TenantID)
+			db = db
 		}
 		if err := db.Updates(map[string]any{"status": boolValue(enabled), "version": gorm.Expr("version+1"), "updated_at": now()}).Error; err != nil {
 			return err
@@ -386,7 +348,7 @@ func (s *Service) ResetPassword(id uint64, reason string, actor Actor) (string, 
 		}
 		db := tx.Table("game_admin_accounts").Where("id=? AND deleted_at IS NULL", id)
 		if !actor.Platform {
-			db = db.Where("tenant_id=?", actor.TenantID)
+			db = db
 		}
 		result := db.Updates(map[string]any{"password_hash": string(hash), "last_password_changed_at": now(), "must_change_password": 1, "version": gorm.Expr("version+1"), "updated_at": now()})
 		if result.Error != nil {
@@ -412,7 +374,7 @@ func (s *Service) ResetMFA(id uint64, reason string, actor Actor) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		db := tx.Table("game_admin_accounts").Where("id=? AND deleted_at IS NULL", id)
 		if !actor.Platform {
-			db = db.Where("tenant_id=?", actor.TenantID)
+			db = db
 		}
 		result := db.Updates(map[string]any{"mfa_enabled": 0, "mfa_secret_hash": "", "mfa_secret_encrypted": "", "version": gorm.Expr("version+1"), "updated_at": now()})
 		if result.Error != nil {
@@ -465,7 +427,7 @@ func (s *Service) MoveAdminDepartment(id uint64, departmentID *uint64, reason st
 		var count int64
 		db := s.db.Table("game_admin_departments").Where("id=? AND enabled=1 AND deleted_at IS NULL", *departmentID)
 		if !actor.Platform {
-			db = db.Where("tenant_id=?", actor.TenantID)
+			db = db
 		}
 		if err := db.Count(&count).Error; err != nil {
 			return err
@@ -477,7 +439,7 @@ func (s *Service) MoveAdminDepartment(id uint64, departmentID *uint64, reason st
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		db := tx.Table("game_admin_accounts").Where("id=?", id)
 		if !actor.Platform {
-			db = db.Where("tenant_id=?", actor.TenantID)
+			db = db
 		}
 		if err := db.Updates(map[string]any{"department_id": departmentID, "updated_at": now()}).Error; err != nil {
 			return err

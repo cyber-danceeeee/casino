@@ -15,15 +15,16 @@ import (
 	"strings"
 	"time"
 
+	"casino/internal/content"
 	"casino/internal/eventbus"
 	"casino/internal/storage"
-	"casino/internal/tenancy"
+
 	"gorm.io/gorm"
 )
 
 const (
 	backupScopeDatabaseConfig        = "DATABASE_CONFIGURATION"
-	backupScopeTenantConfig          = "TENANT_CONFIGURATION"
+	backupScopeH5Config              = "H5_CONFIGURATION"
 	backupScopePublishedConfig       = "PUBLISHED_CONFIGURATION"
 	backupScopeAssetMetadata         = "ASSET_METADATA"
 	backupScopeAssetFiles            = "ASSET_FILES"
@@ -31,10 +32,10 @@ const (
 )
 
 type BackupTaskRow struct {
-	ID              uint64     `json:"id"`
-	BackupNo        string     `json:"backupNo" gorm:"column:backup_no"`
-	ScopeType       string     `json:"scopeType" gorm:"column:scope_type"`
-	TenantID        uint64     `json:"tenantID" gorm:"column:tenant_id"`
+	ID        uint64 `json:"id"`
+	BackupNo  string `json:"backupNo" gorm:"column:backup_no"`
+	ScopeType string `json:"scopeType" gorm:"column:scope_type"`
+
 	SiteID          uint64     `json:"siteID" gorm:"column:site_id"`
 	Status          string     `json:"status"`
 	StorageLocation string     `json:"storageLocation" gorm:"column:storage_location"`
@@ -52,8 +53,8 @@ type BackupTaskRow struct {
 }
 
 type BackupCreateInput struct {
-	ScopeType      string `json:"scopeType"`
-	TenantID       uint64 `json:"tenantID"`
+	ScopeType string `json:"scopeType"`
+
 	SiteID         uint64 `json:"siteID"`
 	RetentionDays  int    `json:"retentionDays"`
 	IdempotencyKey string `json:"idempotencyKey"`
@@ -66,22 +67,22 @@ type BackupRestoreInput struct {
 }
 
 type backupManifest struct {
-	FormatVersion int             `json:"formatVersion"`
-	BackupNo      string          `json:"backupNo"`
-	ScopeType     string          `json:"scopeType"`
-	TenantID      uint64          `json:"tenantID"`
-	SiteID        uint64          `json:"siteID"`
-	CreatedAt     time.Time       `json:"createdAt"`
-	Data          json.RawMessage `json:"data"`
+	FormatVersion int    `json:"formatVersion"`
+	BackupNo      string `json:"backupNo"`
+	ScopeType     string `json:"scopeType"`
+
+	SiteID    uint64          `json:"siteID"`
+	CreatedAt time.Time       `json:"createdAt"`
+	Data      json.RawMessage `json:"data"`
 }
 
-type tenantConfigurationBackup struct {
+type h5ConfigurationBackup struct {
 	Sites map[string]releaseSnapshot `json:"sites"`
 }
 
 type backupAssetRow struct {
-	ID             uint64 `json:"id"`
-	TenantID       uint64 `json:"tenantID" gorm:"column:tenant_id"`
+	ID uint64 `json:"id"`
+
 	SiteID         uint64 `json:"siteID" gorm:"column:site_id"`
 	AssetScope     string `json:"assetScope" gorm:"column:asset_scope"`
 	AssetType      string `json:"assetType" gorm:"column:asset_type"`
@@ -103,9 +104,6 @@ func (s *Service) ListBackups(q Query) (Result, error) {
 	db := s.db.Table("game_backup_tasks").Where("deleted_at IS NULL")
 	db = exact(db, "scope_type", strings.ToUpper(value(q, "scopeType")))
 	db = exact(db, "status", strings.ToUpper(value(q, "status")))
-	if tenantID := parseID(value(q, "tenantID")); tenantID > 0 {
-		db = db.Where("tenant_id=?", tenantID)
-	}
 	if siteID := parseID(value(q, "siteID")); siteID > 0 {
 		db = db.Where("site_id=?", siteID)
 	}
@@ -130,19 +128,19 @@ func (s *Service) BackupDetail(id uint64) (BackupTaskRow, error) {
 }
 
 func (s *Service) CreateBackup(input BackupCreateInput, actor Actor) (BackupTaskRow, error) {
-	if !actor.Platform || actor.TenantID != 0 {
+	if !actor.Platform || actor.SiteID != 0 {
 		return BackupTaskRow{}, NewError("PERMISSION_DENIED", "permission denied")
 	}
 	scope := strings.ToUpper(strings.TrimSpace(input.ScopeType))
 	if !validBackupScope(scope) {
 		return BackupTaskRow{}, NewError("INVALID_BACKUP_SCOPE", "invalid backup scope")
 	}
-	if scopeRequiresTenant(scope) && input.TenantID == 0 {
-		return BackupTaskRow{}, NewError("TENANT_REQUIRED", "tenant is required for this backup scope")
+	if scopeRequiresSite(scope) && input.SiteID == 0 {
+		return BackupTaskRow{}, NewError("SITE_REQUIRED", "H5 configuration is required for this backup scope")
 	}
 	if input.SiteID > 0 {
 		var count int64
-		if err := s.db.Table("game_saas_sites").Where("id=? AND tenant_id=? AND deleted_at IS NULL", input.SiteID, input.TenantID).Count(&count).Error; err != nil || count == 0 {
+		if err := s.db.Table("game_site_config").Where("id = ? AND deleted_at IS NULL", input.SiteID).Count(&count).Error; err != nil || count == 0 {
 			return BackupTaskRow{}, rowNotFound("site")
 		}
 	}
@@ -167,7 +165,7 @@ func (s *Service) CreateBackup(input BackupCreateInput, actor Actor) (BackupTask
 		return BackupTaskRow{}, err
 	}
 	expiresAt := now().AddDate(0, 0, retention)
-	row := map[string]any{"backup_no": backupNo, "scope_type": scope, "tenant_id": input.TenantID, "site_id": input.SiteID, "status": "PENDING", "idempotency_key": key, "created_by": actor.ID, "expires_at": expiresAt, "created_at": now(), "updated_at": now()}
+	row := map[string]any{"backup_no": backupNo, "scope_type": scope, "site_id": input.SiteID, "status": "PENDING", "idempotency_key": key, "created_by": actor.ID, "expires_at": expiresAt, "created_at": now(), "updated_at": now()}
 	if err := s.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Table("game_backup_tasks").Create(row).Error; err != nil {
 			return duplicateError(err)
@@ -176,11 +174,11 @@ func (s *Service) CreateBackup(input BackupCreateInput, actor Actor) (BackupTask
 		if err := tx.Table("game_backup_tasks").Select("id").Where("backup_no=?", backupNo).Scan(&taskID).Error; err != nil {
 			return err
 		}
-		if err := audit(tx, targetAuditActor(actor, input.TenantID, input.SiteID), "backup:create", "backup.task.create", "backup_task", taskID, nil, map[string]any{"backupNo": backupNo, "scopeType": scope, "retentionDays": retention}, "create verified backup"); err != nil {
+		if err := audit(tx, targetAuditActor(actor, input.SiteID), "backup:create", "backup.task.create", "backup_task", taskID, nil, map[string]any{"backupNo": backupNo, "scopeType": scope, "retentionDays": retention}, "create verified backup"); err != nil {
 			return err
 		}
 		_, err := eventbus.New(tx).PublishTx(tx, eventbus.Event{
-			Scope: tenancy.Scope{Platform: true}, TenantID: input.TenantID, SiteID: input.SiteID,
+			Scope: content.Scope{Platform: true}, SiteID: input.SiteID,
 			EventType: eventbus.EventBackupRequested, AggregateType: "backup_task", AggregateID: fmt.Sprint(taskID),
 			Source: "systemadmin", Producer: "systemadmin", IdempotencyKey: "backup-task:" + backupNo,
 			RequestID: actor.CorrelationID, TraceID: actor.CorrelationID, CorrelationID: actor.CorrelationID,
@@ -212,7 +210,7 @@ func (s *Service) executeBackupTask(id uint64) error {
 		_ = s.db.Table("game_backup_tasks").Where("id=? AND status IN ('PENDING','RUNNING')", id).Updates(map[string]any{"status": "FAILED", "failure_reason": message, "completed_at": completed, "updated_at": completed}).Error
 		var row BackupTaskRow
 		if s.db.Table("game_backup_tasks").Where("id=?", id).Take(&row).Error == nil {
-			_ = s.raiseAlert(alertFingerprint("BACKUP_FAILED", row.BackupNo, row.TenantID, row.SiteID), row.TenantID, row.SiteID, "WARNING", "BACKUP_FAILED", "backup-center", "Backup task failed", map[string]any{"backupNo": row.BackupNo, "error": message})
+			_ = s.raiseAlert(alertFingerprint("BACKUP_FAILED", row.BackupNo, row.SiteID), row.SiteID, "WARNING", "BACKUP_FAILED", "backup-center", "Backup task failed", map[string]any{"backupNo": row.BackupNo, "error": message})
 		}
 		return err
 	}
@@ -228,7 +226,7 @@ func (s *Service) HandleBackupEvent(ctx eventbus.Context) error {
 	if err := s.db.Table("game_backup_tasks").Where("id=? AND deleted_at IS NULL", id).Take(&row).Error; err != nil {
 		return err
 	}
-	if row.TenantID != ctx.Event.TenantID || row.SiteID != ctx.Event.SiteID {
+	if row.SiteID != ctx.Event.SiteID {
 		return NewError("BACKUP_SCOPE_MISMATCH", "backup task is outside event scope")
 	}
 	return s.executeBackupTask(id)
@@ -278,7 +276,7 @@ func (s *Service) buildBackupArtifact(ctx context.Context, row BackupTaskRow) ([
 	if err != nil {
 		return nil, err
 	}
-	manifest := backupManifest{FormatVersion: 1, BackupNo: row.BackupNo, ScopeType: row.ScopeType, TenantID: row.TenantID, SiteID: row.SiteID, CreatedAt: now(), Data: data}
+	manifest := backupManifest{FormatVersion: 1, BackupNo: row.BackupNo, ScopeType: row.ScopeType, SiteID: row.SiteID, CreatedAt: now(), Data: data}
 	manifestBytes, err := json.MarshalIndent(manifest, "", "  ")
 	if err != nil {
 		return nil, err
@@ -320,10 +318,10 @@ func (s *Service) buildBackupArtifact(ctx context.Context, row BackupTaskRow) ([
 
 func (s *Service) backupData(row BackupTaskRow) (json.RawMessage, []backupAssetRow, error) {
 	switch row.ScopeType {
-	case backupScopeTenantConfig:
-		data := tenantConfigurationBackup{Sites: map[string]releaseSnapshot{}}
+	case backupScopeH5Config:
+		data := h5ConfigurationBackup{Sites: map[string]releaseSnapshot{}}
 		sites := []uint64{}
-		db := s.db.Table("game_saas_sites").Where("tenant_id=? AND deleted_at IS NULL", row.TenantID)
+		db := s.db.Table("game_site_config").Where("deleted_at IS NULL")
 		if row.SiteID > 0 {
 			db = db.Where("id=?", row.SiteID)
 		}
@@ -334,7 +332,7 @@ func (s *Service) backupData(row BackupTaskRow) (json.RawMessage, []backupAssetR
 			return nil, nil, rowNotFound("site")
 		}
 		for _, siteID := range sites {
-			snapshot, err := captureReleaseSnapshot(s.db, row.TenantID, siteID)
+			snapshot, err := captureReleaseSnapshot(s.db, siteID)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -343,22 +341,22 @@ func (s *Service) backupData(row BackupTaskRow) (json.RawMessage, []backupAssetR
 		return marshalRaw(data), nil, nil
 	case backupScopePublishedConfig:
 		rows := []map[string]any{}
-		db := s.db.Table("game_config_releases").Select("id,tenant_id,site_id,environment,version,status,modules,snapshot,rollback_source_id,created_by,published_by,created_at,published_at").Where("deleted_at IS NULL AND status IN ('PUBLISHED','ROLLED_BACK')")
-		if row.TenantID > 0 {
-			db = db.Where("tenant_id=?", row.TenantID)
+		db := s.db.Table("game_config_releases").Select("id, site_id, environment, version, status, modules, snapshot, rollback_source_id, created_by, published_by, created_at, published_at").Where("deleted_at IS NULL AND status IN ('PUBLISHED','ROLLED_BACK')")
+		if row.SiteID > 0 {
+			db = db
 		}
 		if row.SiteID > 0 {
 			db = db.Where("site_id=?", row.SiteID)
 		}
-		if err := db.Order("tenant_id,site_id,version").Find(&rows).Error; err != nil {
+		if err := db.Order("site_id, version").Find(&rows).Error; err != nil {
 			return nil, nil, err
 		}
 		return marshalRaw(map[string]any{"releases": rows}), nil, nil
 	case backupScopeAssetMetadata, backupScopeAssetFiles:
 		assets := []backupAssetRow{}
 		db := s.db.Table("game_asset_library").Where("deleted_at IS NULL")
-		if row.TenantID > 0 {
-			db = db.Where("tenant_id=?", row.TenantID)
+		if row.SiteID > 0 {
+			db = db
 		}
 		if row.SiteID > 0 {
 			db = db.Where("site_id IN (0,?)", row.SiteID)
@@ -376,7 +374,7 @@ func (s *Service) backupData(row BackupTaskRow) (json.RawMessage, []backupAssetR
 
 func (s *Service) databaseConfigurationBackup() (json.RawMessage, []backupAssetRow, error) {
 	result := map[string]any{}
-	tables := []string{"game_system_configs", "game_country_configs", "game_saas_tenants", "game_saas_sites", "game_saas_domains", "game_providers"}
+	tables := []string{"game_system_configs", "game_country_configs", "game_site_config", "game_providers"}
 	for _, table := range tables {
 		if !s.db.Migrator().HasTable(table) {
 			continue
@@ -399,12 +397,12 @@ func (s *Service) ValidateBackupRestore(id uint64) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	restorable := row.ScopeType == backupScopeTenantConfig && row.TenantID > 0
-	return map[string]any{"valid": true, "restorable": restorable, "backupNo": row.BackupNo, "scopeType": row.ScopeType, "tenantID": row.TenantID, "siteID": row.SiteID, "formatVersion": manifest.FormatVersion, "checksum": row.ChecksumSHA256, "confirmationPhrase": "RESTORE " + row.BackupNo}, nil
+	restorable := row.ScopeType == backupScopeH5Config && row.SiteID > 0
+	return map[string]any{"valid": true, "restorable": restorable, "backupNo": row.BackupNo, "scopeType": row.ScopeType, "siteID": row.SiteID, "formatVersion": manifest.FormatVersion, "checksum": row.ChecksumSHA256, "confirmationPhrase": "RESTORE " + row.BackupNo}, nil
 }
 
 func (s *Service) RestoreBackup(id uint64, input BackupRestoreInput, actor Actor) (map[string]any, error) {
-	if !actor.Platform || actor.TenantID != 0 {
+	if !actor.Platform || actor.SiteID != 0 {
 		return nil, NewError("PERMISSION_DENIED", "permission denied")
 	}
 	if err := requireReason(input.Reason); err != nil {
@@ -414,48 +412,48 @@ func (s *Service) RestoreBackup(id uint64, input BackupRestoreInput, actor Actor
 	if err != nil {
 		return nil, err
 	}
-	if row.ScopeType != backupScopeTenantConfig {
+	if row.ScopeType != backupScopeH5Config {
 		return nil, NewError("BACKUP_NOT_RESTORABLE", "this backup scope cannot be restored by the application")
 	}
 	if input.DryRun {
-		return s.validateTenantBackupPayload(row, manifest)
+		return s.validateH5BackupPayload(row, manifest)
 	}
 	if strings.TrimSpace(input.Confirmation) != "RESTORE "+row.BackupNo {
 		return nil, NewError("CONFIRMATION_REQUIRED", "restore confirmation phrase does not match")
 	}
-	validation, err := s.validateTenantBackupPayload(row, manifest)
+	validation, err := s.validateH5BackupPayload(row, manifest)
 	if err != nil {
 		return nil, err
 	}
-	preInput := BackupCreateInput{ScopeType: backupScopeTenantConfig, TenantID: row.TenantID, SiteID: row.SiteID, RetentionDays: 30, IdempotencyKey: fmt.Sprintf("pre-restore:%d:%s", row.ID, actor.CorrelationID)}
+	preInput := BackupCreateInput{ScopeType: backupScopeH5Config, SiteID: row.SiteID, RetentionDays: 30, IdempotencyKey: fmt.Sprintf("pre-restore:%d:%s", row.ID, actor.CorrelationID)}
 	pre, err := s.createAndRunBackupSync(preInput, actor)
 	if err != nil {
 		return nil, fmt.Errorf("pre-restore backup failed: %w", err)
 	}
-	var payload tenantConfigurationBackup
+	var payload h5ConfigurationBackup
 	if err := json.Unmarshal(manifest.Data, &payload); err != nil {
-		return nil, NewError("INVALID_BACKUP_ARTIFACT", "tenant configuration payload is invalid")
+		return nil, NewError("INVALID_BACKUP_ARTIFACT", "H5 configuration payload is invalid")
 	}
 	err = s.db.Transaction(func(tx *gorm.DB) error {
 		for siteKey, snapshot := range payload.Sites {
 			siteID := parseID(siteKey)
 			var site SiteRow
-			if err := tx.Table("game_saas_sites").Where("id=? AND tenant_id=? AND deleted_at IS NULL", siteID, row.TenantID).Take(&site).Error; err != nil {
+			if err := tx.Table("game_site_config").Where("id = ? AND deleted_at IS NULL", siteID).Take(&site).Error; err != nil {
 				return rowNotFound("site")
 			}
-			version, err := nextReleaseVersion(tx, row.TenantID, siteID, site.ConfigVersion)
+			version, err := nextReleaseVersion(tx, siteID, site.ConfigVersion)
 			if err != nil {
 				return err
 			}
-			if err := restoreReleaseSnapshot(tx, row.TenantID, siteID, version, actor.ID, snapshot); err != nil {
+			if err := restoreReleaseSnapshot(tx, siteID, version, actor.ID, snapshot); err != nil {
 				return err
 			}
-			fresh, err := captureReleaseSnapshot(tx, row.TenantID, siteID)
+			fresh, err := captureReleaseSnapshot(tx, siteID)
 			if err != nil {
 				return err
 			}
-			key := releaseIdempotencyKey(row.TenantID, siteID, fmt.Sprintf("backup-restore:%d:%d", row.ID, version))
-			releaseID, err := createPublishingRelease(tx, row.TenantID, siteID, version, []string{"BACKUP_RESTORE"}, key, 0, actor.ID)
+			key := releaseIdempotencyKey(siteID, fmt.Sprintf("backup-restore:%d:%d", row.ID, version))
+			releaseID, err := createPublishingRelease(tx, siteID, version, []string{"BACKUP_RESTORE"}, key, 0, actor.ID)
 			if err != nil {
 				return err
 			}
@@ -463,14 +461,14 @@ func (s *Service) RestoreBackup(id uint64, input BackupRestoreInput, actor Actor
 			if err := tx.Table("game_config_releases").Where("id=?", releaseID).Updates(map[string]any{"status": "PUBLISHED", "snapshot": marshal(fresh), "validation_result": marshal(map[string]any{"valid": true, "backupID": row.ID}), "published_by": actor.ID, "published_at": publishedAt, "updated_at": publishedAt}).Error; err != nil {
 				return err
 			}
-			if err := clearWhiteLabelConfigCache(tx, row.TenantID, siteID); err != nil {
+			if err := clearWhiteLabelConfigCache(tx, siteID); err != nil {
 				return err
 			}
-			if _, err := eventbus.New(tx).PublishTx(tx, eventbus.Event{Scope: tenancy.Scope{TenantID: row.TenantID, SiteID: siteID, Platform: true}, TenantID: row.TenantID, SiteID: siteID, EventType: eventbus.EventWhiteLabelConfigPublished, AggregateType: "white_label_config", AggregateID: fmt.Sprint(siteID), Source: "systemadmin", IdempotencyKey: fmt.Sprintf("backup.restore:%d:%d", row.ID, siteID), TraceID: actor.CorrelationID, CorrelationID: actor.CorrelationID, Payload: map[string]any{"backupID": row.ID, "backupNo": row.BackupNo, "configVersion": version}}); err != nil {
+			if _, err := eventbus.New(tx).PublishTx(tx, eventbus.Event{Scope: content.Scope{SiteID: siteID, Platform: true}, SiteID: siteID, EventType: eventbus.EventWhiteLabelConfigPublished, AggregateType: "white_label_config", AggregateID: fmt.Sprint(siteID), Source: "systemadmin", IdempotencyKey: fmt.Sprintf("backup.restore:%d:%d", row.ID, siteID), TraceID: actor.CorrelationID, CorrelationID: actor.CorrelationID, Payload: map[string]any{"backupID": row.ID, "backupNo": row.BackupNo, "configVersion": version}}); err != nil {
 				return err
 			}
 		}
-		return audit(tx, targetAuditActor(actor, row.TenantID, row.SiteID), "backup:restore", "backup.restore", "backup_task", row.ID, map[string]any{"preRestoreBackupID": pre.ID}, validation, input.Reason)
+		return audit(tx, targetAuditActor(actor, row.SiteID), "backup:restore", "backup.restore", "backup_task", row.ID, map[string]any{"preRestoreBackupID": pre.ID}, validation, input.Reason)
 	})
 	if err != nil {
 		return nil, err
@@ -479,7 +477,7 @@ func (s *Service) RestoreBackup(id uint64, input BackupRestoreInput, actor Actor
 }
 
 func (s *Service) DeleteBackup(id uint64, reason string, actor Actor) error {
-	if !actor.Platform || actor.TenantID != 0 {
+	if !actor.Platform || actor.SiteID != 0 {
 		return NewError("PERMISSION_DENIED", "permission denied")
 	}
 	if err := requireReason(reason); err != nil {
@@ -501,7 +499,7 @@ func (s *Service) DeleteBackup(id uint64, reason string, actor Actor) error {
 		if err := tx.Table("game_backup_tasks").Where("id=?", id).Updates(map[string]any{"status": "DELETED", "deleted_at": now(), "updated_at": now()}).Error; err != nil {
 			return err
 		}
-		return audit(tx, targetAuditActor(actor, row.TenantID, row.SiteID), "backup:delete", "backup.task.delete", "backup_task", id, row, map[string]any{"status": "DELETED"}, reason)
+		return audit(tx, targetAuditActor(actor, row.SiteID), "backup:delete", "backup.task.delete", "backup_task", id, row, map[string]any{"status": "DELETED"}, reason)
 	})
 }
 
@@ -566,7 +564,7 @@ func verifyBackupArtifact(row BackupTaskRow, artifact []byte) (backupManifest, e
 			return backupManifest{}, NewError("INVALID_BACKUP_ARTIFACT", "backup manifest cannot be read")
 		}
 		var manifest backupManifest
-		if err := json.Unmarshal(contents, &manifest); err != nil || manifest.FormatVersion != 1 || manifest.BackupNo != row.BackupNo || manifest.TenantID != row.TenantID || manifest.SiteID != row.SiteID || manifest.ScopeType != row.ScopeType {
+		if err := json.Unmarshal(contents, &manifest); err != nil || manifest.FormatVersion != 1 || manifest.BackupNo != row.BackupNo || manifest.SiteID != row.SiteID || manifest.ScopeType != row.ScopeType {
 			return backupManifest{}, NewError("INVALID_BACKUP_ARTIFACT", "backup manifest metadata does not match")
 		}
 		return manifest, nil
@@ -574,10 +572,10 @@ func verifyBackupArtifact(row BackupTaskRow, artifact []byte) (backupManifest, e
 	return backupManifest{}, NewError("INVALID_BACKUP_ARTIFACT", "backup manifest is missing")
 }
 
-func (s *Service) validateTenantBackupPayload(row BackupTaskRow, manifest backupManifest) (map[string]any, error) {
-	var payload tenantConfigurationBackup
+func (s *Service) validateH5BackupPayload(row BackupTaskRow, manifest backupManifest) (map[string]any, error) {
+	var payload h5ConfigurationBackup
 	if err := json.Unmarshal(manifest.Data, &payload); err != nil || len(payload.Sites) == 0 {
-		return nil, NewError("INVALID_BACKUP_ARTIFACT", "tenant configuration payload is invalid")
+		return nil, NewError("INVALID_BACKUP_ARTIFACT", "H5 configuration payload is invalid")
 	}
 	validated := []uint64{}
 	for siteKey, snapshot := range payload.Sites {
@@ -586,25 +584,25 @@ func (s *Service) validateTenantBackupPayload(row BackupTaskRow, manifest backup
 			return nil, NewError("INVALID_BACKUP_ARTIFACT", "site snapshot is invalid")
 		}
 		var count int64
-		if err := s.db.Table("game_saas_sites").Where("id=? AND tenant_id=? AND deleted_at IS NULL", siteID, row.TenantID).Count(&count).Error; err != nil || count == 0 {
-			return nil, NewError("RESTORE_SCOPE_MISMATCH", "backup contains a site outside the target tenant")
+		if err := s.db.Table("game_site_config").Where("id = ? AND deleted_at IS NULL", siteID).Count(&count).Error; err != nil || count == 0 {
+			return nil, NewError("RESTORE_SCOPE_MISMATCH", "backup contains a site outside the H5 configuration")
 		}
 		validated = append(validated, siteID)
 	}
-	return map[string]any{"valid": true, "tenantID": row.TenantID, "siteIDs": validated, "siteCount": len(validated)}, nil
+	return map[string]any{"valid": true, "siteIDs": validated, "siteCount": len(validated)}, nil
 }
 
 func validBackupScope(scope string) bool {
 	switch scope {
-	case backupScopeDatabaseConfig, backupScopeTenantConfig, backupScopePublishedConfig, backupScopeAssetMetadata, backupScopeAssetFiles:
+	case backupScopeDatabaseConfig, backupScopeH5Config, backupScopePublishedConfig, backupScopeAssetMetadata, backupScopeAssetFiles:
 		return true
 	default:
 		return false
 	}
 }
 
-func scopeRequiresTenant(scope string) bool {
-	return scope == backupScopeTenantConfig
+func scopeRequiresSite(scope string) bool {
+	return scope == backupScopeH5Config
 }
 
 func backupIdempotencyKey(actorID uint64, provided string) string {

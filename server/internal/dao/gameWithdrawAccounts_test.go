@@ -96,7 +96,7 @@ func Test_gameWithdrawAccountsDao_UpdateByID(t *testing.T) {
 	// zero id error
 	err = d.IDao.(GameWithdrawAccountsDao).UpdateByID(d.Ctx, &model.GameWithdrawAccounts{})
 	assert.Error(t, err)
-	
+
 }
 
 func Test_gameWithdrawAccountsDao_GetByID(t *testing.T) {

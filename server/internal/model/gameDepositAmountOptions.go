@@ -9,7 +9,6 @@ import (
 type GameDepositAmountOptions struct {
 	sgorm.Model `gorm:"embedded"` // embed id and time
 
-	TenantID     uint64           `gorm:"column:tenant_id;type:bigint(20) unsigned;default:0;not null" json:"tenantID"`
 	SiteID       uint64           `gorm:"column:site_id;type:bigint(20) unsigned;default:0;not null" json:"siteID"`
 	OptionCode   string           `gorm:"column:option_code;type:varchar(64);not null" json:"optionCode"`
 	CurrencyCode string           `gorm:"column:currency_code;type:varchar(8);default:PKR;not null" json:"currencyCode"`
@@ -22,11 +21,11 @@ type GameDepositAmountOptions struct {
 
 // GameDepositAmountOptionsColumnNames Whitelist for custom query fields to prevent sql injection attacks
 var GameDepositAmountOptionsColumnNames = map[string]bool{
-	"id":            true,
-	"created_at":    true,
-	"updated_at":    true,
-	"deleted_at":    true,
-	"tenant_id":     true,
+	"id":         true,
+	"created_at": true,
+	"updated_at": true,
+	"deleted_at": true,
+
 	"site_id":       true,
 	"option_code":   true,
 	"currency_code": true,

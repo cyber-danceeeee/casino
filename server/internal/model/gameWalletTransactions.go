@@ -11,7 +11,6 @@ import (
 type GameWalletTransactions struct {
 	sgorm.Model `gorm:"embedded"` // embed id and time
 
-	TenantID            uint64           `gorm:"column:tenant_id;type:bigint(20) unsigned;default:0;not null" json:"tenantID"`
 	SiteID              uint64           `gorm:"column:site_id;type:bigint(20) unsigned;default:0;not null" json:"siteID"`
 	TxnNo               string           `gorm:"column:txn_no;type:varchar(64);not null" json:"txnNo"`
 	ExternalTxnNo       string           `gorm:"column:external_txn_no;type:varchar(128);not null" json:"externalTxnNo"`
@@ -41,11 +40,11 @@ type GameWalletTransactions struct {
 
 // GameWalletTransactionsColumnNames Whitelist for custom query fields to prevent sql injection attacks
 var GameWalletTransactionsColumnNames = map[string]bool{
-	"id":                    true,
-	"created_at":            true,
-	"updated_at":            true,
-	"deleted_at":            true,
-	"tenant_id":             true,
+	"id":         true,
+	"created_at": true,
+	"updated_at": true,
+	"deleted_at": true,
+
 	"site_id":               true,
 	"txn_no":                true,
 	"external_txn_no":       true,

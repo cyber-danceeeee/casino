@@ -9,7 +9,6 @@ import (
 type GameAdminOperationLogs struct {
 	sgorm.Model `gorm:"embedded"`
 
-	TenantID         uint64           `gorm:"column:tenant_id;type:bigint unsigned;not null" json:"tenantID"`
 	SiteID           uint64           `gorm:"column:site_id;type:bigint unsigned;not null" json:"siteID"`
 	OperatorID       uint64           `gorm:"column:operator_id;type:bigint unsigned;not null" json:"operatorID"`
 	OperatorUsername string           `gorm:"column:operator_username;type:varchar(64);not null" json:"operatorUsername"`

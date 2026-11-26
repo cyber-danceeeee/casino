@@ -7,7 +7,7 @@ import (
 // gameUserWallets business-level http error codes.
 // the gameUserWalletsNO value range is 1~999, if the same error code is used, it will cause panic.
 var (
-	gameUserWalletsNO = 50
+	gameUserWalletsNO       = 50
 	gameUserWalletsName     = "gameUserWallets"
 	gameUserWalletsBaseCode = errcode.HCode(gameUserWalletsNO)
 

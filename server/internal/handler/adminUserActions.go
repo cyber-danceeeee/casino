@@ -374,7 +374,7 @@ func adminWriteAudit(tx *gorm.DB, c *gin.Context, actor adminauth.Actor, permiss
 		correlationID = fmt.Sprintf("admin-%d-%d", actor.ID, time.Now().UnixNano())
 	}
 	return tx.Create(&model.GameAdminOperationLogs{
-		TenantID: actor.TenantID, SiteID: actor.SiteID,
+		SiteID:     actor.SiteID,
 		OperatorID: actor.ID, OperatorUsername: actor.Username, Permission: permission, Action: action,
 		TargetUserID: userID, TargetDeviceID: deviceID, BeforeState: string(beforeJSON), AfterState: string(afterJSON),
 		Reason: reason, IPAddress: c.ClientIP(), UserAgent: c.Request.UserAgent(), CorrelationID: correlationID,

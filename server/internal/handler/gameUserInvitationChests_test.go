@@ -103,7 +103,7 @@ func Test_gameUserInvitationChestsHandler_Create(t *testing.T) {
 	}
 
 	t.Logf("%+v", result)
-	
+
 }
 
 func Test_gameUserInvitationChestsHandler_DeleteByID(t *testing.T) {

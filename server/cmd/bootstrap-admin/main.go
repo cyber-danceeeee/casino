@@ -23,7 +23,7 @@ func main() {
 	}
 	database.InitDB()
 	defer database.CloseDB()
-	if err := systemadmin.New(database.GetDB()).EnsureSingleSite(); err != nil {
+	if err := systemadmin.New(database.GetDB()).EnsureSiteConfig(); err != nil {
 		log.Fatal(err)
 	}
 	if err := initialize(database.GetDB(), os.Getenv("CASINO_BOOTSTRAP_ADMIN_PASSWORD")); err != nil {
@@ -38,7 +38,7 @@ func initialize(db *gorm.DB, password string) error {
 		PasswordHash string
 	}
 	err := db.Table("game_admin_accounts").Select("id,password_hash").
-		Where("username=? AND tenant_id=0 AND deleted_at IS NULL", "system-admin").Take(&account).Error
+		Where("username = ? AND deleted_at IS NULL", "system-admin").Take(&account).Error
 	if err != nil {
 		return fmt.Errorf("find seeded platform administrator: %w", err)
 	}

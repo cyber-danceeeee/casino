@@ -10,18 +10,18 @@ import (
 	"gorm.io/gorm"
 
 	"casino/internal/config"
+	"casino/internal/content"
 	"casino/internal/database"
 	"casino/internal/game/provider/ag"
 	"casino/internal/game/provider/softaggregator"
 	"casino/internal/model"
 	"casino/internal/operationadmin"
-	"casino/internal/tenancy"
 )
 
 func (h *gameBannersHandler) Home(c *gin.Context) {
 	db := database.GetDB()
 	now := time.Now()
-	scope := h5TenancyScope(c)
+	scope := h5ContentScope(c)
 
 	banners := h5HomeSiteBanners(c, db, scope, now)
 
@@ -68,8 +68,8 @@ func (h *gameBannersHandler) Home(c *gin.Context) {
 	})
 }
 
-func h5HomeSiteBanners(c *gin.Context, db *gorm.DB, scope tenancy.Scope, now time.Time) []gin.H {
-	if scope.TenantID == 0 || scope.SiteID == 0 {
+func h5HomeSiteBanners(c *gin.Context, db *gorm.DB, scope content.Scope, now time.Time) []gin.H {
+	if scope.SiteID == 0 {
 		return []gin.H{}
 	}
 	_, _, loggedIn := h5AuthenticatedUser(db, c)

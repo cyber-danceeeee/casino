@@ -7,9 +7,9 @@ import (
 )
 
 type AuditLogRow struct {
-	ID                 uint64          `json:"logID"`
-	OperatorID         uint64          `json:"operatorID" gorm:"column:operator_id"`
-	TenantID           uint64          `json:"tenantID" gorm:"column:tenant_id"`
+	ID         uint64 `json:"logID"`
+	OperatorID uint64 `json:"operatorID" gorm:"column:operator_id"`
+
 	SiteID             uint64          `json:"siteID" gorm:"column:site_id"`
 	Operator           string          `json:"operator" gorm:"column:operator_username"`
 	Permission         string          `json:"permission"`
@@ -32,8 +32,8 @@ type AuditLogRow struct {
 func (s *Service) ListAuditLogs(q Query) (Result, error) {
 	rows := []AuditLogRow{}
 	moduleExpr := "COALESCE(NULLIF(module,''),NULLIF(SUBSTRING_INDEX(permission,':',1),''),'unknown')"
-	db := s.db.Table("game_admin_operation_logs").Select("id,operator_id,tenant_id,site_id,operator_username,permission," + moduleExpr + " module,action,result,target_type,target_id,reason,ip_address,correlation_id,created_at").Where("deleted_at IS NULL")
-	db = exact(db, "tenant_id", value(q, "tenantID"))
+	db := s.db.Table("game_admin_operation_logs").Select("id, operator_id, site_id, operator_username, permission" + moduleExpr + " module,action,result,target_type,target_id,reason,ip_address,correlation_id,created_at").Where("deleted_at IS NULL")
+
 	db = exact(db, "site_id", value(q, "siteID"))
 	db = like(db, "operator_username", value(q, "operator"))
 	if module := value(q, "module"); module != "" {

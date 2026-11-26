@@ -36,5 +36,3 @@ var GameInvitationWheelPrizesColumnNames = map[string]bool{
 	"sort":        true,
 	"status":      true,
 }
-
-

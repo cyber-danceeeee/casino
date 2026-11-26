@@ -128,7 +128,7 @@ The schema adds:
 - `game_provider_syncs`: last sync status and counts.
 - `game_games` columns: `slug`, `category`, `supports_demo`, `supports_free_spins`, `raw_metadata`, `last_synced_at`, plus a provider-game unique key.
 
-For existing databases, apply equivalent ALTER/CREATE statements from `game_schema.sql` during deployment.
+For existing databases, use the unified installer and `database/schema.sql` during deployment.
 
 ## Verification
 

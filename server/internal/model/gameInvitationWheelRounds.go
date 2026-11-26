@@ -1,9 +1,10 @@
 package model
 
 import (
+	"time"
+
 	"github.com/go-dev-frame/sponge/pkg/sgorm"
 	"github.com/shopspring/decimal"
-	"time"
 )
 
 // GameInvitationWheelRounds Invitation wheel rounds
@@ -33,5 +34,3 @@ var GameInvitationWheelRoundsColumnNames = map[string]bool{
 	"current_amount": true,
 	"status":         true,
 }
-
-

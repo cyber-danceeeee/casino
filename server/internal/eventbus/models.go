@@ -3,9 +3,9 @@ package eventbus
 import "time"
 
 type eventOutbox struct {
-	ID              uint64     `gorm:"column:id;primaryKey"`
-	EventID         string     `gorm:"column:event_id;uniqueIndex:uk_event_outbox_event_id"`
-	TenantID        uint64     `gorm:"column:tenant_id"`
+	ID      uint64 `gorm:"column:id;primaryKey"`
+	EventID string `gorm:"column:event_id;uniqueIndex:uk_event_outbox_event_id"`
+
 	SiteID          uint64     `gorm:"column:site_id"`
 	EventType       string     `gorm:"column:event_type"`
 	EventVersion    int        `gorm:"column:event_version"`
@@ -35,10 +35,10 @@ type eventOutbox struct {
 func (eventOutbox) TableName() string { return "event_outbox" }
 
 type eventDelivery struct {
-	ID         uint64     `gorm:"column:id;primaryKey"`
-	EventID    string     `gorm:"column:event_id;uniqueIndex:uk_event_delivery_consumer"`
-	OutboxID   uint64     `gorm:"column:outbox_id"`
-	TenantID   uint64     `gorm:"column:tenant_id"`
+	ID       uint64 `gorm:"column:id;primaryKey"`
+	EventID  string `gorm:"column:event_id;uniqueIndex:uk_event_delivery_consumer"`
+	OutboxID uint64 `gorm:"column:outbox_id"`
+
 	SiteID     uint64     `gorm:"column:site_id"`
 	EventType  string     `gorm:"column:event_type"`
 	LegacyName string     `gorm:"column:consumer"`

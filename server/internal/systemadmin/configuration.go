@@ -59,7 +59,7 @@ func (s *Service) PlatformBranding(ctx context.Context) (map[string]any, error) 
 		Key   string `gorm:"column:config_key"`
 		Value string `gorm:"column:config_value"`
 	}{}
-	keys := []string{"basic.platform_name", "basic.platform_logo_url", "basic.platform_contact", "finance.platform_usdt_address"}
+	keys := []string{"basic.platform_name", "basic.platform_logo_url", "basic.platform_contact"}
 	if err := s.db.Table("game_system_configs").Select("config_key,config_value").Where("config_key IN ? AND deleted_at IS NULL AND status=1", keys).Find(&rows).Error; err != nil {
 		return nil, err
 	}
@@ -72,10 +72,9 @@ func (s *Service) PlatformBranding(ctx context.Context) (map[string]any, error) 
 		return nil, err
 	}
 	return map[string]any{
-		"platformName":        defaultString(values["basic.platform_name"], "Casino Admin"),
-		"platformLogoUrl":     logoURL,
-		"platformContact":     values["basic.platform_contact"],
-		"platformUSDTAddress": values["finance.platform_usdt_address"],
+		"platformName":    defaultString(values["basic.platform_name"], "Casino Admin"),
+		"platformLogoUrl": logoURL,
+		"platformContact": values["basic.platform_contact"],
 	}, nil
 }
 func validateConfigValue(row ConfigRow, value string) error {

@@ -76,8 +76,8 @@ func NewHTTPServer(addr string, opts ...HTTPOption) app.IServer {
 
 	router := routers.NewRouter()
 	server := &http.Server{
-		Addr:           addr,
-		Handler:        router,
+		Addr:    addr,
+		Handler: router,
 		//ReadTimeout:    time.Second*30,
 		//WriteTimeout:   time.Second*60,
 		IdleTimeout:    time.Second * 60,
