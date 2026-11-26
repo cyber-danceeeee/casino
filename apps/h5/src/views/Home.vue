@@ -30,7 +30,6 @@ import TopDownloadBanner from '../components/TopDownloadBanner.vue'
 import WelcomeSplash from '../components/WelcomeSplash.vue'
 import {
   banners as mockBanners,
-  socialLinks as mockSocialLinks,
   type CategoryKey,
   type GameCategory,
   type GameItem,
@@ -77,7 +76,7 @@ const homeBanners = ref(cachedHomeCatalog?.home.banners.length ? cachedHomeCatal
 const homeCategories = ref<GameCategory[]>(cachedHomeCatalog?.home.categories ?? [])
 const homeGameSections = ref<GameSection[]>(cachedHomeCatalog?.gameSections ?? [])
 const homeProviders = ref(cachedHomeCatalog?.home.providers ?? [])
-const homeSocialLinks = ref(cachedHomeCatalog?.home.socialLinks.length ? cachedHomeCatalog.home.socialLinks : mockSocialLinks)
+const homeSocialLinks = ref(cachedHomeCatalog?.home.socialLinks ?? [])
 const splashVisible = ref(!homeBootState.splashCompleted)
 const splashReady = ref(homeBootState.preloadDone && homeBootState.catalogDone)
 const splashProgress = ref(homeBootState.preloadDone ? 100 : homeBootState.preloadProgress)
@@ -470,7 +469,7 @@ const applyHomeCatalog = (catalog: HomeCatalogSnapshot) => {
   homeProviders.value = catalog.home.providers ?? []
   homeBanners.value = catalog.home.banners.length ? catalog.home.banners : mockBanners
   homeCategories.value = catalog.home.categories
-  homeSocialLinks.value = catalog.home.socialLinks.length ? catalog.home.socialLinks : mockSocialLinks
+  homeSocialLinks.value = catalog.home.socialLinks
   homeGameSections.value = catalog.gameSections
   void prefetchAssetURLs(homeBanners.value.map((banner) => banner.image))
 

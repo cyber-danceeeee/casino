@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -648,12 +649,34 @@ func h5LooksLikeAssetReference(value string) bool {
 func h5SocialLinks(c *gin.Context, db *gorm.DB) []gin.H {
 	var rows []model.GameSocialLinks
 	scope := h5ContentScope(c)
-	if err := content.ApplySite(db.Model(&model.GameSocialLinks{}), "", scope).Where("status=1 AND deleted_at IS NULL").Order("sort ASC,id ASC").Find(&rows).Error; err != nil {
+	if err := content.ApplySite(db.Model(&model.GameSocialLinks{}), "", scope).Where("deleted_at IS NULL").Order("site_id DESC,sort ASC,id ASC").Find(&rows).Error; err != nil {
 		return []gin.H{}
 	}
 
-	links := make([]gin.H, 0, len(rows))
+	// Current H5 settings override imported defaults, including disabled links.
+	// Select the effective row before applying status so defaults cannot reappear.
+	seen := make(map[string]bool, len(rows))
+	effective := make([]model.GameSocialLinks, 0, len(rows))
 	for _, row := range rows {
+		code := strings.ToLower(strings.TrimSpace(row.PlatformCode))
+		if code == "" || seen[code] {
+			continue
+		}
+		seen[code] = true
+		if row.Status != 1 {
+			continue
+		}
+		row.PlatformCode = code
+		effective = append(effective, row)
+	}
+	sort.SliceStable(effective, func(i, j int) bool {
+		if effective[i].Sort == effective[j].Sort {
+			return effective[i].ID < effective[j].ID
+		}
+		return effective[i].Sort < effective[j].Sort
+	})
+	links := make([]gin.H, 0, len(effective))
+	for _, row := range effective {
 		links = append(links, gin.H{
 			"id":               row.PlatformCode,
 			"platformCode":     row.PlatformCode,

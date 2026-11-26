@@ -27,6 +27,11 @@ for port, deep_link in [(os.getenv('H5_PORT', '80'), '/wallet'),
         raise AssertionError('Missing asset returned success')
     except HTTPError as error:
         assert error.code == 404
+    with urlopen(base + '/api/v1/home', timeout=15) as response:
+        home = json.load(response)
+    assert home['code'] == 0, 'Home configuration API failed'
+    platforms = [link['platformCode'].strip().lower() for link in home['data']['socialLinks']]
+    assert len(platforms) == len(set(platforms)), 'Footer contains duplicate social platforms'
     print(f'Portal {port}: index, deep link, JavaScript and API readiness passed')
 
 root = Path(__file__).resolve().parent.parent

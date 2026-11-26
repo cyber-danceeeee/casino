@@ -1,14 +1,36 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { HomeProvider } from '../services/h5Api'
 import { toRuntimeAssetUrl } from '../services/runtimeConfig'
 import type { SocialLink } from '../mock/games'
 import { buildShareUrl, resolveShareText } from '../utils/shareLinks'
 import { isLoggedIn } from '../mock/session'
 
-defineProps<{
+const props = defineProps<{
   socials: SocialLink[]
   providers: HomeProvider[]
 }>()
+
+// Cached home data from older versions can contain both defaults and H5 rows.
+const visibleSocials = computed(() => {
+  const seen = new Set<string>()
+  return props.socials.filter((social) => {
+    const key = social.id.trim().toLowerCase()
+    if (!key || seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+})
+
+const visibleProviders = computed(() => {
+  const seen = new Set<string>()
+  return props.providers.filter((provider) => {
+    const key = provider.providerCode.trim().toLowerCase()
+    if (!key || seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+})
 
 const quickRegister = new URL('../assets/images/quick-register.webp', import.meta.url).href
 
@@ -32,20 +54,18 @@ const openSocial = async (social: SocialLink) => {
       <img :src="quickRegister" alt="Quick Registration" loading="lazy" />
     </button>
 
-    <div v-if="providers.length" class="provider-marquee" aria-label="Game providers">
-      <div class="provider-marquee__track">
-        <div
-          v-for="(provider, index) in [...providers, ...providers]"
-          :key="`${provider.providerCode}-${index}`"
-          class="provider-logo"
-        >
-          <img v-if="provider.logoUrl" :src="toRuntimeAssetUrl(provider.logoUrl)" :alt="provider.name" loading="lazy" /><span v-else>{{ provider.name }}</span>
-        </div>
+    <div v-if="visibleProviders.length" class="provider-logos" aria-label="Game providers">
+      <div
+        v-for="provider in visibleProviders"
+        :key="provider.providerCode"
+        class="provider-logo"
+      >
+        <img v-if="provider.logoUrl" :src="toRuntimeAssetUrl(provider.logoUrl)" :alt="provider.name" loading="lazy" /><span v-else>{{ provider.name }}</span>
       </div>
     </div>
 
-    <div class="social-links" aria-label="Social links">
-      <button v-for="social in socials" :key="social.id" type="button" :aria-label="social.label" @click="openSocial(social)">
+    <div v-if="visibleSocials.length" class="social-links" aria-label="Social links">
+      <button v-for="social in visibleSocials" :key="social.id" type="button" :aria-label="social.label" @click="openSocial(social)">
         <img :src="social.image" :alt="social.label" loading="lazy" />
       </button>
     </div>
@@ -83,20 +103,20 @@ const openSocial = async (social: SocialLink) => {
   }
 }
 
-.provider-marquee {
-  margin: 16px -12px 0;
-  overflow: hidden;
-}
-
-.provider-marquee__track {
+.provider-logos {
   display: flex;
-  width: max-content;
-  animation: provider-scroll 24s linear infinite;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 16px;
 }
 
 .provider-logo {
-  flex: 0 0 112px;
-  padding-left: 8px;
+  flex: 0 1 112px;
+  max-width: 100%;
+  text-align: center;
+  overflow-wrap: anywhere;
 
   img {
     width: 112px;
@@ -110,6 +130,7 @@ const openSocial = async (social: SocialLink) => {
 
 .social-links {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
   gap: 13px;
   margin-top: 22px;
@@ -154,13 +175,4 @@ p {
   text-align: center;
 }
 
-@keyframes provider-scroll {
-  from {
-    transform: translate3d(0, 0, 0);
-  }
-
-  to {
-    transform: translate3d(-50%, 0, 0);
-  }
-}
 </style>
