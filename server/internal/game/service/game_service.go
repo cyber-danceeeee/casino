@@ -9,6 +9,7 @@ import (
 
 	"casino/internal/content"
 	"casino/internal/game/domain"
+	"casino/internal/game/market"
 	"casino/internal/game/provider/ag"
 	"casino/internal/game/provider/softaggregator"
 	"casino/internal/game/repository"
@@ -16,9 +17,10 @@ import (
 )
 
 type GameService struct {
-	registry        domain.ProviderRegistry
-	repo            *repository.Repository
-	providerBaseURL map[string]string
+	registry           domain.ProviderRegistry
+	repo               *repository.Repository
+	providerBaseURL    map[string]string
+	connectionMetadata func(string) (string, string)
 }
 
 func NewGameService(registry domain.ProviderRegistry, repo *repository.Repository, providerBaseURL map[string]string) *GameService {
@@ -49,13 +51,25 @@ func (s *GameService) SyncProviderGamesScoped(ctx context.Context, scope content
 		return summary, err
 	}
 
-	providerRow, err := s.repo.EnsureProviderScoped(ctx, scope, providerCode, displayProviderName(providerCode), s.providerAPIBaseURL(providerCode), true)
+	name, baseURL := displayProviderName(providerCode), s.providerAPIBaseURL(providerCode)
+	if s.connectionMetadata != nil {
+		name, baseURL = s.connectionMetadata(providerCode)
+	}
+	providerRow, err := s.repo.EnsureProviderScoped(ctx, scope, providerCode, name, baseURL, true)
 	if err != nil {
 		_ = s.repo.RecordSyncFailureScoped(ctx, scope, providerCode, err)
 		return summary, err
 	}
 
-	games, err := provider.GetGames(ctx, domain.GetGamesRequest{})
+	deployment, err := market.Load(s.repo.DB().WithContext(ctx))
+	if err != nil {
+		return summary, err
+	}
+	if !deployment.ProviderAllowed(providerRow.SupportedCountries, providerRow.SupportedCurrencies) {
+		return summary, domain.NewWalletError(domain.WalletErrorProviderUnavailable, "supplier is not available in the deployment country and currency", nil)
+	}
+
+	games, err := provider.GetGames(ctx, domain.GetGamesRequest{Currency: deployment.Currency})
 	if err != nil {
 		_ = s.repo.RecordSyncFailureScoped(ctx, scope, providerCode, err)
 		return summary, err

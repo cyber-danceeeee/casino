@@ -131,3 +131,6 @@ assert_no_owner_fields(call('/me', base=h5_base))
 token = admin_token
 assert call('/admin/users')['total'] >= 1
 print('Single-site MFA, permissions, API removal, H5 publication, player registration and wallet session passed.')
+
+from provider_market_acceptance import verify_provider_market
+verify_provider_market(call, h5_base, admin_token, player['token'])

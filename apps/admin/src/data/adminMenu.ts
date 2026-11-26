@@ -217,6 +217,7 @@ export const menuGroups: MenuGroup[] = [
     i18nKey: "menu.games.root",
     icon: Platform,
     children: [
+      { key: "provider-connections", label: "供应商配置", i18nKey: "singleSite.providers", path: "/games/providers", icon: Connection },
       {
         key: "game-sync",
         label: "游戏厂商",

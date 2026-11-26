@@ -59,7 +59,7 @@ func (h *gameGamesHandler) Bootstrap(c *gin.Context) {
 	db := database.GetDB()
 	scope := h5ContentScope(c)
 	site := h5BootstrapSite(db, scope.SiteID)
-	countryCode := strings.ToUpper(strings.TrimSpace(h5FirstNonEmpty(c.Query("country"), site.CountryCode)))
+	countryCode := strings.ToUpper(strings.TrimSpace(site.CountryCode))
 	country := h5BootstrapCountry(db, countryCode)
 
 	brandConfig := h5BootstrapJSON(site.BrandConfig)
@@ -151,7 +151,7 @@ func h5BootstrapProviders(c *gin.Context, db *gorm.DB, scope content.Scope) []gi
 	var rows []model.GameGameProviders
 	q := content.ApplySite(db.Model(&model.GameGameProviders{}), "", scope).
 		Where("status IN ?", []int{1, 2})
-	if supported := h5SupportedGameProviderCodes(); len(supported) > 0 {
+	if supported := h5SupportedGameProviderCodes(db); len(supported) > 0 {
 		q = q.Where("provider_code IN ?", supported)
 	} else {
 		q = q.Where("1=0")

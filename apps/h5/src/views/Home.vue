@@ -76,6 +76,7 @@ const androidAppRuntime = isAndroidAppRuntime()
 const homeBanners = ref(cachedHomeCatalog?.home.banners.length ? cachedHomeCatalog.home.banners : mockBanners)
 const homeCategories = ref<GameCategory[]>(cachedHomeCatalog?.home.categories ?? [])
 const homeGameSections = ref<GameSection[]>(cachedHomeCatalog?.gameSections ?? [])
+const homeProviders = ref(cachedHomeCatalog?.home.providers ?? [])
 const homeSocialLinks = ref(cachedHomeCatalog?.home.socialLinks.length ? cachedHomeCatalog.home.socialLinks : mockSocialLinks)
 const splashVisible = ref(!homeBootState.splashCompleted)
 const splashReady = ref(homeBootState.preloadDone && homeBootState.catalogDone)
@@ -466,6 +467,7 @@ const selectCategory = (category: CategoryKey) => {
 }
 
 const applyHomeCatalog = (catalog: HomeCatalogSnapshot) => {
+  homeProviders.value = catalog.home.providers ?? []
   homeBanners.value = catalog.home.banners.length ? catalog.home.banners : mockBanners
   homeCategories.value = catalog.home.categories
   homeSocialLinks.value = catalog.home.socialLinks.length ? catalog.home.socialLinks : mockSocialLinks
@@ -610,7 +612,7 @@ onBeforeUnmount(() => {
         @view-all="openGameCategory"
         @page="loadHomeSectionPage"
       />
-      <FooterInfo :socials="homeSocialLinks" />
+      <FooterInfo :socials="homeSocialLinks" :providers="homeProviders" />
     </main>
 
     <HomeFloatingActions

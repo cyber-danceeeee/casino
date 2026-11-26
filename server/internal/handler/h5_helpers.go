@@ -145,7 +145,7 @@ func h5PlatformCatalogScope() content.Scope {
 
 func h5ApplyReadableScope(db *gorm.DB, alias string, scope content.Scope) *gorm.DB {
 	if scope.Platform {
-		return db.Where(h5Column(alias, "")+" = ? AND "+h5Column(alias, "site_id")+" = ?", 0, 0)
+		return db.Where(h5Column(alias, "site_id")+" = ?", 0)
 	}
 	return content.ApplySite(db, alias, scope)
 }
@@ -312,8 +312,8 @@ func h5ApplyGameMaintenance(db *gorm.DB, scope content.Scope, country string, cu
 
 	gameSubquery := `NOT EXISTS(SELECT 1 FROM game_game_maintenance AS gm WHERE gm.game_id = game_games.id AND gm.site_id = ? AND gm.enabled = 1 AND gm.hide_from_lobby = 1 AND gm.deleted_at IS NULL AND (gm.start_at IS NULL OR gm.start_at <= ?) AND (gm.end_at IS NULL OR gm.end_at > ?) AND (gm.affected_countries = '' OR FIND_IN_SET('ALL', gm.affected_countries) > 0 OR FIND_IN_SET(?, gm.affected_countries) > 0) AND (gm.affected_currencies = '' OR FIND_IN_SET('ALL', gm.affected_currencies) > 0 OR FIND_IN_SET(?, gm.affected_currencies) > 0))`
 
-	return db.Where(providerSubquery, scope.SiteID, scope.SiteID, nowValue, nowValue, strings.ToUpper(country), strings.ToUpper(currency)).
-		Where(gameSubquery, scope.SiteID, scope.SiteID, nowValue, nowValue, strings.ToUpper(country), strings.ToUpper(currency))
+	return db.Where(providerSubquery, scope.SiteID, nowValue, nowValue, strings.ToUpper(country), strings.ToUpper(currency)).
+		Where(gameSubquery, scope.SiteID, nowValue, nowValue, strings.ToUpper(country), strings.ToUpper(currency))
 }
 
 func h5RequestHost(c *gin.Context) string {

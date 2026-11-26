@@ -11,6 +11,7 @@ import (
 
 	"casino/internal/content"
 	"casino/internal/game/domain"
+	"casino/internal/game/market"
 	"casino/internal/model"
 )
 
@@ -1010,11 +1011,25 @@ func (s *Service) LaunchDemo(ctx context.Context, id uint64, scope content.Scope
 	if !game.SupportsDemo {
 		return nil, newError("DEMO_NOT_SUPPORTED", "demo mode is not supported")
 	}
+	deployment, err := market.Load(s.db.WithContext(ctx))
+	if err != nil {
+		return nil, err
+	}
+	var rules struct {
+		SupportedCountries  string
+		SupportedCurrencies string
+	}
+	if err := s.db.Table("game_game_providers").Select("supported_countries,supported_currencies").Where("id=?", game.ProviderID).Take(&rules).Error; err != nil {
+		return nil, err
+	}
+	if !deployment.ProviderAllowed(rules.SupportedCountries, rules.SupportedCurrencies) || !deployment.GameAllowed(game.SupportedCountries, game.SupportedCurrencies) {
+		return nil, newError("MARKET_UNAVAILABLE", "game is not available in the deployment market")
+	}
 	provider, err := s.runtime.ProviderRegistry.Get(game.ProviderCode)
 	if err != nil {
 		return nil, newError("PROVIDER_NOT_REGISTERED", "provider adapter is not registered")
 	}
-	result, err := provider.LaunchDemo(ctx, domain.LaunchDemoRequest{ProviderCode: game.ProviderCode, ProviderGameID: game.ProviderGameID, Currency: "PKR", Language: "en", Country: "PK", Device: "desktop", SessionID: generatedCode("ADMIN-DEMO")})
+	result, err := provider.LaunchDemo(ctx, domain.LaunchDemoRequest{ProviderCode: game.ProviderCode, ProviderGameID: game.ProviderGameID, Currency: deployment.Currency, Language: "en", Country: deployment.Country, Device: "desktop", SessionID: generatedCode("ADMIN-DEMO")})
 	if err != nil {
 		return nil, newError("DEMO_LAUNCH_FAILED", "demo launch failed")
 	}

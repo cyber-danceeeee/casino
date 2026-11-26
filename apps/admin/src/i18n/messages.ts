@@ -1,6 +1,6 @@
 export const messages = {
   "zh-CN": {
-    singleSite: { console: "H5 运营后台", settings: "H5 配置", h5Address: "H5 访问地址", viewH5: "查看 H5" },
+    singleSite: { providers: "供应商配置", console: "H5 运营后台", settings: "H5 配置", h5Address: "H5 访问地址", viewH5: "查看 H5" },
     app: {
       brand: "Casino Admin 游戏平台后台",
       admin: "管理员",
@@ -5094,7 +5094,7 @@ export const messages = {
     },
   },
   "en-US": {
-    singleSite: { console: "H5 Administration", settings: "H5 Configuration", h5Address: "H5 Address", viewH5: "View H5" },
+    singleSite: { providers: "Supplier Connections", console: "H5 Administration", settings: "H5 Configuration", h5Address: "H5 Address", viewH5: "View H5" },
     app: {
       brand: "Casino Admin Console",
       admin: "Administrator",

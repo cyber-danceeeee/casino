@@ -13,6 +13,8 @@ func init() {
 func adminGamesRouter(group *gin.RouterGroup, h handler.AdminGamesHandler) {
 	g := group.Group("/admin")
 	g.Use(adminauth.Middleware())
+	g.GET("/game-provider-connections", adminauth.Require(adminauth.PermissionGameProviderList), handler.ListProviderConnections)
+	g.PUT("/game-provider-connections/:code", adminauth.Require(adminauth.PermissionGameProviderUpdate), handler.SaveProviderConnection)
 	g.GET("/game-providers", adminauth.Require(adminauth.PermissionGameProviderList), h.ListProviders)
 	g.GET("/game-providers/:code", adminauth.Require(adminauth.PermissionGameProviderView), h.GetProvider)
 	g.PATCH("/game-providers/:code/status", adminauth.Require(adminauth.PermissionGameProviderUpdate), h.SetProviderStatus)

@@ -1,26 +1,16 @@
 <script setup lang="ts">
+import type { HomeProvider } from '../services/h5Api'
+import { toRuntimeAssetUrl } from '../services/runtimeConfig'
 import type { SocialLink } from '../mock/games'
 import { buildShareUrl, resolveShareText } from '../utils/shareLinks'
 import { isLoggedIn } from '../mock/session'
 
 defineProps<{
   socials: SocialLink[]
+  providers: HomeProvider[]
 }>()
 
 const quickRegister = new URL('../assets/images/quick-register.webp', import.meta.url).href
-const providerLogos = [
-  { id: 'provider-1', image: new URL('../assets/images/providers/provider-1.webp', import.meta.url).href },
-  { id: 'provider-2', image: new URL('../assets/images/providers/provider-2.webp', import.meta.url).href },
-  { id: 'provider-3', image: new URL('../assets/images/providers/provider-3.webp', import.meta.url).href },
-  { id: 'provider-4', image: new URL('../assets/images/providers/provider-4.webp', import.meta.url).href },
-  { id: 'provider-5', image: new URL('../assets/images/providers/provider-5.webp', import.meta.url).href },
-  { id: 'provider-6', image: new URL('../assets/images/providers/provider-6.webp', import.meta.url).href },
-  { id: 'provider-7', image: new URL('../assets/images/providers/provider-7.webp', import.meta.url).href },
-  { id: 'provider-8', image: new URL('../assets/images/providers/provider-8.webp', import.meta.url).href },
-  { id: 'provider-9', image: new URL('../assets/images/providers/provider-9.webp', import.meta.url).href },
-  { id: 'provider-10', image: new URL('../assets/images/providers/provider-10.webp', import.meta.url).href },
-  { id: 'provider-11', image: new URL('../assets/images/providers/provider-11.webp', import.meta.url).href },
-]
 
 const openSocial = async (social: SocialLink) => {
   if (typeof window === 'undefined') return
@@ -42,14 +32,14 @@ const openSocial = async (social: SocialLink) => {
       <img :src="quickRegister" alt="Quick Registration" loading="lazy" />
     </button>
 
-    <div class="provider-marquee" aria-label="Game providers">
+    <div v-if="providers.length" class="provider-marquee" aria-label="Game providers">
       <div class="provider-marquee__track">
         <div
-          v-for="(provider, index) in [...providerLogos, ...providerLogos]"
-          :key="`${provider.id}-${index}`"
+          v-for="(provider, index) in [...providers, ...providers]"
+          :key="`${provider.providerCode}-${index}`"
           class="provider-logo"
         >
-          <img :src="provider.image" alt="" loading="lazy" />
+          <img v-if="provider.logoUrl" :src="toRuntimeAssetUrl(provider.logoUrl)" :alt="provider.name" loading="lazy" /><span v-else>{{ provider.name }}</span>
         </div>
       </div>
     </div>

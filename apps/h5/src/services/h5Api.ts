@@ -274,7 +274,10 @@ export interface H5AuthRequest {
   phoneCountryCode?: string
 }
 
+export interface HomeProvider { providerCode: string; name: string; logoUrl?: string }
+
 export interface HomePayload {
+  providers: HomeProvider[]
   banners: BannerItem[]
   categories: GameCategory[]
   socialLinks: SocialLink[]
@@ -282,6 +285,7 @@ export interface HomePayload {
 }
 
 interface RemoteHomePayload {
+  providers?: HomeProvider[]
   banners: RemoteBanner[]
   categories: RemoteCategory[]
   socialLinks?: RemoteSocialLink[]
@@ -796,6 +800,7 @@ const normalizeHome = (payload: RemoteHomePayload): HomePayload => {
     })
 
   return {
+    providers: payload.providers || [],
     banners: (payload.banners || []).map((banner) => ({
       id: banner.bannerCode || String(banner.id),
       title: banner.title,

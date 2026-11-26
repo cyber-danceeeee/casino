@@ -40,6 +40,7 @@ const betCenterComponents: Record<string, RouteRecordRaw["component"]> = {
 };
 
 const gameCenterComponents: Record<string, RouteRecordRaw["component"]> = {
+  "provider-connections": () => import("@/views/games/ProviderConnectionsPage.vue"),
   "provider-management": () => import("@/views/games/GameCenterPage.vue"),
   "game-list": () => import("@/views/games/GameCenterPage.vue"),
   "game-categories": () => import("@/views/games/GameCenterPage.vue"),

@@ -16,6 +16,7 @@ import (
 
 	"casino/internal/content"
 	"casino/internal/game/domain"
+	"casino/internal/game/market"
 	"casino/internal/game/repository"
 	"casino/internal/hotranking"
 	"casino/internal/model"
@@ -85,6 +86,15 @@ func (s *LaunchService) Launch(ctx context.Context, req LaunchRequest) (*domain.
 	if err := validateBasicLaunchRequest(req); err != nil {
 		return nil, err
 	}
+	deployment, err := market.Load(s.repo.DB().WithContext(ctx))
+	if err != nil {
+		return nil, domain.NewWalletError(domain.WalletErrorMarketUnavailable, "published deployment market is unavailable", err)
+	}
+	if (req.Country != "" && req.Country != deployment.Country) || (req.Currency != "" && req.Currency != deployment.Currency) {
+		return nil, domain.NewWalletError(domain.WalletErrorMarketUnavailable, "game country and currency must match the deployed H5 market", nil)
+	}
+	req.SiteID = 1
+	req.Country, req.Currency = deployment.Country, deployment.Currency
 	_ = s.closeTimedOutSessions(ctx, time.Now())
 
 	scope := launchScope(req)
@@ -94,6 +104,12 @@ func (s *LaunchService) Launch(ctx context.Context, req LaunchRequest) (*domain.
 			return nil, domain.NewWalletError(domain.WalletErrorGameNotFound, "game not found", err)
 		}
 		return nil, err
+	}
+	if !deployment.ProviderAllowed(providerRow.SupportedCountries, providerRow.SupportedCurrencies) || !deployment.GameAllowed(game.SupportedCountries, game.SupportedCurrencies) {
+		return nil, domain.NewWalletError(domain.WalletErrorMarketUnavailable, "game supplier is not available in this deployment market", nil)
+	}
+	if !game.ProviderEnabled || !game.PlatformEnabled {
+		return nil, domain.NewWalletError(domain.WalletErrorGameNotFound, "game is not published", nil)
 	}
 	launchTime := time.Now()
 	requestJSON := launchRequestJSON(req)
@@ -250,33 +266,11 @@ func (s *LaunchService) resolveLaunchCountry(ctx context.Context, req LaunchRequ
 		}
 		return content.ApplySite(db, "", currentScope)
 	}
-	findCountry := func(currentScope content.Scope) error {
-		db := countryDB(currentScope)
-		query := db
-		if countryCode != "" {
-			query = query.Where("country_code=?", countryCode)
-		} else {
-			query = query.Order("is_default DESC,country_code")
-		}
-		if err := query.Take(&row).Error; err != nil {
-			if countryCode == "" || !errors.Is(err, gorm.ErrRecordNotFound) {
-				return err
-			}
-			return db.Order("is_default DESC,country_code").Take(&row).Error
-		}
-		return nil
+	if err := countryDB(scope).Where("country_code=?", countryCode).Order("site_id DESC").Take(&row).Error; err != nil {
+		return launchCountryConfig{}, domain.NewWalletError(domain.WalletErrorMarketUnavailable, "deployment country configuration is unavailable", err)
 	}
-	if err := findCountry(scope); err != nil {
-		if scope.SiteScoped() && errors.Is(err, gorm.ErrRecordNotFound) {
-			if platformErr := findCountry(content.Scope{Platform: true}); platformErr == nil {
-				err = nil
-			} else {
-				err = platformErr
-			}
-		}
-		if err != nil {
-			return launchCountryConfig{}, domain.NewWalletError(domain.WalletErrorInvalidRequest, "country configuration not found", err)
-		}
+	if !strings.EqualFold(row.CurrencyCode, req.Currency) {
+		return launchCountryConfig{}, domain.NewWalletError(domain.WalletErrorCurrencyMismatch, "deployment country currency is inconsistent", nil)
 	}
 
 	language := strings.ToLower(strings.TrimSpace(req.Language))

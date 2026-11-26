@@ -16,8 +16,7 @@ state=$(sql -e "SELECT CONCAT(checksum, ':', dirty) FROM casino_schema_migration
 if [[ -n "$state" ]]; then
   [[ "$state" == "$checksum:0" ]] || { echo 'Database installation is incomplete or its files changed. Restore the saved backup before retrying.' >&2; exit 1; }
   echo 'Single H5 database is current.'
-  exit 0
-fi
+else
 legacy=$(sql -e "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='game_saas_sites'")
 existing=$(sql -e "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='game_users'")
 if [[ "$legacy" == 1 ]]; then
@@ -43,3 +42,21 @@ remaining=$(sql -e "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_
 [[ "$remaining" == 0 ]] || { echo 'Obsolete ownership columns remain; startup stopped.' >&2; exit 1; }
 sql -e "UPDATE casino_schema_migrations SET dirty=0,applied_at=NOW(3) WHERE version='$version'; DELETE FROM casino_schema_migrations WHERE version<>'$version';"
 echo 'Single H5 database installation complete.'
+fi
+
+
+# Ordered additive changes preserve the immutable, already deployed baseline.
+for file in /database/updates/*.sql; do
+  [[ -f "$file" ]] || continue
+  update_version=$(basename "$file" .sql)
+  update_checksum=$(sha256sum "$file" | cut -d ' ' -f 1)
+  update_state=$(sql -e "SELECT CONCAT(checksum, ':', dirty) FROM casino_schema_migrations WHERE version='$update_version'")
+  if [[ -n "$update_state" ]]; then
+    [[ "$update_state" == "$update_checksum:0" ]] || { echo "Incomplete or modified migration: $update_version" >&2; exit 1; }
+    continue
+  fi
+  sql -e "INSERT INTO casino_schema_migrations(version,checksum,dirty) VALUES('$update_version','$update_checksum',1)"
+  sql < "$file"
+  sql -e "UPDATE casino_schema_migrations SET dirty=0,applied_at=NOW(3) WHERE version='$update_version'"
+  echo "Applied: $update_version"
+done

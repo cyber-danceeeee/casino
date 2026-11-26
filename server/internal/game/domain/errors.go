@@ -31,6 +31,7 @@ const (
 	WalletErrorDuplicateTransaction WalletErrorCode = "DUPLICATE_TRANSACTION"
 	WalletErrorTransactionConflict  WalletErrorCode = "TRANSACTION_CONFLICT"
 	WalletErrorProviderUnavailable  WalletErrorCode = "PROVIDER_UNAVAILABLE"
+	WalletErrorMarketUnavailable    WalletErrorCode = "MARKET_UNAVAILABLE"
 	WalletErrorInternal             WalletErrorCode = "INTERNAL_ERROR"
 )
 

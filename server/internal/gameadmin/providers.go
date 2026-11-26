@@ -9,9 +9,9 @@ import (
 
 	"gorm.io/gorm"
 
-	"casino/internal/config"
 	"casino/internal/content"
 	"casino/internal/eventbus"
+	"casino/internal/game/connections"
 	"casino/internal/game/domain"
 	"casino/internal/model"
 )
@@ -138,7 +138,7 @@ func (s *Service) TestProvider(ctx context.Context, code string, actor Actor) (m
 	message := ""
 	if err != nil {
 		status = "UNHEALTHY"
-		message = err.Error()
+		message = connections.New(s.db).SanitizeError(code, err)
 	}
 	var row providerRecord
 	if dbErr := providerScope(s.db.Table("game_game_providers"), "", actor.Scope).Where("provider_code=? AND deleted_at IS NULL", code).Take(&row).Error; dbErr != nil {
@@ -484,10 +484,17 @@ func (s *Service) SyncAll(ctx context.Context, reason string, actor Actor) ([]sy
 	if !actor.Scope.Platform {
 		return nil, newError("PLATFORM_SCOPE_REQUIRED", "provider synchronization is platform-only")
 	}
+	eligible := map[string]bool{}
+	for _, code := range connections.New(s.db).PublicCodes(ctx) {
+		eligible[code] = true
+	}
 	providers := s.runtime.ProviderRegistry.List()
 	results := make([]syncLogRecord, 0, len(providers))
 	var failed []string
 	for _, provider := range providers {
+		if !eligible[provider.Code()] {
+			continue
+		}
 		result, err := s.SyncProvider(ctx, provider.Code(), reason, actor)
 		results = append(results, result)
 		if err != nil {
@@ -529,29 +536,7 @@ func (s *Service) ensureRegisteredProvider(ctx context.Context, code string) err
 	if deletedCount > 0 {
 		return nil
 	}
-	_, err := s.runtime.Repository.EnsureProvider(ctx, code, adminProviderDisplayName(code), adminProviderAPIBaseURL(code), true)
+	name, endpoint := connections.New(s.db).Description(code)
+	_, err := s.runtime.Repository.EnsureProvider(ctx, code, name, endpoint, true)
 	return err
-}
-
-func adminProviderDisplayName(code string) string {
-	switch strings.ToLower(strings.TrimSpace(code)) {
-	case "ag":
-		return "AG"
-	case "softaggregator":
-		return "SoftAggregator"
-	default:
-		return code
-	}
-}
-
-func adminProviderAPIBaseURL(code string) string {
-	gameConfig := config.Get().Game
-	switch strings.ToLower(strings.TrimSpace(code)) {
-	case "ag":
-		return gameConfig.AG.APIBaseURL
-	case "softaggregator":
-		return gameConfig.SoftAggregator.APIBaseURL
-	default:
-		return ""
-	}
 }

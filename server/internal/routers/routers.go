@@ -37,6 +37,8 @@ var (
 // NewRouter create a new router
 func NewRouter() *gin.Engine {
 	r := gin.New()
+	// Upstream game IDs may contain slashes; keep their encoded path segment intact.
+	r.UseRawPath = true
 	r.ForwardedByClientIP = true
 	r.RemoteIPHeaders = []string{"X-Forwarded-For", "X-Real-IP"}
 	if err := r.SetTrustedProxies([]string{
@@ -61,7 +63,7 @@ func NewRouter() *gin.Engine {
 	r.Use(middleware.RequestID())
 
 	// logger middleware, to print simple messages, replace middleware.Logging with middleware.SimpleLog
-	r.Use(middleware.Logging(
+	requestLogger := middleware.Logging(
 		middleware.WithLog(logger.Get()),
 		middleware.WithRequestIDFromContext(),
 		middleware.WithIgnoreRoutes(
@@ -70,7 +72,14 @@ func NewRouter() *gin.Engine {
 			"/api/v1/admin/auth/mfa/setup/confirm",
 			"/api/v1/admin/auth/mfa/verify",
 		),
-	))
+	)
+	r.Use(func(c *gin.Context) {
+		if strings.HasPrefix(c.Request.URL.Path, "/api/v1/admin/game-provider-connections") {
+			c.Next()
+			return
+		}
+		requestLogger(c)
+	})
 
 	// metrics middleware
 	if config.Get().App.EnableMetrics {

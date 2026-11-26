@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -16,6 +15,10 @@ import (
 
 	"casino/internal/content"
 	"casino/internal/database"
+	"casino/internal/game/connections"
+	"casino/internal/game/domain"
+	"casino/internal/game/market"
+	gameservice "casino/internal/game/service"
 	"casino/internal/model"
 	"casino/internal/storage"
 )
@@ -141,9 +144,14 @@ func h5BuildPublicGameQuery(c *gin.Context, db *gorm.DB, scope content.Scope, fi
 		Where("game_games.status = ? AND game_games.provider_enabled = ? AND game_games.platform_enabled = ? AND gp.status = ?", 1, true, true, 1)
 	q = h5ApplyReadableScope(q, "game_games", scope)
 	q = h5ApplyReadableScope(q, "gp", scope)
-	country, currency, _ := h5PromotionAudience(c, db, scope.SiteID)
+	deployment, marketErr := market.Load(db.WithContext(c.Request.Context()))
+	if marketErr != nil {
+		q = q.Where("1=0")
+	}
+	q = market.ApplyGames(q, "game_games", deployment)
+	country, currency := deployment.Country, deployment.Currency
 	q = h5ApplyGameMaintenance(q, scope, country, currency)
-	supportedProviderCodes := h5SupportedGameProviderCodes()
+	supportedProviderCodes := h5SupportedGameProviderCodes(db)
 	if len(supportedProviderCodes) > 0 {
 		q = q.Where("gp.provider_code IN ?", supportedProviderCodes)
 	} else {
@@ -200,22 +208,24 @@ func h5BuildPublicGameQuery(c *gin.Context, db *gorm.DB, scope content.Scope, fi
 }
 
 func h5FindPublicGameByID(db *gorm.DB, scope content.Scope, id uint64, onlineOnly bool) (model.GameGames, content.Scope, error) {
-	find := func(currentScope content.Scope) (model.GameGames, error) {
+	find := func(current content.Scope) (model.GameGames, error) {
 		var game model.GameGames
-		query := h5ApplyReadableScope(db.Model(&model.GameGames{}), "", currentScope).Where("id = ?", id)
-		if onlineOnly {
-			query = query.Where("status = ?", 1)
+		m, err := market.Load(db)
+		if err != nil {
+			return game, err
 		}
-		return game, query.First(&game).Error
+		q := h5ApplyReadableScope(db.Model(&model.GameGames{}), "game_games", current).Joins("JOIN game_game_providers gp ON gp.id=game_games.provider_id AND gp.deleted_at IS NULL").Where("game_games.id=? AND game_games.status=1 AND game_games.provider_enabled=1 AND game_games.platform_enabled=1 AND gp.status=1", id)
+		q = market.ApplyGames(q, "game_games", m).Where("gp.provider_code IN ?", connections.New(db).PublicCodes(context.Background()))
+		return game, q.First(&game).Error
 	}
 	game, err := find(scope)
 	if err == nil {
 		return game, scope, nil
 	}
 	if scope.SiteScoped() && errors.Is(err, gorm.ErrRecordNotFound) {
-		platformScope := h5PlatformCatalogScope()
-		if platformGame, platformErr := find(platformScope); platformErr == nil {
-			return platformGame, platformScope, nil
+		catalog := h5PlatformCatalogScope()
+		if game, e := find(catalog); e == nil {
+			return game, catalog, nil
 		}
 	}
 	return model.GameGames{}, scope, err
@@ -269,31 +279,19 @@ func (h *gameGamesHandler) Launch(c *gin.Context) {
 		return
 	}
 	scope = h5UserContentScope(db, user.ID, scope)
-	token := h5Token("launch")
-	log := &model.GameGameLaunchLogs{
-
-		SiteID:       scope.SiteID,
-		UserID:       user.ID,
-		GameID:       game.ID,
-		ProviderID:   game.ProviderID,
-		SessionToken: token,
-		LaunchStatus: 2,
-		ClientIP:     c.ClientIP(),
-	}
-	if err := db.Create(log).Error; err == nil && gameScope.SiteScoped() && gameScope.SiteID == scope.SiteID {
-		_ = h5HotRankingStore().RecordLaunch(c.Request.Context(), scope, game.ID)
-	}
-
-	launchURL := game.LaunchURL
-	if launchURL == "" {
-		launchURL = fmt.Sprintf("/play/%s?token=%s", game.GameCode, token)
-	}
 	providers := h5ProvidersByID(db, gameScope, []model.GameGames{game})
-	response.Success(c, gin.H{
-		"game":      h5GameDTOFromModel(c.Request.Context(), game, providers[game.ProviderID]),
-		"launchUrl": launchURL,
-		"token":     token,
-	})
+	provider := providers[game.ProviderID]
+	result, err := gameservice.NewRuntime(db).LaunchService.Launch(c.Request.Context(), gameservice.LaunchRequest{SiteID: 1, ProviderCode: provider.ProviderCode, GameID: game.ProviderGameCode, UserID: user.ID, Device: "web", IPAddress: c.ClientIP()})
+	if err != nil {
+		var walletError *domain.WalletError
+		if errors.As(err, &walletError) {
+			h5MachineError(c, http.StatusBadRequest, string(walletError.Code), walletError.Error())
+		} else {
+			h5Error(c, http.StatusBadGateway, "game provider is unavailable")
+		}
+		return
+	}
+	response.Success(c, gin.H{"game": h5GameDTOFromModel(c.Request.Context(), game, provider), "launchUrl": result.LaunchURL, "token": result.SessionID})
 }
 
 func (h *gameGamesHandler) ToggleFavorite(c *gin.Context) {

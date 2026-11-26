@@ -44,6 +44,7 @@ var adminMenuCatalog = []menuCatalogGroup{
 		{Code: "deposit-amount-options", NameZh: "充值金额档位", NameEn: "Deposit Amount Options", Path: "/funds/deposit-amount-options"},
 	}},
 	{Code: "games", NameZh: "游戏中心", NameEn: "Game Center", Sort: 300, Children: []menuCatalogItem{
+		{Code: "provider-connections", NameZh: "供应商配置", NameEn: "Supplier Connections", Path: "/games/providers"},
 		{Code: "game-sync", NameZh: "游戏厂商", NameEn: "Game Providers", Path: "/games/sync"},
 		{Code: "game-list", NameZh: "游戏列表", NameEn: "Game List", Path: "/games/list"},
 		{Code: "game-categories", NameZh: "游戏分类", NameEn: "Game Categories", Path: "/games/categories"},
@@ -144,7 +145,7 @@ var defaultAdminMenuIcons = map[string]string{
 	"manual-adjustments": "EditPen", "deposit-orders": "CreditCard", "withdrawal-orders": "Download",
 	"financial-reconciliation": "DocumentChecked", "deposit-methods": "CreditCard",
 	"deposit-channels": "Connection", "deposit-amount-options": "Sort",
-	"games": "Platform", "game-sync": "Refresh", "game-list": "Grid",
+	"games": "Platform", "provider-connections": "Connection", "game-sync": "Refresh", "game-list": "Grid",
 	"game-categories": "Collection", "lobby-sections": "Menu", "game-launch-records": "VideoPlay",
 	"bets": "List", "bet-records": "DataLine",
 	"rollback-records": "RefreshLeft", "abnormal-bets": "WarnTriangleFilled",

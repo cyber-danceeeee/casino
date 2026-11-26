@@ -15,6 +15,7 @@ import (
 
 	"casino/internal/content"
 	"casino/internal/database"
+	"casino/internal/game/market"
 	"casino/internal/model"
 )
 
@@ -77,8 +78,12 @@ func (h *gameGamesHandler) Lobby(c *gin.Context) {
 		h5MachineError(c, http.StatusServiceUnavailable, code, message)
 		return
 	}
-	country := strings.ToUpper(strings.TrimSpace(h5FirstNonEmpty(c.Query("country"), c.GetHeader("X-Country-Code"))))
-	currency := strings.ToUpper(strings.TrimSpace(h5FirstNonEmpty(c.Query("currency"), c.GetHeader("X-Currency-Code"))))
+	deployment, err := market.Load(db)
+	if err != nil {
+		h5Error(c, http.StatusServiceUnavailable, "deployment market is unavailable")
+		return
+	}
+	country, currency := deployment.Country, deployment.Currency
 
 	sections, err := h5LobbySections(db, scope, country, currency)
 	if err != nil {
@@ -213,8 +218,8 @@ func h5LobbyCategories(ctx context.Context, db *gorm.DB, scope content.Scope) []
 func h5LobbyProviders(ctx context.Context, db *gorm.DB, scope content.Scope, country string, currency string) []h5LobbyProviderDTO {
 	var rows []model.GameGameProviders
 	q := content.ApplySite(db.Model(&model.GameGameProviders{}), "", scope).Where("status = ?", 1)
-	q = h5Availability(q, "game_game_providers", country, currency)
-	if supported := h5SupportedGameProviderCodes(); len(supported) > 0 {
+
+	if supported := h5SupportedGameProviderCodes(db); len(supported) > 0 {
 		q = q.Where("provider_code IN ?", supported)
 	} else {
 		q = q.Where("1 = 0")
@@ -288,9 +293,12 @@ func h5LobbyGameQuery(db *gorm.DB, scope content.Scope, country string, currency
 		Where("game_games.status = ? AND game_games.provider_enabled = ? AND game_games.platform_enabled = ? AND gp.status = ?", 1, true, true, 1)
 	q = content.ApplySite(q, "game_games", scope)
 	q = content.ApplySite(q, "gp", scope)
-	q = h5Availability(q, "game_games", country, currency)
-	q = h5Availability(q, "gp", country, currency)
-	if supported := h5SupportedGameProviderCodes(); len(supported) > 0 {
+	deployment, err := market.Load(db)
+	if err != nil {
+		return q.Where("1=0")
+	}
+	q = market.ApplyGames(q, "game_games", deployment)
+	if supported := h5SupportedGameProviderCodes(db); len(supported) > 0 {
 		q = q.Where("gp.provider_code IN ?", supported)
 	} else {
 		q = q.Where("1 = 0")

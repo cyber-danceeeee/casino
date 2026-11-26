@@ -4,7 +4,6 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -67,11 +66,11 @@ func (h *gameProviderAggregatorHandler) GameList(c *gin.Context) {
 	}
 
 	var games []model.GameGames
-	q := content.ApplySite(db.Model(&model.GameGames{}), "", scope).Where("provider_id = ?", provider.ID)
-	if strings.EqualFold(strings.TrimSpace(c.Query("enabled")), "true") {
-		q = q.Where("status = ?", 1)
+	q, _ := h5BuildPublicGameQuery(c, db, scope, h5GameListFilters{ProviderCode: providerCode})
+	if err := q.Order("game_games.hot_score DESC, game_games.sort ASC,game_games.id ASC").Find(&games).Error; err != nil {
+		h5Error(c, http.StatusInternalServerError, "game list unavailable")
+		return
 	}
-	_ = q.Order("hot_score DESC, sort ASC, id ASC").Find(&games).Error
 
 	items := h5GameDTOs(c.Request.Context(), games, map[uint64]model.GameGameProviders{provider.ID: provider})
 	response.Success(c, gin.H{
@@ -88,9 +87,9 @@ func (h *gameProviderAggregatorHandler) SyncProviderGames(c *gin.Context) {
 		h5Error(c, http.StatusBadRequest, "invalid provider")
 		return
 	}
-	actor, ok := adminauth.FromContext(c)
-	if !ok || !actor.Platform {
-		h5Error(c, http.StatusForbidden, "provider synchronization is platform-only")
+	_, ok := adminauth.FromContext(c)
+	if !ok {
+		h5Error(c, http.StatusForbidden, "administrator authentication is required")
 		return
 	}
 	summary, err := h.runtime.GameService.SyncProviderGames(c.Request.Context(), providerCode)
@@ -168,7 +167,7 @@ func (h *gameProviderAggregatorHandler) launch(c *gin.Context, demo bool) {
 		h5MachineError(c, http.StatusServiceUnavailable, code, message)
 		return
 	}
-	gameID, _ := url.PathUnescape(strings.TrimSpace(c.Param("gameId")))
+	gameID := strings.TrimSpace(c.Param("gameId"))
 	sessionID := strings.TrimSpace(req.SessionID)
 	if len(sessionID) > 128 {
 		h5Error(c, http.StatusBadRequest, "invalid session id")
@@ -194,13 +193,18 @@ func (h *gameProviderAggregatorHandler) launch(c *gin.Context, demo bool) {
 	})
 	if err != nil {
 		var walletError *domain.WalletError
-		if errors.As(err, &walletError) && (walletError.Code == domain.WalletErrorProviderMaintenance || walletError.Code == domain.WalletErrorGameMaintenance) {
-			h5MachineError(c, http.StatusServiceUnavailable, string(walletError.Code), walletError.Error())
-			return
+		if errors.As(err, &walletError) {
+			status := http.StatusBadRequest
+			if walletError.Code == domain.WalletErrorProviderMaintenance || walletError.Code == domain.WalletErrorGameMaintenance {
+				status = http.StatusServiceUnavailable
+			}
+			h5MachineError(c, status, string(walletError.Code), walletError.Error())
+		} else {
+			h5Error(c, http.StatusBadGateway, "game provider is unavailable")
 		}
-		h5Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
+
 	response.Success(c, result)
 }
 

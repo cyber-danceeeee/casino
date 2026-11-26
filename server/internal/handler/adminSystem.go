@@ -14,6 +14,7 @@ import (
 
 	"casino/internal/adminauth"
 	"casino/internal/database"
+	"casino/internal/game/connections"
 	"casino/internal/singlesite"
 	"casino/internal/storage"
 	"casino/internal/systemadmin"
@@ -1020,8 +1021,7 @@ func (h *AdminSystemHandler) AppConfig(c *gin.Context) {
 		data["branding"] = branding
 		data["maintenance"] = h5EffectiveMaintenance(c, db, scope)
 		data["siteId"] = scope.SiteID
-		data["siteId"] = scope.SiteID
-		data["resourceVersion"] = strings.TrimSpace(stringValue(data["resourceVersion"])) + "-site-" + strconv.FormatUint(site.ConfigVersion, 10)
+		data["resourceVersion"] = strings.TrimSpace(stringValue(data["resourceVersion"])) + "-site-" + strconv.FormatUint(site.ConfigVersion, 10) + "-providers-" + connections.PolicyVersion(db)
 		if countryData, ok := data["country"].(map[string]any); ok {
 			countryData["timezone"] = h5FirstNonEmpty(site.Timezone, country.Timezone)
 		}

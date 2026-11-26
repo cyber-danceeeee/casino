@@ -220,8 +220,7 @@ func h5PromotionState(c *gin.Context, db *gorm.DB, scope content.Scope, activity
 }
 
 func h5PromotionAudience(c *gin.Context, db *gorm.DB, siteID uint64) (string, string, string) {
-	country := strings.ToUpper(strings.TrimSpace(c.Query("country")))
-	currency := strings.ToUpper(strings.TrimSpace(c.Query("currency")))
+	country, currency := "", ""
 	language := strings.TrimSpace(c.Query("language"))
 	if siteID > 0 && (country == "" || currency == "" || language == "") {
 		site := h5BootstrapSite(db, siteID)

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"casino/internal/content"
+
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )

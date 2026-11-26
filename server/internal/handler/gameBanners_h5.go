@@ -9,11 +9,9 @@ import (
 	"github.com/go-dev-frame/sponge/pkg/gin/response"
 	"gorm.io/gorm"
 
-	"casino/internal/config"
 	"casino/internal/content"
 	"casino/internal/database"
-	"casino/internal/game/provider/ag"
-	"casino/internal/game/provider/softaggregator"
+	"casino/internal/game/connections"
 	"casino/internal/model"
 	"casino/internal/operationadmin"
 )
@@ -65,6 +63,7 @@ func (h *gameBannersHandler) Home(c *gin.Context) {
 		"featureCards":  featureCards,
 		"rebateJackpot": h5JackpotPayload(jackpot),
 		"socialLinks":   h5SocialLinks(c, db),
+		"providers":     h5BootstrapProviders(c, db, scope),
 	})
 }
 
@@ -129,15 +128,8 @@ func h5DefaultGameCategories() []model.GameGameCategories {
 	}
 }
 
-func h5SupportedGameProviderCodes() []string {
-	codes := make([]string, 0, 2)
-	if config.Get().Game.SoftAggregator.Enabled {
-		codes = append(codes, softaggregator.Code)
-	}
-	if config.Get().Game.AG.Enabled {
-		codes = append(codes, ag.Code)
-	}
-	return codes
+func h5SupportedGameProviderCodes(db *gorm.DB) []string {
+	return connections.New(db).PublicCodes(context.Background())
 }
 
 func h5GameSections(ctx context.Context, categories []model.GameGameCategories, games []model.GameGames, relations []model.GameGameCategoryRelations, providers map[uint64]model.GameGameProviders) []gin.H {
