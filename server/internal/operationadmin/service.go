@@ -165,6 +165,12 @@ type vipRecord struct {
 	CashbackRate       *decimal.Decimal `json:"cashbackRate"`
 	BirthdayReward     *decimal.Decimal `json:"birthdayReward"`
 	MonthlyReward      *decimal.Decimal `json:"monthlyReward"`
+	LevelUpReward      *decimal.Decimal `json:"levelUpReward"`
+	WeeklyReward       *decimal.Decimal `json:"weeklyReward"`
+	DailyWithdrawCount uint             `json:"dailyWithdrawCount"`
+	RetainPeriodDays   uint             `gorm:"-" json:"retainPeriodDays"`
+	RetainDeposit      string           `gorm:"-" json:"retainDeposit"`
+	RetainValidBet     string           `gorm:"-" json:"retainValidBet"`
 	SortOrder          int              `json:"sortOrder"`
 	Status             int              `json:"-"`
 	Enabled            bool             `json:"enabled"`

@@ -166,7 +166,7 @@ async function executePopupAction(popup: H5PopupPayload) {
       await router.push({ name: 'bonus-center' })
       break
     case 'OPEN_VIP':
-      await router.push({ name: 'offers', query: { tab: 'vip' } })
+      await router.push({ name: 'vip' })
       break
     case 'OPEN_DOWNLOAD':
       if (!await installPWA()) await router.push({ name: 'activity-detail', params: { slug: 'app-download' } })

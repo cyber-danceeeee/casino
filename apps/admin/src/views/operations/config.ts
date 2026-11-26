@@ -789,6 +789,12 @@ export const operationConfigs: Record<string, OperationConfig> = {
         labelKey: "operations.fields.monthlyReward",
         required: true,
       },
+      { key: "levelUpReward", labelKey: "operations.fields.levelUpReward", required: true },
+      { key: "weeklyReward", labelKey: "operations.fields.weeklyReward", required: true },
+      { key: "dailyWithdrawCount", labelKey: "operations.fields.dailyWithdrawCount", type: "number" },
+      { key: "retainPeriodDays", labelKey: "operations.fields.retainPeriodDays", type: "number" },
+      { key: "retainDeposit", labelKey: "operations.fields.retainDeposit", required: true },
+      { key: "retainValidBet", labelKey: "operations.fields.retainValidBet", required: true },
       {
         key: "sortOrder",
         labelKey: "operations.fields.sortOrder",

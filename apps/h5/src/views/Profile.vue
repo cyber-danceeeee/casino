@@ -50,12 +50,7 @@ onBeforeUnmount(() => {
 })
 
 const openVipOffers = () => {
-  void router.push({
-    name: 'offers',
-    query: {
-      tab: 'vip',
-    },
-  })
+  void router.push({ name: 'vip' })
 }
 
 const openRoute = (name: string) => {

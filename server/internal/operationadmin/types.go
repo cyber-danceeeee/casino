@@ -137,6 +137,12 @@ type VIPLevelInput struct {
 	CashbackRate       string            `json:"cashbackRate" binding:"required"`
 	BirthdayReward     string            `json:"birthdayReward" binding:"required"`
 	MonthlyReward      string            `json:"monthlyReward" binding:"required"`
+	LevelUpReward      *string           `json:"levelUpReward"`
+	WeeklyReward       *string           `json:"weeklyReward"`
+	DailyWithdrawCount *uint             `json:"dailyWithdrawCount"`
+	RetainPeriodDays   *uint             `json:"retainPeriodDays"`
+	RetainDeposit      *string           `json:"retainDeposit"`
+	RetainValidBet     *string           `json:"retainValidBet"`
 	SortOrder          int               `json:"sortOrder"`
 	Enabled            bool              `json:"enabled"`
 	Benefits           []VIPBenefitInput `json:"benefits"`

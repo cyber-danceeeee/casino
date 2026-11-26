@@ -12,6 +12,7 @@ import Offers from '../views/Offers.vue'
 import Profile from '../views/Profile.vue'
 import ProfileSubPage from '../views/ProfileSubPage.vue'
 import Share from '../views/Share.vue'
+import Vip from '../views/Vip.vue'
 
 const requiresAuth = { requiresAuth: true }
 
@@ -39,7 +40,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/vip',
     name: 'vip',
-    component: Offers,
+    component: Vip,
   },
   {
     path: '/profile',
@@ -172,6 +173,11 @@ NProgress.configure({
 
 router.beforeEach((to) => {
   NProgress.start()
+
+  if (to.name === 'offers' && to.query.tab === 'vip') {
+    const { tab: _tab, ...query } = to.query
+    return { name: 'vip', query, hash: to.hash, replace: true }
+  }
 
   if (to.meta.requiresAuth && !isLoggedIn.value) {
     return {

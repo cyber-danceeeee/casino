@@ -363,6 +363,7 @@ interface H5VipRequirementPayload {
 
 export interface H5VipPayload {
   currentLevel: number
+  depositAmount: string
   levels: H5VipLevelPayload[]
   requirements: H5VipRequirementPayload[]
   benefits: Array<Record<string, string>>
