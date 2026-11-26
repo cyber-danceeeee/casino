@@ -1,0 +1,383 @@
+import type { PageResult } from "@/api/adminUsers";
+import {
+  fetchAgent,
+  fetchAgentLog,
+  fetchAgentLogs,
+  fetchAgentWallet,
+  fetchAgentWallets,
+  fetchAgents,
+  fetchChannel,
+  fetchChannels,
+  fetchCommission,
+  fetchCommissions,
+  fetchHierarchy,
+  fetchPlan,
+  fetchPlans,
+  fetchSettlement,
+  fetchSettlements,
+  type AgentDetail,
+  type AgentQuery,
+  type AgentRecord,
+} from "@/api/adminAgents";
+
+export type Filter = {
+  key: string;
+  label: string;
+  type?: "text" | "select" | "dateRange";
+  options?: string[];
+};
+export type Column = {
+  key: string;
+  label: string;
+  width?: number;
+  time?: boolean;
+  money?: boolean;
+  status?: boolean;
+  boolean?: boolean;
+};
+export type Config = {
+  permission: string;
+  search: string;
+  title: string;
+  filters: Filter[];
+  columns: Column[];
+  tabs: string[];
+  loader: (q: AgentQuery) => Promise<PageResult<AgentRecord>>;
+  detail: (id: number) => Promise<AgentDetail>;
+  createPermission?: string;
+  updatePermission?: string;
+};
+const f = (
+  key: string,
+  type: Filter["type"] = "text",
+  options?: string[],
+): Filter => ({ key, label: key, type, options });
+const c = (
+  key: string,
+  width = 140,
+  kind?: "time" | "money" | "status" | "boolean",
+): Column => ({
+  key,
+  label: key,
+  width,
+  [kind || "status"]: kind ? true : undefined,
+});
+const dates = (base: string) => [f(`${base}Range`, "dateRange")];
+const status = ["ACTIVE", "DISABLED", "FROZEN"];
+const tabs = (...v: string[]) => v;
+
+export const agentConfigs: Record<string, Config> = {
+  "agent-list": {
+    permission: "agent:list",
+    createPermission: "agent:create",
+    updatePermission: "agent:update",
+    search: "agentSearch",
+    title: "agentList",
+    filters: [
+      f("agentCode"),
+      f("agentName"),
+      f("agentLevel"),
+      f("parentAgent"),
+      f("status", "select", status),
+      f("country"),
+      f("currency"),
+      f("commissionPlan"),
+      f("registrationChannel"),
+      ...dates("created"),
+    ],
+    columns: [
+      c("agentCode"),
+      c("name", 160),
+      c("level", 85),
+      c("parentAgent"),
+      c("directUsers", 105),
+      c("directAgents", 110),
+      c("totalUsers", 100),
+      c("commissionPlan", 160),
+      c("availableCommission", 150, "money"),
+      c("frozenCommission", 140, "money"),
+      c("status", 110, "status"),
+      c("createdAt", 175, "time"),
+    ],
+    tabs: tabs(
+      "overview",
+      "hierarchy",
+      "users",
+      "children",
+      "commissionPlan",
+      "commissionRecords",
+      "settlements",
+      "wallets",
+      "operationLogs",
+    ),
+    loader: fetchAgents,
+    detail: fetchAgent,
+  },
+  "agent-hierarchy": {
+    permission: "agent:hierarchy:view",
+    search: "hierarchySearch",
+    title: "agentHierarchy",
+    filters: [
+      f("agentCode"),
+      f("agentName"),
+      f("agentLevel"),
+      f("parentAgent"),
+      f("status", "select", status),
+    ],
+    columns: [
+      c("agentCode"),
+      c("name", 160),
+      c("level", 85),
+      c("parentAgent"),
+      c("directAgents"),
+      c("directUsers"),
+      c("totalUsers"),
+      c("commissionPlan", 160),
+      c("status", 110, "status"),
+    ],
+    tabs: tabs("overview", "hierarchy", "users", "children", "operationLogs"),
+    loader: fetchHierarchy,
+    detail: fetchAgent,
+  },
+  "channel-management": {
+    permission: "agent:channel:list",
+    createPermission: "agent:channel:create",
+    updatePermission: "agent:channel:update",
+    search: "channelSearch",
+    title: "channelManagement",
+    filters: [
+      f("channelCode"),
+      f("channelName"),
+      f("agent"),
+      f("country"),
+      f("platform", "select", ["H5", "WEB", "APP"]),
+      f("status", "select", ["ENABLED", "DISABLED"]),
+      ...dates("created"),
+    ],
+    columns: [
+      c("code"),
+      c("nameZh", 160),
+      c("nameEn", 160),
+      c("agentName"),
+      c("country", 90),
+      c("platform", 90),
+      c("registrationUrl", 220),
+      c("registeredUsers", 120),
+      c("firstDepositUsers", 135),
+      c("depositAmount", 130, "money"),
+      c("enabled", 100, "boolean"),
+      c("createdAt", 175, "time"),
+    ],
+    tabs: tabs("overview", "statistics", "operationLogs"),
+    loader: fetchChannels,
+    detail: fetchChannel,
+  },
+  "commission-plans": {
+    permission: "agent:commission-plan:list",
+    createPermission: "agent:commission-plan:create",
+    updatePermission: "agent:commission-plan:update",
+    search: "planSearch",
+    title: "commissionPlans",
+    filters: [
+      f("planCode"),
+      f("planName"),
+      f("commissionModel", "select", [
+        "CPA",
+        "REVENUE_SHARE",
+        "HYBRID",
+        "TIERED_REVENUE_SHARE",
+      ]),
+      f("currency"),
+      f("status", "select", ["ENABLED", "DISABLED"]),
+      ...dates("created"),
+    ],
+    columns: [
+      c("code"),
+      c("nameZh", 160),
+      c("nameEn", 160),
+      c("model", 170, "status"),
+      c("cpaAmount", 120, "money"),
+      c("revenueShareRate", 150),
+      c("settlementCycle", 130),
+      c("assignedAgentCount", 140),
+      c("enabled", 100, "boolean"),
+      c("updatedAt", 175, "time"),
+    ],
+    tabs: tabs(
+      "overview",
+      "cpaRules",
+      "revenueShareRules",
+      "tierRules",
+      "eligibleProducts",
+      "assignedAgents",
+      "operationLogs",
+    ),
+    loader: fetchPlans,
+    detail: fetchPlan,
+  },
+  "commission-records": {
+    permission: "agent:commission-record:list",
+    search: "commissionSearch",
+    title: "commissionRecords",
+    filters: [
+      f("recordNo"),
+      f("agentCode"),
+      f("agentName"),
+      f("playerNo"),
+      f("commissionType", "select", [
+        "CPA",
+        "REVENUE_SHARE",
+        "HYBRID_CPA",
+        "HYBRID_REVENUE_SHARE",
+        "MANUAL_ADJUSTMENT",
+        "REVERSAL",
+      ]),
+      f("businessDate"),
+      f("currency"),
+      f("status", "select", [
+        "PENDING",
+        "CONFIRMED",
+        "FROZEN",
+        "SETTLED",
+        "CANCELLED",
+        "REVERSED",
+      ]),
+      ...dates("created"),
+    ],
+    columns: [
+      c("record_no", 180),
+      c("agent_name", 150),
+      c("user_no"),
+      c("commission_type", 180, "status"),
+      c("calculation_base", 140, "money"),
+      c("commission_rate", 130),
+      c("commission_amount", 145, "money"),
+      c("currency", 90),
+      c("business_date", 120),
+      c("status", 110, "status"),
+      c("created_at", 175, "time"),
+    ],
+    tabs: tabs(
+      "overview",
+      "calculationDetail",
+      "relatedUsers",
+      "relatedBets",
+      "relatedDeposits",
+      "adjustments",
+      "operationLogs",
+    ),
+    loader: fetchCommissions,
+    detail: fetchCommission,
+  },
+  "agent-settlements": {
+    permission: "agent:settlement:list",
+    search: "settlementSearch",
+    title: "agentSettlements",
+    filters: [
+      f("settlementNo"),
+      f("agent"),
+      f("settlementCycle"),
+      f("currency"),
+      f("status", "select", [
+        "DRAFT",
+        "PENDING_REVIEW",
+        "APPROVED",
+        "PROCESSING",
+        "PAID",
+        "REJECTED",
+        "CANCELLED",
+        "FAILED",
+      ]),
+      f("amountMin"),
+      f("amountMax"),
+      ...dates("created"),
+      ...dates("completed"),
+    ],
+    columns: [
+      c("settlement_no", 180),
+      c("agent_name", 150),
+      c("period_start", 120),
+      c("period_end", 120),
+      c("gross_commission", 145, "money"),
+      c("adjustments", 120, "money"),
+      c("final_amount", 130, "money"),
+      c("currency", 90),
+      c("status", 135, "status"),
+      c("reviewer_username", 140),
+      c("created_at", 175, "time"),
+      c("completed_at", 175, "time"),
+    ],
+    tabs: tabs(
+      "summary",
+      "commissionRecords",
+      "adjustments",
+      "paymentInformation",
+      "approvalHistory",
+      "statement",
+      "operationLogs",
+    ),
+    loader: fetchSettlements,
+    detail: fetchSettlement,
+  },
+  "agent-wallets": {
+    permission: "agent:wallet:list",
+    search: "walletSearch",
+    title: "agentWallets",
+    filters: [
+      f("agentCode"),
+      f("agentName"),
+      f("walletNo"),
+      f("currency"),
+      f("walletStatus", "select", ["ACTIVE", "FROZEN", "DISABLED"]),
+      f("balanceMin"),
+      f("balanceMax"),
+      ...dates("updated"),
+    ],
+    columns: [
+      c("wallet_no", 180),
+      c("agent_name", 160),
+      c("currency", 90),
+      c("available_balance", 150, "money"),
+      c("frozen_balance", 140, "money"),
+      c("settled_amount", 135, "money"),
+      c("withdrawn_amount", 140, "money"),
+      c("status", 110, "status"),
+      c("updated_at", 175, "time"),
+    ],
+    tabs: tabs(
+      "overview",
+      "balanceComposition",
+      "transactions",
+      "frozenFunds",
+      "settlements",
+      "operationLogs",
+    ),
+    loader: fetchAgentWallets,
+    detail: fetchAgentWallet,
+  },
+  "agent-operation-logs": {
+    permission: "agent:operation-log:view",
+    search: "logSearch",
+    title: "operationLogs",
+    filters: [
+      f("operator"),
+      f("action"),
+      f("targetType"),
+      ...dates("created"),
+    ],
+    columns: [
+      c("operator_username", 145),
+      c("action", 180),
+      c("target_type", 150),
+      c("target_id", 120),
+      c("before_state", 220),
+      c("after_state", 220),
+      c("reason", 200),
+      c("ip_address", 140),
+      c("created_at", 175, "time"),
+    ],
+    tabs: tabs("overview"),
+    loader: fetchAgentLogs,
+    detail: fetchAgentLog,
+  },
+};

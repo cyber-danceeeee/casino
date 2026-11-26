@@ -1,0 +1,897 @@
+import type { Component } from "vue";
+import {
+  Avatar,
+  Box,
+  Brush,
+  Checked,
+  ChatLineSquare,
+  CircleCloseFilled,
+  Clock,
+  Collection,
+  Connection,
+  CreditCard,
+  DataAnalysis,
+  DataBoard,
+  DataLine,
+  DocumentChecked,
+  Download,
+  EditPen,
+  Files,
+  Finished,
+  FolderOpened,
+  GoldMedal,
+  Grid,
+  Headset,
+  Histogram,
+  Key,
+  Link,
+  List,
+  Lock,
+  Message,
+  Money,
+  Monitor,
+  Menu,
+  Notification,
+  Odometer,
+  OfficeBuilding,
+  Operation,
+  Picture,
+  PieChart,
+  Platform,
+  Position,
+  Postcard,
+  Present,
+  Promotion,
+  Refresh,
+  RefreshLeft,
+  Search,
+  SetUp,
+  Setting,
+  Share,
+  Sort,
+  Suitcase,
+  Ticket,
+  Tickets,
+  Timer,
+  TrendCharts,
+  User,
+  UserFilled,
+  UploadFilled,
+  VideoPlay,
+  Wallet,
+  WarnTriangleFilled,
+  Warning,
+  WarningFilled,
+} from "@element-plus/icons-vue";
+
+export type MenuItem = {
+  key: string;
+  label: string;
+  i18nKey: string;
+  path: string;
+  icon: Component;
+	navigationPath?: string;
+};
+
+export type MenuGroup = {
+  key: string;
+  label: string;
+  i18nKey: string;
+  icon: Component;
+  children: MenuItem[];
+};
+
+export const dashboardItem: MenuItem = {
+  key: "dashboard",
+  label: "Dashboard",
+  i18nKey: "menu.dashboard",
+  path: "/",
+  icon: DataBoard,
+};
+
+export const menuGroups: MenuGroup[] = [
+  {
+    key: "brand",
+    label: "品牌中心",
+    i18nKey: "menu.brand.root",
+    icon: Brush,
+    children: [
+      {
+        key: "brand-config",
+        label: "品牌配置",
+        i18nKey: "menu.brand.settings",
+        path: "/system/brand",
+        icon: Brush,
+      },
+    ],
+  },
+  {
+    key: "users",
+    label: "用户中心",
+    i18nKey: "menu.users.root",
+    icon: User,
+    children: [
+      {
+        key: "user-list",
+        label: "用户列表",
+        i18nKey: "menu.users.userList",
+        path: "/users/list",
+        icon: UserFilled,
+      },
+      {
+        key: "login-records",
+        label: "登录记录",
+        i18nKey: "menu.users.loginRecords",
+        path: "/users/login-records",
+        icon: Clock,
+      },
+      {
+        key: "device-management",
+        label: "设备管理",
+        i18nKey: "menu.users.deviceManagement",
+        path: "/users/devices",
+        icon: Monitor,
+      },
+      {
+        key: "risk-users",
+        label: "风险用户",
+        i18nKey: "menu.users.riskUsers",
+        path: "/users/risk",
+        icon: Warning,
+      },
+    ],
+  },
+  {
+    key: "funds",
+    label: "资金中心",
+    i18nKey: "menu.funds.root",
+    icon: Money,
+    children: [
+      {
+        key: "wallet-accounts",
+        label: "钱包账户",
+        i18nKey: "menu.funds.walletAccounts",
+        path: "/funds/wallets",
+        icon: Wallet,
+      },
+      {
+        key: "wallet-ledgers",
+        label: "钱包流水",
+        i18nKey: "menu.funds.walletLedgers",
+        path: "/funds/ledgers",
+        icon: Tickets,
+      },
+      {
+        key: "manual-adjustments",
+        label: "人工加减款",
+        i18nKey: "menu.funds.manualAdjustments",
+        path: "/funds/manual-adjustments",
+        icon: EditPen,
+      },
+      {
+        key: "deposit-orders",
+        label: "充值订单",
+        i18nKey: "menu.funds.depositOrders",
+        path: "/funds/deposits",
+        icon: CreditCard,
+      },
+      {
+        key: "withdrawal-orders",
+        label: "提现订单",
+        i18nKey: "menu.funds.withdrawalOrders",
+        path: "/funds/withdrawals",
+        icon: Download,
+      },
+      {
+        key: "financial-reconciliation",
+        label: "财务对账",
+        i18nKey: "menu.funds.financialReconciliation",
+        path: "/funds/reconciliation",
+        icon: DocumentChecked,
+      },
+      {
+        key: "deposit-methods",
+        label: "充值方式",
+        i18nKey: "menu.funds.depositMethods",
+        path: "/funds/deposit-methods",
+        icon: CreditCard,
+      },
+      {
+        key: "deposit-channels",
+        label: "充值渠道",
+        i18nKey: "menu.funds.depositChannels",
+        path: "/funds/deposit-channels",
+        icon: Connection,
+      },
+      {
+        key: "deposit-amount-options",
+        label: "充值金额档位",
+        i18nKey: "menu.funds.depositAmountOptions",
+        path: "/funds/deposit-amount-options",
+        icon: Sort,
+      },
+    ],
+  },
+  {
+    key: "games",
+    label: "游戏中心",
+    i18nKey: "menu.games.root",
+    icon: Platform,
+    children: [
+      {
+        key: "game-sync",
+        label: "游戏厂商",
+        i18nKey: "menu.games.gameSync",
+        path: "/games/sync",
+        icon: Refresh,
+      },
+      {
+        key: "game-list",
+        label: "游戏列表",
+        i18nKey: "menu.games.gameList",
+        path: "/games/list",
+        icon: Grid,
+      },
+      {
+        key: "game-categories",
+        label: "游戏分类",
+        i18nKey: "menu.games.gameCategories",
+        path: "/games/categories",
+        icon: Collection,
+      },
+      {
+        key: "lobby-sections",
+        label: "大厅配置",
+        i18nKey: "menu.games.lobbySections",
+        path: "/games/lobby-sections",
+        icon: Menu,
+      },
+      {
+        key: "game-tags",
+        label: "游戏标签",
+        i18nKey: "menu.games.gameTags",
+        path: "/games/tags",
+        icon: Collection,
+      },
+      {
+        key: "game-collections",
+        label: "游戏专题",
+        i18nKey: "menu.games.gameCollections",
+        path: "/games/collections",
+        icon: Collection,
+      },
+      {
+        key: "game-launch-records",
+        label: "游戏启动记录",
+        i18nKey: "menu.games.gameLaunchRecords",
+        path: "/games/launch-records",
+        icon: VideoPlay,
+      },
+    ],
+  },
+  {
+    key: "bets",
+    label: "投注中心",
+    i18nKey: "menu.bets.root",
+    icon: List,
+    children: [
+      {
+        key: "bet-records",
+        label: "投注记录",
+        i18nKey: "menu.bets.betRecords",
+        path: "/bets/records",
+        icon: DataLine,
+      },
+      {
+        key: "rollback-records",
+        label: "回滚记录",
+        i18nKey: "menu.bets.rollbackRecords",
+        path: "/bets/rollbacks",
+        icon: RefreshLeft,
+      },
+      {
+        key: "abnormal-bets",
+        label: "异常投注",
+        i18nKey: "menu.bets.abnormalBets",
+        path: "/bets/abnormal",
+        icon: WarnTriangleFilled,
+      },
+      {
+        key: "provider-callback-logs",
+        label: "Provider回调日志",
+        i18nKey: "menu.bets.providerCallbackLogs",
+        path: "/bets/provider-callbacks",
+        icon: Postcard,
+      },
+    ],
+  },
+  {
+    key: "operations",
+    label: "运营中心",
+    i18nKey: "menu.operations.root",
+    icon: Message,
+    children: [
+      {
+        key: "asset-library",
+        label: "素材中心",
+        i18nKey: "menu.operations.assets",
+        path: "/operations/assets",
+        icon: FolderOpened,
+      },
+      {
+        key: "banners",
+        label: "Banner",
+        i18nKey: "menu.operations.banners",
+        path: "/operations/banners",
+        icon: Picture,
+      },
+      {
+        key: "announcements",
+        label: "公告",
+        i18nKey: "menu.operations.announcements",
+        path: "/operations/announcements",
+        icon: Notification,
+      },
+      {
+        key: "activities",
+        label: "活动",
+        i18nKey: "menu.operations.activities",
+        path: "/operations/activities",
+        icon: Present,
+      },
+      {
+        key: "vip",
+        label: "VIP",
+        i18nKey: "menu.operations.vip",
+        path: "/operations/vip",
+        icon: Ticket,
+      },
+      {
+        key: "push-messages",
+        label: "推送消息",
+        i18nKey: "menu.operations.pushMessages",
+        path: "/operations/push-messages",
+        icon: ChatLineSquare,
+      },
+      {
+        key: "popups",
+        label: "弹窗投放",
+        i18nKey: "menu.operations.popups",
+        path: "/operations/popups",
+        icon: Files,
+      },
+      {
+        key: "music",
+        label: "音乐管理",
+        i18nKey: "menu.operations.music",
+        path: "/operations/music",
+        icon: Headset,
+      },
+      {
+        key: "social-links",
+        label: "社媒管理",
+        i18nKey: "menu.operations.socialLinks",
+        path: "/operations/social-links",
+        icon: Share,
+      },
+      {
+        key: "h5-navigation",
+        label: "H5 菜单管理",
+        i18nKey: "menu.operations.h5Navigation",
+        path: "/operations/h5-navigation",
+        icon: Menu,
+      },
+      {
+        key: "vouchers",
+        label: "优惠券管理",
+        i18nKey: "menu.operations.vouchers",
+        path: "/operations/vouchers",
+        icon: Tickets,
+      },
+    ],
+  },
+  {
+    key: "risk",
+    label: "风控中心",
+    i18nKey: "menu.risk.root",
+    icon: DocumentChecked,
+    children: [
+      {
+        key: "risk-dashboard",
+        label: "风控看板",
+        i18nKey: "menu.risk.dashboard",
+        path: "/risk/dashboard",
+        icon: DataBoard,
+      },
+      {
+        key: "risk-rules",
+        label: "风控规则",
+        i18nKey: "menu.risk.riskRules",
+        path: "/risk/rules",
+        icon: Lock,
+      },
+      {
+        key: "risk-events",
+        label: "风险事件",
+        i18nKey: "menu.risk.riskEvents",
+        path: "/risk/events",
+        icon: WarningFilled,
+      },
+      {
+        key: "review-queue",
+        label: "审核队列",
+        i18nKey: "menu.risk.reviewQueue",
+        path: "/risk/review-queue",
+        icon: Checked,
+      },
+      {
+        key: "user-associations",
+        label: "用户关联",
+        i18nKey: "menu.risk.userAssociations",
+        path: "/risk/associations",
+        icon: Link,
+      },
+      {
+        key: "blacklist",
+        label: "黑名单管理",
+        i18nKey: "menu.risk.blacklist",
+        path: "/risk/blacklist",
+        icon: CircleCloseFilled,
+      },
+      {
+        key: "withdrawal-risk",
+        label: "提现风控审核",
+        i18nKey: "menu.risk.withdrawalRisk",
+        path: "/risk/withdrawals",
+        icon: Download,
+      },
+      {
+        key: "risk-operation-logs",
+        label: "风控操作日志",
+        i18nKey: "menu.risk.operationLogs",
+        path: "/risk/operation-logs",
+        icon: Operation,
+      },
+    ],
+  },
+  {
+    key: "agents",
+    label: "代理中心",
+    i18nKey: "menu.agents.root",
+    icon: Share,
+    children: [
+      {
+        key: "agent-list",
+        label: "代理列表",
+        i18nKey: "menu.agents.agentList",
+        path: "/agents/list",
+        icon: Suitcase,
+      },
+      {
+        key: "agent-hierarchy",
+        label: "代理层级",
+        i18nKey: "menu.agents.agentHierarchy",
+        path: "/agents/hierarchy",
+        icon: Connection,
+      },
+      {
+        key: "channel-management",
+        label: "渠道管理",
+        i18nKey: "menu.agents.channelManagement",
+        path: "/agents/channels",
+        icon: Position,
+      },
+      {
+        key: "commission-plans",
+        label: "佣金方案",
+        i18nKey: "menu.agents.commissionPlans",
+        path: "/agents/commission-plans",
+        icon: GoldMedal,
+      },
+      {
+        key: "commission-records",
+        label: "佣金记录",
+        i18nKey: "menu.agents.commissionRecords",
+        path: "/agents/commission-records",
+        icon: Tickets,
+      },
+      {
+        key: "agent-settlements",
+        label: "代理结算",
+        i18nKey: "menu.agents.agentSettlements",
+        path: "/agents/settlements",
+        icon: Finished,
+      },
+      {
+        key: "agent-wallets",
+        label: "代理钱包",
+        i18nKey: "menu.agents.agentWallets",
+        path: "/agents/wallets",
+        icon: Money,
+      },
+      {
+        key: "agent-operation-logs",
+        label: "代理操作日志",
+        i18nKey: "menu.agents.operationLogs",
+        path: "/agents/operation-logs",
+        icon: Operation,
+      },
+    ],
+  },
+  {
+    key: "reports",
+    label: "报表中心",
+    i18nKey: "menu.reports.root",
+    icon: Sort,
+    children: [
+      {
+        key: "financial-report",
+        label: "财务报表",
+        i18nKey: "menu.reports.financialReport",
+        path: "/reports/financial",
+        icon: TrendCharts,
+      },
+      {
+        key: "game-report",
+        label: "游戏报表",
+        i18nKey: "menu.reports.gameReport",
+        path: "/reports/games",
+        icon: Histogram,
+      },
+      {
+        key: "provider-report",
+        label: "Provider报表",
+        i18nKey: "menu.reports.providerReport",
+        path: "/reports/providers",
+        icon: PieChart,
+      },
+      {
+        key: "user-report",
+        label: "用户报表",
+        i18nKey: "menu.reports.userReport",
+        path: "/reports/users",
+        icon: DataAnalysis,
+      },
+      {
+        key: "channel-report",
+        label: "渠道报表",
+        i18nKey: "menu.reports.channelReport",
+        path: "/reports/channels",
+        icon: Files,
+      },
+      {
+        key: "agent-report",
+        label: "代理报表",
+        i18nKey: "menu.reports.agentReport",
+        path: "/reports/agents",
+        icon: Share,
+      },
+      {
+        key: "promotion-report",
+        label: "活动报表",
+        i18nKey: "menu.reports.promotionReport",
+        path: "/reports/promotions",
+        icon: Promotion,
+      },
+      {
+        key: "export-tasks",
+        label: "导出任务",
+        i18nKey: "menu.reports.exportTasks",
+        path: "/reports/exports",
+        icon: Download,
+      },
+    ],
+  },
+  {
+    key: "system",
+    label: "系统管理",
+    i18nKey: "menu.system.root",
+    icon: Setting,
+    children: [
+      {
+        key: "tenants",
+        label: "租户管理",
+        i18nKey: "menu.system.tenants",
+        path: "/system/tenants",
+        icon: OfficeBuilding,
+      },
+      {
+        key: "sites",
+        label: "站点管理",
+        i18nKey: "menu.system.sites",
+        path: "/system/sites",
+        icon: Platform,
+      },
+      {
+        key: "admins",
+        label: "管理员管理",
+        i18nKey: "menu.system.admins",
+        path: "/system/admins",
+        icon: UserFilled,
+      },
+      {
+        key: "roles",
+        label: "角色管理",
+        i18nKey: "menu.system.roles",
+        path: "/system/roles",
+        icon: Avatar,
+      },
+      {
+        key: "permissions",
+        label: "权限管理",
+        i18nKey: "menu.system.permissions",
+        path: "/system/permissions",
+        icon: Key,
+      },
+      {
+        key: "departments",
+        label: "部门管理",
+        i18nKey: "menu.system.departments",
+        path: "/system/departments",
+        icon: OfficeBuilding,
+      },
+      {
+        key: "menus",
+        label: "菜单管理",
+        i18nKey: "menu.system.menus",
+        path: "/system/menus",
+        icon: Menu,
+      },
+      {
+        key: "system-config",
+        label: "系统配置",
+        i18nKey: "menu.system.systemConfig",
+        path: "/system/config",
+        icon: SetUp,
+      },
+      {
+        key: "country-config",
+        label: "国家配置",
+        i18nKey: "menu.system.countryConfig",
+        path: "/system/countries",
+        icon: Position,
+      },
+      {
+        key: "audit-logs",
+        label: "审计日志",
+        i18nKey: "menu.system.auditLogs",
+        path: "/system/audit-logs",
+        icon: DocumentChecked,
+      },
+      {
+        key: "admin-login-logs",
+        label: "登录日志",
+        i18nKey: "menu.system.loginLogs",
+        path: "/system/login-logs",
+        icon: Clock,
+      },
+      {
+        key: "scheduled-tasks",
+        label: "定时任务",
+        i18nKey: "menu.system.scheduledTasks",
+        path: "/system/tasks",
+        icon: Timer,
+      },
+      {
+        key: "system-monitor",
+        label: "系统监控",
+        i18nKey: "menu.system.systemMonitor",
+        path: "/system/monitor",
+        icon: Odometer,
+      },
+    ],
+  },
+];
+
+export const createBrandItem: MenuItem = {
+  key: "create-brand",
+  label: "创建品牌",
+  i18nKey: "portal.createBrand",
+  path: "/platform/tenants/create",
+  icon: Present,
+};
+
+export const brandDeliveriesItem: MenuItem = {
+  key: "brand-deliveries", label: "品牌交付记录", i18nKey: "tenantCenter.menu.deliveries",
+  path: "/platform/tenants/deliveries", icon: Tickets,
+};
+
+export const tenantDomainsItem: MenuItem = {
+  key: "tenant-domains", label: "域名管理", i18nKey: "tenantCenter.menu.domains",
+  path: "/platform/tenants/domains", icon: Link,
+};
+
+export const tenantPackagesItem: MenuItem = {
+  key: "tenant-packages", label: "租户套餐", i18nKey: "tenantCenter.menu.packages",
+  path: "/platform/tenants/packages", icon: Box,
+};
+
+export const tenantAuditItem: MenuItem = {
+  key: "tenant-audit", label: "租户审计", i18nKey: "tenantCenter.menu.audit",
+  path: "/platform/tenants/audit", icon: DocumentChecked,
+};
+
+export const popupComponentsItem: MenuItem = {
+  key: "popup-components", label: "弹窗组件", i18nKey: "popupComponents.menu",
+  path: "/platform/resources/popup-components", icon: Files,
+};
+
+export const providerReconciliationItem: MenuItem = {
+  key: "provider-reconciliation",
+  label: "Provider 对账",
+  i18nKey: "menu.bets.providerReconciliation",
+  path: "/bets/provider-reconciliation",
+  icon: DocumentChecked,
+};
+
+const supportItems: MenuItem[] = [
+  { key: "support-player-search", label: "玩家查询", i18nKey: "opsV1.support.pages.support-player-search", path: "/support/players", icon: Search },
+  { key: "support-player-timeline", label: "玩家时间线", i18nKey: "opsV1.support.pages.support-player-timeline", path: "/support/timeline", icon: Clock },
+  { key: "support-order-search", label: "订单查询", i18nKey: "opsV1.support.pages.support-order-search", path: "/support/orders", icon: Tickets },
+  { key: "support-payment-diagnostics", label: "支付诊断", i18nKey: "opsV1.support.pages.support-payment-diagnostics", path: "/support/payment-diagnostics", icon: CreditCard },
+  { key: "support-game-diagnostics", label: "游戏诊断", i18nKey: "opsV1.support.pages.support-game-diagnostics", path: "/support/game-diagnostics", icon: Monitor },
+  { key: "support-cases", label: "支持工单", i18nKey: "opsV1.support.pages.support-cases", path: "/support/cases", icon: ChatLineSquare },
+  { key: "support-exports", label: "导出记录", i18nKey: "opsV1.support.pages.support-exports", path: "/support/exports", icon: Download },
+];
+
+const tenantSupportItems = supportItems.filter((item) =>
+	["support-player-search", "support-order-search", "support-cases", "support-exports"].includes(item.key),
+);
+
+const tenantExperienceItems: MenuItem[] = [
+	{ key: "player-tags", label: "玩家标签", i18nKey: "tenantExperience.menu.playerTags", path: "/players/tags", navigationPath: "/users/list", icon: Collection },
+	{ key: "game-operations", label: "游戏运营", i18nKey: "tenantExperience.menu.gameOperations", path: "/games/operations", navigationPath: "/games/list", icon: Operation },
+	{ key: "marketing-dashboard", label: "营销总览", i18nKey: "tenantExperience.menu.marketingDashboard", path: "/marketing", navigationPath: "/operations/activities", icon: DataAnalysis },
+	{ key: "campaigns", label: "活动总览", i18nKey: "tenantExperience.menu.campaigns", path: "/marketing/campaigns", navigationPath: "/operations/activities", icon: Promotion },
+	{ key: "missions", label: "任务", i18nKey: "tenantExperience.menu.missions", path: "/marketing/missions", navigationPath: "/operations/activities", icon: Checked },
+	{ key: "referral", label: "推荐奖励", i18nKey: "tenantExperience.menu.referral", path: "/marketing/referral", navigationPath: "/operations/activities", icon: Share },
+	{ key: "brand-overview", label: "品牌概览", i18nKey: "tenantExperience.menu.brandOverview", path: "/brand/overview", navigationPath: "/system/brand", icon: DataBoard },
+	{ key: "brand-theme", label: "主题", i18nKey: "tenantExperience.menu.theme", path: "/brand/theme", navigationPath: "/system/brand", icon: Brush },
+	{ key: "brand-seo", label: "SEO", i18nKey: "tenantExperience.menu.seo", path: "/brand/seo", navigationPath: "/system/brand", icon: Search },
+	{ key: "brand-domain", label: "域名", i18nKey: "tenantExperience.menu.domain", path: "/brand/domain", navigationPath: "/system/sites", icon: Link },
+	{ key: "brand-region", label: "国家与币种", i18nKey: "tenantExperience.menu.countryCurrency", path: "/brand/region", navigationPath: "/system/brand", icon: Position },
+	{ key: "brand-languages", label: "语言", i18nKey: "tenantExperience.menu.languages", path: "/brand/languages", navigationPath: "/system/brand", icon: Message },
+	{ key: "brand-preview", label: "预览", i18nKey: "tenantExperience.menu.preview", path: "/brand/preview", navigationPath: "/system/brand", icon: Monitor },
+	{ key: "brand-publish", label: "发布", i18nKey: "tenantExperience.menu.publish", path: "/brand/publish", navigationPath: "/system/brand", icon: UploadFilled },
+];
+
+const experienceItem = (key: string) => tenantExperienceItems.find((item) => item.key === key)!;
+
+const sharedOpsItems: MenuItem[] = [
+  { key: "payment-monitor", label: "支付监控", i18nKey: "opsV1.monitor.pages.payment-monitor", path: "/ops/payments", icon: CreditCard },
+  { key: "provider-monitor", label: "Provider 监控", i18nKey: "opsV1.monitor.pages.provider-monitor", path: "/ops/providers", icon: Odometer },
+  { key: "maintenance-center", label: "维护管理", i18nKey: "opsV1.maintenance.title", path: "/ops/maintenance", icon: Warning },
+  { key: "release-center", label: "发布中心", i18nKey: "opsV1.stability.pages.release-center", path: "/ops/releases", icon: UploadFilled },
+];
+
+const platformOpsItems: MenuItem[] = [
+  { key: "system-health", label: "系统健康", i18nKey: "opsV1.stability.pages.system-health", path: "/ops/health", icon: Monitor },
+  { key: "jobs-retries", label: "任务与重试", i18nKey: "opsV1.stability.pages.jobs-retries", path: "/ops/jobs", icon: Timer },
+  { key: "alert-center", label: "告警中心", i18nKey: "opsV1.stability.pages.alert-center", path: "/ops/alerts", icon: Notification },
+  { key: "backup-center", label: "备份中心", i18nKey: "opsV1.stability.pages.backup-center", path: "/ops/backups", icon: FolderOpened },
+];
+
+const menuItemByKey = new Map(
+  menuGroups.flatMap((group) => group.children).map((item) => [item.key, item]),
+);
+
+function items(...keys: string[]) {
+  return keys
+    .map((key) => menuItemByKey.get(key))
+    .filter((item): item is MenuItem => Boolean(item));
+}
+
+export const platformMenuGroups: MenuGroup[] = [
+	{ key: "platform-support", label: "支持中心", i18nKey: "opsV1.support.eyebrow", icon: Headset, children: supportItems },
+	{ key: "platform-ops", label: "运维中心", i18nKey: "opsV1.stability.eyebrow", icon: Monitor, children: [...sharedOpsItems, ...platformOpsItems] },
+  {
+    key: "platform-tenants",
+    label: "租户中心",
+    i18nKey: "portal.platform.tenants",
+    icon: OfficeBuilding,
+    children: [
+      ...items("tenants"),
+      createBrandItem,
+      brandDeliveriesItem,
+      ...items("sites"),
+      tenantDomainsItem,
+      tenantPackagesItem,
+      tenantAuditItem,
+    ],
+  },
+  {
+    key: "platform-games",
+    label: "游戏平台",
+    i18nKey: "portal.platform.games",
+    icon: Platform,
+    children: [
+      ...items("game-sync", "game-list", "game-categories", "provider-callback-logs"),
+      providerReconciliationItem,
+    ],
+  },
+  {
+    key: "platform-assets",
+    label: "平台资源",
+    i18nKey: "portal.platform.assets",
+    icon: Picture,
+    children: [...items("asset-library", "country-config"), popupComponentsItem],
+  },
+  {
+    key: "platform-finance",
+    label: "平台财务",
+    i18nKey: "portal.platform.finance",
+    icon: Money,
+    children: items("provider-report"),
+  },
+  {
+    key: "platform-security",
+    label: "平台安全",
+    i18nKey: "portal.platform.security",
+    icon: Lock,
+    children: items("admins", "roles", "permissions", "admin-login-logs", "audit-logs"),
+  },
+  {
+    key: "platform-system",
+    label: "系统中心",
+    i18nKey: "portal.platform.system",
+    icon: Setting,
+    children: items("scheduled-tasks", "system-monitor", "system-config", "export-tasks"),
+  },
+];
+
+export const tenantMenuGroups: MenuGroup[] = [
+	{ key: "tenant-support", label: "支持中心", i18nKey: "tenantExperience.menu.support", icon: Headset, children: tenantSupportItems },
+	{ key: "tenant-players", label: "玩家", i18nKey: "tenantExperience.menu.players", icon: User, children: [...items("user-list", "login-records", "device-management", "risk-users"), experienceItem("player-tags")] },
+	{ key: "tenant-finance", label: "财务", i18nKey: "tenantExperience.menu.finance", icon: Money, children: items("wallet-accounts", "wallet-ledgers", "manual-adjustments", "deposit-orders", "withdrawal-orders", "financial-reconciliation", "deposit-methods", "deposit-channels", "deposit-amount-options") },
+	  {
+    key: "tenant-games",
+    label: "游戏中心",
+    i18nKey: "menu.games.root",
+    icon: Platform,
+	    children: [
+	      ...items("game-list"),
+	      experienceItem("game-operations"),
+	      ...items("game-categories", "lobby-sections", "game-launch-records"),
+	      ...items("bet-records", "rollback-records", "abnormal-bets"),
+	    ],
+	  },
+	{ key: "tenant-marketing", label: "营销", i18nKey: "tenantExperience.menu.marketing", icon: Promotion, children: [experienceItem("marketing-dashboard"), experienceItem("campaigns"), ...items("activities", "vouchers", "vip"), experienceItem("missions"), experienceItem("referral"), ...items("banners", "popups", "announcements", "push-messages", "h5-navigation", "social-links", "music", "asset-library")] },
+	  ...menuGroups.filter((group) => group.key === "agents"),
+	  ...menuGroups.filter((group) => group.key === "risk"),
+	  ...menuGroups.filter((group) => group.key === "reports"),
+  {
+    key: "tenant-brand",
+    label: "品牌设置",
+    i18nKey: "portal.tenant.brandSettings",
+    icon: Brush,
+	    children: [experienceItem("brand-overview"), ...items("brand-config"), experienceItem("brand-theme"), experienceItem("brand-seo"), experienceItem("brand-domain"), ...items("sites"), experienceItem("brand-region"), experienceItem("brand-languages"), experienceItem("brand-preview"), experienceItem("brand-publish")],
+	  },
+	{ key: "tenant-ops", label: "运维中心", i18nKey: "tenantExperience.menu.operations", icon: Monitor, children: [...sharedOpsItems, ...platformOpsItems.filter((item) => ["jobs-retries", "alert-center"].includes(item.key))] },
+];
+
+export function menuGroupsForAdmin(platform: boolean) {
+  return platform ? platformMenuGroups : tenantMenuGroups;
+}
+
+export const allMenuItems = [
+  dashboardItem,
+  ...menuGroups.flatMap((group) => group.children),
+  createBrandItem,
+  brandDeliveriesItem,
+  tenantDomainsItem,
+  tenantPackagesItem,
+  tenantAuditItem,
+  popupComponentsItem,
+  providerReconciliationItem,
+	...supportItems,
+	...sharedOpsItems,
+		...platformOpsItems,
+		...tenantExperienceItems,
+];
+
+export const userCenterKeys = new Set([
+  "user-list",
+  "login-records",
+  "device-management",
+  "risk-users",
+]);

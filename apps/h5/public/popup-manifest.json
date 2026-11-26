@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "components": [
+    "DEPOSIT_POPUP",
+    "WELCOME_BONUS_POPUP",
+    "CASHBACK_POPUP",
+    "VIP_UPGRADE_POPUP",
+    "APP_DOWNLOAD_POPUP"
+  ]
+}

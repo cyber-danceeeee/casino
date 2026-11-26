@@ -1,0 +1,299 @@
+@font-face {
+  font-family: "Montserrat";
+  src: url("./assets/fonts/montserrat-regular.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Montserrat";
+  src: url("./assets/fonts/montserrat-medium.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Montserrat";
+  src: url("./assets/fonts/montserrat-semibold.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Montserrat";
+  src: url("./assets/fonts/montserrat-bold.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Montserrat";
+  src: url("./assets/fonts/montserrat-extrabold.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 800 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Montserrat";
+  src: url("./assets/fonts/montserrat-italic.ttf") format("truetype");
+  font-style: italic;
+  font-weight: 400 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Montserrat";
+  src: url("./assets/fonts/montserrat-extrabold-italic.ttf") format("truetype");
+  font-style: italic;
+  font-weight: 800 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Poetsen One";
+  src: url("./assets/fonts/poetsen-one-regular.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+:root {
+  color: #ffffff;
+  background: #050913;
+  font-family:
+    Montserrat, -apple-system, "SF Pro Text", BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
+    sans-serif;
+  font-weight: 500;
+  font-synthesis: none;
+  line-height: 1.5;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body,
+#app {
+  min-width: 320px;
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow-x: hidden;
+  background:
+    linear-gradient(180deg, #050913 0%, #081122 54%, #050913 100%),
+    #050913;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  border: 0;
+  color: inherit;
+  background: none;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+#app {
+  width: 100%;
+}
+
+.tap-feedback-layer {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 60000;
+  overflow: hidden;
+}
+
+.tap-feedback-burst {
+  position: absolute;
+  top: var(--tap-y);
+  left: var(--tap-x);
+  width: 1px;
+  height: 1px;
+}
+
+.tap-feedback-burst::before,
+.tap-feedback-burst::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border-radius: 999px;
+  content: "";
+  transform: translate(-50%, -50%);
+}
+
+.tap-feedback-burst::before {
+  width: 12px;
+  height: 12px;
+  border: 1px solid rgb(142 225 255 / 90%);
+  box-shadow: 0 0 9px rgb(63 175 255 / 80%);
+  animation: tap-feedback-ring 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.tap-feedback-burst::after {
+  width: 24px;
+  height: 24px;
+  background: radial-gradient(circle, rgb(255 255 255 / 62%) 0%, rgb(69 166 255 / 24%) 38%, transparent 72%);
+  animation: tap-feedback-glow 360ms ease-out both;
+}
+
+.tap-feedback-burst i {
+  position: absolute;
+  top: -1.5px;
+  left: -1.5px;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #b9f4ff;
+  box-shadow: 0 0 5px #42bcff;
+  opacity: 0;
+  transform: rotate(var(--tap-angle)) translateY(0) scale(0.4);
+  animation: tap-feedback-particle 410ms cubic-bezier(0.16, 1, 0.3, 1) var(--tap-delay) both;
+}
+
+.tap-feedback-active {
+  scale: 0.965 !important;
+  filter: brightness(1.09);
+  transition: scale 80ms ease-out, filter 80ms ease-out !important;
+}
+
+.tap-feedback-release {
+  animation: tap-feedback-release 190ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes tap-feedback-ring {
+  0% {
+    opacity: 0.95;
+    scale: 0.35;
+  }
+
+  100% {
+    opacity: 0;
+    scale: 2.9;
+  }
+}
+
+@keyframes tap-feedback-glow {
+  0% {
+    opacity: 0.9;
+    scale: 0.45;
+  }
+
+  100% {
+    opacity: 0;
+    scale: 2.1;
+  }
+}
+
+@keyframes tap-feedback-particle {
+  0% {
+    opacity: 0;
+    transform: rotate(var(--tap-angle)) translateY(0) scale(0.4);
+  }
+
+  24% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: rotate(var(--tap-angle)) translateY(var(--tap-offset)) scale(1);
+  }
+}
+
+@keyframes tap-feedback-release {
+  0% {
+    scale: 0.965;
+  }
+
+  58% {
+    scale: 1.018;
+  }
+
+  100% {
+    scale: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tap-feedback-burst {
+    display: none;
+  }
+
+  .tap-feedback-active,
+  .tap-feedback-release {
+    animation: none;
+    scale: 1 !important;
+  }
+}
+
+#nprogress {
+  pointer-events: none;
+}
+
+#nprogress .bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1200;
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(90deg, #20c5ff 0%, #4d81e7 55%, #38cfff 100%);
+  box-shadow: 0 0 14px rgba(77, 129, 231, 0.75);
+}
+
+#nprogress .peg {
+  display: block;
+  position: absolute;
+  right: 0;
+  width: 100px;
+  height: 100%;
+  opacity: 1;
+  box-shadow: 0 0 10px #4d81e7, 0 0 5px #4d81e7;
+  transform: rotate(3deg) translate(0, -4px);
+}
+
+#nprogress .spinner {
+  display: none;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

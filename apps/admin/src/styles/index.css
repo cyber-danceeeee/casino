@@ -1,0 +1,43 @@
+@import './theme.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--admin-bg);
+  color: var(--admin-text);
+  font-size: 14px;
+}
+
+body {
+  min-width: 1180px;
+  overflow: hidden;
+}
+
+@media (max-width: 900px) {
+  body {
+    min-width: 320px;
+  }
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+input::placeholder,
+textarea::placeholder,
+.el-input__inner::placeholder,
+.el-textarea__inner::placeholder {
+  color: #a8abb2 !important;
+  font-weight: 400 !important;
+  opacity: 1;
+}

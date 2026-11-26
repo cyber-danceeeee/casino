@@ -1,0 +1,45 @@
+-- Platform-owned country catalog used by tenant provisioning and admin options.
+-- This migration is idempotent and restores built-in rows that were disabled or soft-deleted.
+INSERT INTO game_country_configs
+(country_code,iso_country_code,country_name_zh,country_name_en,currency_code,currency_name_zh,currency_name_en,currency_symbol,currency_decimal_places,timezone,default_language,supported_languages,phone_country_code,phone_length,branding_config,theme_config,status,is_default,created_at,updated_at,deleted_at)
+VALUES
+('PK','PK','巴基斯坦','Pakistan','PKR','巴基斯坦卢比','Pakistani Rupee','₨',2,'Asia/Karachi','en',JSON_ARRAY('en','ur'),'+92',10,JSON_OBJECT(),JSON_OBJECT(),1,1,NOW(3),NOW(3),NULL),
+('MX','MX','墨西哥','Mexico','MXN','墨西哥比索','Mexican Peso','$',2,'America/Mexico_City','es-MX',JSON_ARRAY('es-MX','en'),'+52',10,JSON_OBJECT(),JSON_OBJECT(),1,0,NOW(3),NOW(3),NULL),
+('BR','BR','巴西','Brazil','BRL','巴西雷亚尔','Brazilian Real','R$',2,'America/Sao_Paulo','pt-BR',JSON_ARRAY('pt-BR','en'),'+55',11,JSON_OBJECT(),JSON_OBJECT(),1,0,NOW(3),NOW(3),NULL),
+('MY','MY','马来西亚','Malaysia','MYR','马来西亚林吉特','Malaysian Ringgit','RM',2,'Asia/Kuala_Lumpur','en',JSON_ARRAY('en','ms','zh-CN'),'+60',9,JSON_OBJECT(),JSON_OBJECT(),1,0,NOW(3),NOW(3),NULL),
+('TH','TH','泰国','Thailand','THB','泰铢','Thai Baht','฿',2,'Asia/Bangkok','th',JSON_ARRAY('th','en'),'+66',9,JSON_OBJECT(),JSON_OBJECT(),1,0,NOW(3),NOW(3),NULL),
+('ID','ID','印度尼西亚','Indonesia','IDR','印度尼西亚盾','Indonesian Rupiah','Rp',0,'Asia/Jakarta','id',JSON_ARRAY('id','en'),'+62',10,JSON_OBJECT(),JSON_OBJECT(),1,0,NOW(3),NOW(3),NULL),
+('JP','JP','日本','Japan','JPY','日元','Japanese Yen','¥',0,'Asia/Tokyo','ja',JSON_ARRAY('ja','en'),'+81',10,JSON_OBJECT(),JSON_OBJECT(),1,0,NOW(3),NOW(3),NULL),
+('PH','PH','菲律宾','Philippines','PHP','菲律宾比索','Philippine Peso','₱',2,'Asia/Manila','en',JSON_ARRAY('en','fil'),'+63',10,JSON_OBJECT(),JSON_OBJECT(),1,0,NOW(3),NOW(3),NULL),
+('VN','VN','越南','Vietnam','VND','越南盾','Vietnamese Dong','₫',0,'Asia/Ho_Chi_Minh','vi',JSON_ARRAY('vi','en'),'+84',9,JSON_OBJECT(),JSON_OBJECT(),1,0,NOW(3),NOW(3),NULL),
+('IN','IN','印度','India','INR','印度卢比','Indian Rupee','₹',2,'Asia/Kolkata','en',JSON_ARRAY('en','hi'),'+91',10,JSON_OBJECT(),JSON_OBJECT(),1,0,NOW(3),NOW(3),NULL),
+('BD','BD','孟加拉国','Bangladesh','BDT','孟加拉塔卡','Bangladeshi Taka','৳',2,'Asia/Dhaka','bn',JSON_ARRAY('bn','en'),'+880',10,JSON_OBJECT(),JSON_OBJECT(),1,0,NOW(3),NOW(3),NULL),
+('SG','SG','新加坡','Singapore','SGD','新加坡元','Singapore Dollar','S$',2,'Asia/Singapore','en',JSON_ARRAY('en','zh-CN','ms','ta'),'+65',8,JSON_OBJECT(),JSON_OBJECT(),1,0,NOW(3),NOW(3),NULL),
+('NG','NG','尼日利亚','Nigeria','NGN','尼日利亚奈拉','Nigerian Naira','₦',2,'Africa/Lagos','en',JSON_ARRAY('en'),'+234',10,JSON_OBJECT(),JSON_OBJECT(),1,0,NOW(3),NOW(3),NULL),
+('ZA','ZA','南非','South Africa','ZAR','南非兰特','South African Rand','R',2,'Africa/Johannesburg','en',JSON_ARRAY('en'),'+27',9,JSON_OBJECT(),JSON_OBJECT(),1,0,NOW(3),NOW(3),NULL),
+('US','US','美国','United States','USD','美元','US Dollar','$',2,'America/New_York','en',JSON_ARRAY('en'),'+1',10,JSON_OBJECT(),JSON_OBJECT(),1,0,NOW(3),NOW(3),NULL),
+('CA','CA','加拿大','Canada','CAD','加拿大元','Canadian Dollar','C$',2,'America/Toronto','en',JSON_ARRAY('en','fr'),'+1',10,JSON_OBJECT(),JSON_OBJECT(),1,0,NOW(3),NOW(3),NULL),
+('GB','GB','英国','United Kingdom','GBP','英镑','Pound Sterling','£',2,'Europe/London','en',JSON_ARRAY('en'),'+44',10,JSON_OBJECT(),JSON_OBJECT(),1,0,NOW(3),NOW(3),NULL),
+('AU','AU','澳大利亚','Australia','AUD','澳大利亚元','Australian Dollar','A$',2,'Australia/Sydney','en',JSON_ARRAY('en'),'+61',9,JSON_OBJECT(),JSON_OBJECT(),1,0,NOW(3),NOW(3),NULL),
+('TR','TR','土耳其','Türkiye','TRY','土耳其里拉','Turkish Lira','₺',2,'Europe/Istanbul','tr',JSON_ARRAY('tr','en'),'+90',10,JSON_OBJECT(),JSON_OBJECT(),1,0,NOW(3),NOW(3),NULL),
+('AR','AR','阿根廷','Argentina','ARS','阿根廷比索','Argentine Peso','$',2,'America/Argentina/Buenos_Aires','es-AR',JSON_ARRAY('es-AR','en'),'+54',10,JSON_OBJECT(),JSON_OBJECT(),1,0,NOW(3),NOW(3),NULL),
+('CO','CO','哥伦比亚','Colombia','COP','哥伦比亚比索','Colombian Peso','$',2,'America/Bogota','es-CO',JSON_ARRAY('es-CO','en'),'+57',10,JSON_OBJECT(),JSON_OBJECT(),1,0,NOW(3),NOW(3),NULL),
+('PE','PE','秘鲁','Peru','PEN','秘鲁索尔','Peruvian Sol','S/',2,'America/Lima','es-PE',JSON_ARRAY('es-PE','en'),'+51',9,JSON_OBJECT(),JSON_OBJECT(),1,0,NOW(3),NOW(3),NULL),
+('AE','AE','阿联酋','United Arab Emirates','AED','阿联酋迪拉姆','UAE Dirham','د.إ',2,'Asia/Dubai','ar',JSON_ARRAY('ar','en'),'+971',9,JSON_OBJECT(),JSON_OBJECT(),1,0,NOW(3),NOW(3),NULL)
+ON DUPLICATE KEY UPDATE
+  iso_country_code=VALUES(iso_country_code),
+  country_name_zh=VALUES(country_name_zh),
+  country_name_en=VALUES(country_name_en),
+  currency_code=VALUES(currency_code),
+  currency_name_zh=VALUES(currency_name_zh),
+  currency_name_en=VALUES(currency_name_en),
+  currency_symbol=VALUES(currency_symbol),
+  currency_decimal_places=VALUES(currency_decimal_places),
+  timezone=VALUES(timezone),
+  default_language=VALUES(default_language),
+  supported_languages=VALUES(supported_languages),
+  phone_country_code=VALUES(phone_country_code),
+  phone_length=VALUES(phone_length),
+  status=1,
+  deleted_at=NULL,
+  updated_at=NOW(3);

@@ -1,0 +1,165 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: Montserrat, -apple-system, "SF Pro Text", BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-montserrat: Montserrat, -apple-system, "SF Pro Text", BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-poetsen: "Poetsen One", Montserrat, sans-serif;
+  --color-f4: #242d4a;
+  --color-f6: #a4aec2;
+  --color-f9: #020611;
+  --color-casino-bg: #090f1f;
+  --color-casino-blue: #3d8aef;
+  --color-casino-green: #4eb464;
+  --shadow-dialog-glow: 0 0 12px rgba(251, 252, 226, 0.75);
+}
+
+@layer utilities {
+  .z-dialog {
+    z-index: 900;
+  }
+
+  .z-card-badge {
+    z-index: 8;
+  }
+
+  .z-normal {
+    z-index: 1;
+  }
+
+  .h-9\.5 {
+    height: 2.375rem;
+  }
+
+  .h-27\.25 {
+    height: 6.8125rem;
+  }
+
+  .h-29\.5 {
+    height: 7.375rem;
+  }
+
+  .h-30 {
+    height: 7.5rem;
+  }
+
+  .h-45\.75 {
+    height: 11.4375rem;
+  }
+
+  .h-59\.75 {
+    height: 14.9375rem;
+  }
+
+  .h-67\.5 {
+    height: 16.875rem;
+  }
+
+  .h-78\.75 {
+    height: 19.6875rem;
+  }
+
+  .w-9\.5 {
+    width: 2.375rem;
+  }
+
+  .w-35\.75 {
+    width: 8.9375rem;
+  }
+
+  .w-47\.75 {
+    width: 11.9375rem;
+  }
+
+  .w-57 {
+    width: 14.25rem;
+  }
+
+  .w-71\.5 {
+    width: 17.875rem;
+  }
+
+  .w-72 {
+    width: 18rem;
+  }
+
+  .w-74\.25 {
+    width: 18.5625rem;
+  }
+
+  .mt-25 {
+    margin-top: 6.25rem;
+  }
+
+  .mx-7\.5 {
+    margin-right: 1.875rem;
+    margin-left: 1.875rem;
+  }
+
+  .-top-12 {
+    top: -3rem;
+  }
+
+  .-top-30 {
+    top: -7.5rem;
+  }
+
+  .-top-35 {
+    top: -8.75rem;
+  }
+
+  .-top-42 {
+    top: -10.5rem;
+  }
+
+  .-top-50 {
+    top: -12.5rem;
+  }
+
+  .-top-55 {
+    top: -13.75rem;
+  }
+
+  .rounded-1\.5 {
+    border-radius: 0.375rem;
+  }
+
+  .rounded-3\.5 {
+    border-radius: 0.875rem;
+  }
+
+  .rounded-13\.5 {
+    border-radius: 3.375rem;
+  }
+
+  .rounded-14 {
+    border-radius: 3.5rem;
+  }
+
+  .text-3 {
+    font-size: 0.75rem;
+  }
+
+  .text-3\.5 {
+    font-size: 0.875rem;
+  }
+
+  .text-4 {
+    font-size: 1rem;
+  }
+
+  .text-5\.5 {
+    font-size: 1.375rem;
+  }
+
+  .text-6 {
+    font-size: 1.5rem;
+  }
+
+  .font-600 {
+    font-weight: 600;
+  }
+
+  .font-800 {
+    font-weight: 800;
+  }
+}

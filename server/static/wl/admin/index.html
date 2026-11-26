@@ -1,0 +1,733 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>White Label Admin</title>
+  <style>
+    :root {
+      --bg: #0f1115;
+      --panel: #171a21;
+      --panel-2: #1f2430;
+      --border: rgba(255,255,255,.1);
+      --text: #f4f6fb;
+      --muted: rgba(244,246,251,.66);
+      --primary: #3d7cff;
+      --danger: #ff5d5d;
+      --ok: #41c783;
+      color-scheme: dark;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+    }
+    button, input, select, textarea { font: inherit; }
+    .page {
+      width: min(1360px, calc(100% - 28px));
+      margin: 0 auto;
+      padding: 18px 0 40px;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      min-height: 64px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 18px;
+    }
+    h1, h2, h3 { margin: 0; letter-spacing: 0; }
+    h1 { font-size: 26px; }
+    h2 { font-size: 18px; }
+    h3 { font-size: 15px; color: var(--muted); font-weight: 600; }
+    .muted { color: var(--muted); }
+    .layout {
+      display: grid;
+      grid-template-columns: 310px minmax(0, 1fr);
+      gap: 16px;
+      align-items: start;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      min-width: 0;
+    }
+    .stack { display: grid; gap: 12px; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    label {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    input, select, textarea {
+      width: 100%;
+      min-height: 38px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--panel-2);
+      color: var(--text);
+      padding: 8px 10px;
+      outline: none;
+    }
+    textarea {
+      min-height: 86px;
+      resize: vertical;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+    }
+    input[type="color"] {
+      padding: 2px;
+      height: 38px;
+    }
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .between {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    button {
+      min-height: 38px;
+      border-radius: 8px;
+      border: 0;
+      color: #fff;
+      background: var(--primary);
+      padding: 0 14px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    button.secondary {
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    button.danger { background: var(--danger); }
+    button.ok { background: var(--ok); }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      border-radius: 999px;
+      padding: 0 9px;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+    .output {
+      background: #0b0d12;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      max-height: 280px;
+      overflow: auto;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      color: #cfe0ff;
+    }
+    .tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+    .tab[aria-selected="true"] { background: var(--primary); color: #fff; }
+    .tab[aria-selected="false"] { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); }
+    .view { display: none; }
+    .view.active { display: grid; gap: 14px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th, td {
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      padding: 9px 6px;
+      vertical-align: middle;
+    }
+    th { color: var(--muted); font-weight: 600; }
+    td { overflow-wrap: anywhere; }
+    .hidden { display: none !important; }
+    @media (max-width: 980px) {
+      .layout { grid-template-columns: 1fr; }
+      .grid, .grid.two { grid-template-columns: 1fr; }
+      header { align-items: flex-start; flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <div>
+        <h1>White Label Admin</h1>
+        <div class="muted">P3.3 E2E console</div>
+      </div>
+      <div class="row">
+        <span id="actor" class="pill">Not signed in</span>
+        <button class="secondary" type="button" id="refreshMe">Refresh</button>
+        <button class="secondary" type="button" id="logout">Logout</button>
+      </div>
+    </header>
+
+    <section class="layout">
+      <aside class="panel stack">
+        <h2>Sign In</h2>
+        <label>Username<input id="loginUsername" autocomplete="username" value="admin"></label>
+        <label>Password<input id="loginPassword" type="password" autocomplete="current-password"></label>
+        <label>Tenant Code<input id="loginTenantCode" placeholder="empty for platform admin"></label>
+        <button type="button" id="loginButton">Login</button>
+
+        <div id="mfaPanel" class="stack hidden">
+          <h3>MFA</h3>
+          <div id="mfaSecret" class="output hidden"></div>
+          <label>Code<input id="mfaCode" inputmode="numeric" maxlength="6"></label>
+          <button type="button" id="mfaButton">Verify</button>
+        </div>
+
+        <div class="stack">
+          <h3>Access</h3>
+          <span class="pill">Platform Admin: provision tenants</span>
+          <span class="pill">Tenant Admin: own site only</span>
+        <span class="pill">H5 test: /wl-test/h5</span>
+        <span class="pill">Runtime: /api/v1/bootstrap</span>
+        </div>
+      </aside>
+
+      <section class="stack">
+        <nav class="tabs">
+          <button type="button" class="tab" data-tab="provision" aria-selected="true">Provision</button>
+          <button type="button" class="tab" data-tab="brand" aria-selected="false">Brand and Theme</button>
+          <button type="button" class="tab" data-tab="lobby" aria-selected="false">Lobby</button>
+          <button type="button" class="tab" data-tab="providers" aria-selected="false">Providers</button>
+          <button type="button" class="tab" data-tab="checks" aria-selected="false">Checks</button>
+        </nav>
+
+        <section id="view-provision" class="view active">
+          <div class="panel stack">
+            <div class="between">
+              <h2>Tenant Provision</h2>
+              <div class="row">
+                <button class="secondary" type="button" id="fillJapan">Demo Japan</button>
+                <button class="secondary" type="button" id="fillMexico">Demo Mexico</button>
+              </div>
+            </div>
+            <div class="grid">
+              <label>Tenant Code<input data-provision="tenantCode" value="demo-japan"></label>
+              <label>Tenant Name<input data-provision="tenantName" value="Demo Japan"></label>
+              <label>Primary Domain<input data-provision="primaryDomain" value="jp-demo.local"></label>
+              <label>H5 Domain<input data-provision="h5Domain" value="jp-demo.local"></label>
+              <label>Admin Domain<input data-provision="adminDomain" value="admin.jp-demo.local"></label>
+              <label>Country<input data-provision="countryCode" value="JP"></label>
+              <label>Currency<input data-provision="currencyCode" value="JPY"></label>
+              <label>Language<input data-provision="language" value="ja-JP"></label>
+              <label>Timezone<input data-provision="timezone" value="Asia/Tokyo"></label>
+              <label>App Name<input data-provision="appName" value="Demo Japan"></label>
+              <label>Logo<input data-provision="logo" placeholder="https://..."></label>
+              <label>Primary Color<input type="color" data-provision="primaryColor" value="#e53935"></label>
+              <label>Secondary Color<input type="color" data-provision="secondaryColor" value="#ffb300"></label>
+              <label>Admin Username<input data-provision="ownerUsername" value="demo_jp_admin"></label>
+              <label>Admin Password<input data-provision="ownerPassword" type="password" value="DemoJapan#12345"></label>
+            </div>
+            <button type="button" id="provisionButton">Create Tenant</button>
+            <div id="provisionResult" class="output hidden"></div>
+          </div>
+        </section>
+
+        <section id="view-brand" class="view">
+          <div class="panel stack">
+            <div class="between">
+              <h2>Brand and Theme</h2>
+              <div class="row">
+                <button class="secondary" type="button" id="loadSites">Load Sites</button>
+                <select id="siteSelect"></select>
+              </div>
+            </div>
+            <div class="grid">
+              <label>App Name<input id="siteAppName"></label>
+              <label>Logo<input id="siteLogo" placeholder="https://..."></label>
+              <label>Customer Service<input id="siteCustomerService" placeholder="https://..."></label>
+              <label>Country<input id="siteCountry"></label>
+              <label>Currency<input id="siteCurrency"></label>
+              <label>Language<input id="siteLanguage"></label>
+              <label>Timezone<input id="siteTimezone"></label>
+              <label>Primary<input type="color" id="sitePrimary" value="#e53935"></label>
+              <label>Secondary<input type="color" id="siteSecondary" value="#ffb300"></label>
+              <label>Background<input type="color" id="siteBackground" value="#101010"></label>
+              <label>Card<input type="color" id="siteCard" value="#1a1a1a"></label>
+              <label>Text<input type="color" id="siteText" value="#f6f6f6"></label>
+            </div>
+            <div class="grid two">
+              <label>Feature Config<textarea id="siteFeatures"></textarea></label>
+              <label>Maintenance Config<textarea id="siteMaintenance"></textarea></label>
+            </div>
+            <div class="row">
+              <button type="button" id="saveSite">Save Site</button>
+              <button class="ok" type="button" id="publishSite">Publish</button>
+              <button class="secondary" type="button" id="openH5">Open H5</button>
+              <button class="secondary" type="button" id="openBootstrap">Open Bootstrap</button>
+            </div>
+            <div id="siteResult" class="output hidden"></div>
+          </div>
+        </section>
+
+        <section id="view-lobby" class="view">
+          <div class="panel stack">
+            <div class="between">
+              <h2>Lobby Sections</h2>
+              <button class="secondary" type="button" id="loadLobby">Load Lobby Sections</button>
+            </div>
+            <div id="lobbyTable"></div>
+            <div class="grid two">
+              <label>Selected Section JSON<textarea id="lobbyEditor"></textarea></label>
+              <div class="stack">
+                <label>Reason<input id="lobbyReason" value="P3.3 lobby update"></label>
+                <button type="button" id="saveLobby">Save Section</button>
+                <div id="lobbyResult" class="output hidden"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="view-providers" class="view">
+          <div class="panel stack">
+            <div class="between">
+              <h2>Provider Management</h2>
+              <button class="secondary" type="button" id="loadProviders">Load Providers</button>
+            </div>
+            <div id="providersTable"></div>
+            <div id="providerResult" class="output hidden"></div>
+          </div>
+        </section>
+
+        <section id="view-checks" class="view">
+          <div class="panel stack">
+            <h2>E2E Checks</h2>
+            <div class="grid two">
+              <label>Host<input id="checkHost" placeholder="jp-demo.local"></label>
+              <label>Path<select id="checkPath"><option value="/wl-test/h5">H5 Test Shell</option><option value="/api/v1/bootstrap">Bootstrap</option><option value="/api/v1/lobby">Lobby</option></select></label>
+            </div>
+            <div class="row">
+              <button type="button" id="runCheck">Run Current Domain Check</button>
+              <button class="secondary" type="button" id="runBootstrapHeader">Run With X-Site-Domain</button>
+            </div>
+            <div id="checkResult" class="output hidden"></div>
+          </div>
+        </section>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const store = {
+      token: localStorage.getItem("wl.admin.token") || "",
+      actor: null,
+      mfaMode: "",
+      challengeToken: "",
+      sites: [],
+      siteDetail: null,
+      selectedLobbyID: 0
+    };
+
+    function id(name) { return document.getElementById(name); }
+    function value(selector) { const node = document.querySelector(selector); return node ? node.value.trim() : ""; }
+    function setOutput(nodeID, data) {
+      const node = id(nodeID);
+      node.textContent = typeof data === "string" ? data : JSON.stringify(data, null, 2);
+      node.classList.remove("hidden");
+    }
+    function hideOutput(nodeID) { id(nodeID).classList.add("hidden"); }
+    function jsonParse(value, fallback) {
+      try { return value.trim() ? JSON.parse(value) : fallback; } catch (error) { throw new Error("Invalid JSON: " + error.message); }
+    }
+    function looseJSON(value, fallback) {
+      try {
+        if (!value || typeof value !== "string" || !value.trim()) return fallback;
+        return JSON.parse(value);
+      } catch (error) {
+        return fallback;
+      }
+    }
+    function unwrap(payload) {
+      if (payload && typeof payload.code !== "undefined" && payload.code !== 0) throw new Error(payload.msg || "Request failed");
+      return payload && Object.prototype.hasOwnProperty.call(payload, "data") ? payload.data : payload;
+    }
+    async function api(path, options = {}) {
+      const headers = Object.assign({ Accept: "application/json" }, options.headers || {});
+      if (store.token) headers.Authorization = "Bearer " + store.token;
+      if (options.body && !headers["Content-Type"]) headers["Content-Type"] = "application/json";
+      const response = await fetch(path, Object.assign({}, options, { headers }));
+      const payload = await response.json().catch(() => ({}));
+      return unwrap(payload);
+    }
+    function normalizeList(data) {
+      if (Array.isArray(data)) return data;
+      if (data && Array.isArray(data.list)) return data.list;
+      if (data && Array.isArray(data.items)) return data.items;
+      return [];
+    }
+    function escapeHTML(value) {
+      return String(value || "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[char]));
+    }
+    function currentOrigin(host) {
+      const protocol = location.protocol || "http:";
+      return protocol + "//" + host;
+    }
+    function activeSite() {
+      const siteID = Number(id("siteSelect").value || 0);
+      return store.sites.find((site) => Number(site.id) === siteID) || (store.siteDetail && store.siteDetail.overview) || {};
+    }
+
+    document.querySelectorAll(".tab").forEach((button) => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll(".tab").forEach((tab) => tab.setAttribute("aria-selected", String(tab === button)));
+        document.querySelectorAll(".view").forEach((view) => view.classList.remove("active"));
+        id("view-" + button.dataset.tab).classList.add("active");
+      });
+    });
+
+    async function login() {
+      hideOutput("provisionResult");
+      const result = await api("/api/v1/admin/auth/login", {
+        method: "POST",
+        body: JSON.stringify({
+          username: id("loginUsername").value.trim(),
+          password: id("loginPassword").value,
+          tenantCode: id("loginTenantCode").value.trim()
+        })
+      });
+      if (result.status === "AUTHENTICATED") {
+        store.token = result.token;
+        localStorage.setItem("wl.admin.token", store.token);
+        id("mfaPanel").classList.add("hidden");
+        await refreshMe();
+        return;
+      }
+      store.challengeToken = result.challengeToken || "";
+      store.mfaMode = result.status === "MFA_SETUP_REQUIRED" ? "setup" : "login";
+      id("mfaPanel").classList.remove("hidden");
+      if (store.mfaMode === "setup") {
+        id("mfaSecret").textContent = "Secret: " + (result.secret || "") + "\n" + (result.otpauthUri || "");
+        id("mfaSecret").classList.remove("hidden");
+      } else {
+        id("mfaSecret").classList.add("hidden");
+      }
+    }
+
+    async function verifyMFA() {
+      const path = store.mfaMode === "setup" ? "/api/v1/admin/auth/mfa/setup/confirm" : "/api/v1/admin/auth/mfa/verify";
+      const result = await api(path, {
+        method: "POST",
+        body: JSON.stringify({ challengeToken: store.challengeToken, code: id("mfaCode").value.trim() })
+      });
+      store.token = result.token;
+      localStorage.setItem("wl.admin.token", store.token);
+      id("mfaPanel").classList.add("hidden");
+      await refreshMe();
+    }
+
+    async function refreshMe() {
+      if (!store.token) {
+        id("actor").textContent = "Not signed in";
+        return;
+      }
+      try {
+        store.actor = await api("/api/v1/admin/auth/me");
+        const role = Number(store.actor.tenantID || 0) === 0 ? "Platform" : "Tenant";
+        id("actor").textContent = `${role}: ${store.actor.username} T${store.actor.tenantID || 0} S${store.actor.siteID || 0}`;
+      } catch (error) {
+        id("actor").textContent = "Session invalid";
+      }
+    }
+
+    async function logout() {
+      try { await api("/api/v1/admin/auth/logout", { method: "POST" }); } catch (error) {}
+      store.token = "";
+      localStorage.removeItem("wl.admin.token");
+      await refreshMe();
+    }
+
+    function fillProvision(data) {
+      Object.entries(data).forEach(([key, val]) => {
+        const node = document.querySelector(`[data-provision="${key}"]`);
+        if (node) node.value = val;
+      });
+    }
+
+    function provisionPayload() {
+      const payload = {};
+      document.querySelectorAll("[data-provision]").forEach((node) => {
+        payload[node.dataset.provision] = node.value.trim();
+      });
+      payload.reason = "P3.3 tenant provisioning";
+      return payload;
+    }
+
+    async function provisionTenant() {
+      const result = await api("/api/v1/admin/system/tenants/provision", {
+        method: "POST",
+        body: JSON.stringify(provisionPayload())
+      });
+      const p = provisionPayload();
+      const host = p.h5Domain || p.primaryDomain;
+      const details = {
+        tenantID: result.tenantID,
+        siteID: result.siteID,
+        h5Address: currentOrigin(host) + "/wl-test/h5",
+        bootstrapAddress: currentOrigin(host) + "/api/v1/bootstrap",
+        lobbyAddress: currentOrigin(host) + "/api/v1/lobby",
+        adminUsername: p.ownerUsername,
+        raw: result
+      };
+      setOutput("provisionResult", details);
+    }
+
+    async function loadSites() {
+      const result = await api("/api/v1/admin/system/sites?page=1&pageSize=100");
+      store.sites = normalizeList(result);
+      id("siteSelect").innerHTML = store.sites.map((site) => `<option value="${site.id}">${escapeHTML(site.siteName || site.siteCode)} (${escapeHTML(site.h5Domain || site.primaryDomain || "")})</option>`).join("");
+      if (store.sites.length > 0) {
+        id("siteSelect").value = store.sites[0].id;
+        await loadSiteDetail();
+      }
+    }
+
+    async function loadSiteDetail() {
+      const siteID = Number(id("siteSelect").value || 0);
+      if (!siteID) return;
+      store.siteDetail = await api(`/api/v1/admin/system/sites/${siteID}`);
+      const overview = store.siteDetail.overview || {};
+      const draft = store.siteDetail.draftConfig || {};
+      const brand = draft.brandConfig || store.siteDetail.brandConfig || {};
+      const theme = draft.themeConfig || store.siteDetail.themeConfig || {};
+      const features = draft.featureConfig || store.siteDetail.featureConfig || {};
+      const maintenance = draft.maintenanceConfig || store.siteDetail.maintenanceConfig || {};
+      id("siteAppName").value = brand.appName || draft.siteName || overview.siteName || "";
+      id("siteLogo").value = brand.logo || "";
+      id("siteCustomerService").value = brand.customerService || "";
+      id("siteCountry").value = draft.countryCode || overview.countryCode || "";
+      id("siteCurrency").value = draft.currencyCode || overview.currencyCode || "";
+      id("siteLanguage").value = draft.defaultLanguage || overview.defaultLanguage || "";
+      id("siteTimezone").value = draft.timezone || overview.timezone || "";
+      id("sitePrimary").value = theme.primary || theme.primaryColor || "#e53935";
+      id("siteSecondary").value = theme.secondary || theme.secondaryColor || "#ffb300";
+      id("siteBackground").value = theme.background || theme.backgroundColor || "#101010";
+      id("siteCard").value = theme.card || "#1a1a1a";
+      id("siteText").value = theme.text || theme.textColor || "#f6f6f6";
+      id("siteFeatures").value = JSON.stringify(features, null, 2);
+      id("siteMaintenance").value = JSON.stringify(maintenance, null, 2);
+      hideOutput("siteResult");
+    }
+
+    async function saveSite() {
+      const detail = store.siteDetail || {};
+      const overview = detail.overview || {};
+      const brand = Object.assign({}, detail.brandConfig || {}, {
+        appName: id("siteAppName").value.trim(),
+        logo: id("siteLogo").value.trim(),
+        customerService: id("siteCustomerService").value.trim()
+      });
+      const theme = Object.assign({}, detail.themeConfig || {}, {
+        primary: id("sitePrimary").value,
+        secondary: id("siteSecondary").value,
+        background: id("siteBackground").value,
+        card: id("siteCard").value,
+        text: id("siteText").value,
+        button: id("sitePrimary").value
+      });
+      const payload = {
+        tenantID: overview.tenantID,
+        siteCode: overview.siteCode,
+        siteName: overview.siteName,
+        primaryDomain: overview.primaryDomain,
+        h5Domain: overview.h5Domain,
+        adminDomain: overview.adminDomain,
+        countryCode: id("siteCountry").value.trim(),
+        currencyCode: id("siteCurrency").value.trim(),
+        defaultLanguage: id("siteLanguage").value.trim(),
+        timezone: id("siteTimezone").value.trim(),
+        brandConfig: brand,
+        themeConfig: theme,
+        featureConfig: jsonParse(id("siteFeatures").value, {}),
+        maintenanceConfig: jsonParse(id("siteMaintenance").value, {}),
+        seoConfig: detail.seoConfig || {},
+        enabled: overview.enabled !== false,
+        status: overview.status || "ONLINE",
+        remark: overview.remark || "",
+        reason: "P3.3 brand and theme update"
+      };
+      await api(`/api/v1/admin/system/sites/${overview.id}`, { method: "PUT", body: JSON.stringify(payload) });
+      setOutput("siteResult", "Draft saved. Click Publish before refreshing H5.");
+      await loadSiteDetail();
+    }
+
+    async function publishSiteConfig() {
+      const overview = (store.siteDetail && store.siteDetail.overview) || {};
+      if (!overview.id) throw new Error("Load a site first");
+      const result = await api(`/api/v1/admin/system/sites/${overview.id}/config/publish`, {
+        method: "POST",
+        body: JSON.stringify({ reason: "P3.5 white label config publish" })
+      });
+      setOutput("siteResult", result);
+      await loadSiteDetail();
+    }
+
+    function openSitePath(path) {
+      const site = activeSite();
+      const host = site.h5Domain || site.primaryDomain;
+      if (host) window.open(currentOrigin(host) + path, "_blank", "noopener");
+    }
+
+    async function loadLobby() {
+      const result = await api("/api/v1/admin/lobby-sections?page=1&pageSize=100");
+      const rows = normalizeList(result);
+      id("lobbyTable").innerHTML = table(["ID", "Code", "Type", "Title", "State", "Sort", "Action"], rows.map((row) => [
+        row.id,
+        row.sectionCode,
+        row.sectionType,
+        row.titleEn || row.titleZh,
+        `${row.publishStatus || "PUBLISHED"} / ${row.enabled ? "on" : "off"}`,
+        row.sortOrder,
+        `<button type="button" class="secondary" data-edit-lobby="${row.id}">Edit</button>`
+      ]));
+      id("lobbyTable").querySelectorAll("[data-edit-lobby]").forEach((button) => {
+        button.addEventListener("click", () => editLobby(rows.find((row) => Number(row.id) === Number(button.dataset.editLobby))));
+      });
+      if (rows[0]) editLobby(rows[0]);
+    }
+
+    function editLobby(row) {
+      store.selectedLobbyID = Number(row.id);
+      const draft = looseJSON(row.draftPayload, null);
+      id("lobbyEditor").value = JSON.stringify(draft || {
+        sectionCode: row.sectionCode,
+        sectionType: row.sectionType,
+        titleZh: row.titleZh || "",
+        titleEn: row.titleEn || "",
+        displayStyle: row.displayStyle || "",
+        sourceType: row.sourceType || "",
+        sourceRef: row.sourceRef || "",
+        maxItems: row.maxItems || 0,
+        sortOrder: row.sortOrder || 0,
+        enabled: row.enabled !== false,
+        supportedCountries: row.supportedCountries || "",
+        supportedCurrencies: row.supportedCurrencies || "",
+        config: looseJSON(row.configJSON, row.config || {})
+      }, null, 2);
+    }
+
+    async function saveLobby() {
+      const payload = jsonParse(id("lobbyEditor").value, {});
+      payload.reason = id("lobbyReason").value.trim() || "P3.3 lobby update";
+      await api(`/api/v1/admin/lobby-sections/${store.selectedLobbyID}`, { method: "PATCH", body: JSON.stringify(payload) });
+      setOutput("lobbyResult", "Saved. Refresh H5 lobby to verify.");
+      await loadLobby();
+    }
+
+    async function loadProviders() {
+      const result = await api("/api/v1/admin/game-providers?page=1&pageSize=100");
+      const rows = normalizeList(result);
+      id("providersTable").innerHTML = table(["Code", "Name", "Status", "Games", "Action"], rows.map((row) => {
+        const enabled = Number(row.status) === 1;
+        return [
+          row.providerCode,
+          row.providerName || row.name,
+          providerStatus(row.status),
+          row.gameCount || 0,
+          `<button type="button" class="${enabled ? "danger" : "ok"}" data-provider="${row.providerCode}" data-enabled="${enabled ? "0" : "1"}">${enabled ? "Disable" : "Enable"}</button>`
+        ];
+      }));
+      id("providersTable").querySelectorAll("[data-provider]").forEach((button) => {
+        button.addEventListener("click", () => setProviderStatus(button.dataset.provider, button.dataset.enabled === "1"));
+      });
+    }
+
+    function providerStatus(status) {
+      if (Number(status) === 1) return "enabled";
+      if (Number(status) === 2) return "maintenance";
+      if (Number(status) === 3) return "disabled";
+      return String(status || "");
+    }
+
+    async function setProviderStatus(code, enabled) {
+      await api(`/api/v1/admin/game-providers/${encodeURIComponent(code)}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ enabled, reason: "P3.3 provider visibility update" })
+      });
+      setOutput("providerResult", `${code} ${enabled ? "enabled" : "disabled"}`);
+      await loadProviders();
+    }
+
+    function table(headers, rows) {
+      if (!rows.length) return `<div class="output">No data</div>`;
+      return `<table><thead><tr>${headers.map((h) => `<th>${escapeHTML(h)}</th>`).join("")}</tr></thead><tbody>${rows.map((row) => `<tr>${row.map((cell) => `<td>${safeCell(cell)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+    }
+
+    function safeCell(cell) {
+      const value = String(cell === undefined || cell === null ? "" : cell);
+      if (value.startsWith("<button ")) return value;
+      return escapeHTML(value);
+    }
+
+    async function runCheck(useHeader) {
+      const host = id("checkHost").value.trim() || location.host;
+      const path = id("checkPath").value;
+      if (!useHeader && path === "/wl-test/h5") {
+        window.open(currentOrigin(host) + "/wl-test/h5", "_blank", "noopener");
+        setOutput("checkResult", "Opened " + currentOrigin(host) + "/wl-test/h5");
+        return;
+      }
+      const headers = useHeader ? { "X-Site-Domain": host } : {};
+      const data = await api(path, { headers });
+      setOutput("checkResult", data);
+    }
+
+    id("loginButton").addEventListener("click", () => login().catch((error) => setOutput("provisionResult", error.message)));
+    id("mfaButton").addEventListener("click", () => verifyMFA().catch((error) => setOutput("provisionResult", error.message)));
+    id("refreshMe").addEventListener("click", refreshMe);
+    id("logout").addEventListener("click", logout);
+    id("fillJapan").addEventListener("click", () => fillProvision({
+      tenantCode: "demo-japan", tenantName: "Demo Japan", primaryDomain: "jp-demo.local", h5Domain: "jp-demo.local", adminDomain: "admin.jp-demo.local",
+      countryCode: "JP", currencyCode: "JPY", language: "ja-JP", timezone: "Asia/Tokyo", appName: "Demo Japan",
+      primaryColor: "#e53935", secondaryColor: "#ffb300", ownerUsername: "demo_jp_admin", ownerPassword: "DemoJapan#12345"
+    }));
+    id("fillMexico").addEventListener("click", () => fillProvision({
+      tenantCode: "demo-mexico", tenantName: "Demo Mexico", primaryDomain: "mx-demo.local", h5Domain: "mx-demo.local", adminDomain: "admin.mx-demo.local",
+      countryCode: "MX", currencyCode: "MXN", language: "es-MX", timezone: "America/Mexico_City", appName: "Demo Mexico",
+      primaryColor: "#1f8f4d", secondaryColor: "#ffd23f", ownerUsername: "demo_mx_admin", ownerPassword: "DemoMexico#12345"
+    }));
+    id("provisionButton").addEventListener("click", () => provisionTenant().catch((error) => setOutput("provisionResult", error.message)));
+    id("loadSites").addEventListener("click", () => loadSites().catch((error) => setOutput("siteResult", error.message)));
+    id("siteSelect").addEventListener("change", () => loadSiteDetail().catch((error) => setOutput("siteResult", error.message)));
+    id("saveSite").addEventListener("click", () => saveSite().catch((error) => setOutput("siteResult", error.message)));
+    id("publishSite").addEventListener("click", () => publishSiteConfig().catch((error) => setOutput("siteResult", error.message)));
+    id("openH5").addEventListener("click", () => openSitePath("/wl-test/h5"));
+    id("openBootstrap").addEventListener("click", () => openSitePath("/api/v1/bootstrap"));
+    id("loadLobby").addEventListener("click", () => loadLobby().catch((error) => setOutput("lobbyResult", error.message)));
+    id("saveLobby").addEventListener("click", () => saveLobby().catch((error) => setOutput("lobbyResult", error.message)));
+    id("loadProviders").addEventListener("click", () => loadProviders().catch((error) => setOutput("providerResult", error.message)));
+    id("runCheck").addEventListener("click", () => runCheck(false).catch((error) => setOutput("checkResult", error.message)));
+    id("runBootstrapHeader").addEventListener("click", () => runCheck(true).catch((error) => setOutput("checkResult", error.message)));
+
+    refreshMe();
+  </script>
+</body>
+</html>

@@ -1,0 +1,41 @@
+CREATE TABLE IF NOT EXISTS game_push_device_tokens (
+    id bigint unsigned NOT NULL AUTO_INCREMENT,
+    user_id bigint unsigned NOT NULL,
+    platform varchar(16) NOT NULL,
+    token_hash char(64) NOT NULL,
+    token text NOT NULL,
+    device_id varchar(128) NOT NULL DEFAULT '',
+    app_version varchar(32) NOT NULL DEFAULT '',
+    language varchar(16) NOT NULL DEFAULT 'en',
+    enabled tinyint(1) NOT NULL DEFAULT 1,
+    last_seen_at datetime(3) DEFAULT NULL,
+    invalidated_at datetime(3) DEFAULT NULL,
+    last_error varchar(500) NOT NULL DEFAULT '',
+    created_at datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    updated_at datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+    deleted_at datetime(3) DEFAULT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_push_token_hash (token_hash),
+    KEY idx_push_token_user_enabled (user_id, enabled)
+);
+
+CREATE TABLE IF NOT EXISTS game_notification_deliveries (
+    id bigint unsigned NOT NULL AUTO_INCREMENT,
+    notification_id bigint unsigned NOT NULL,
+    job_id bigint unsigned NOT NULL,
+    user_id bigint unsigned NOT NULL,
+    device_token_id bigint unsigned NOT NULL DEFAULT 0,
+    status varchar(24) NOT NULL DEFAULT 'PENDING',
+    provider_message_id varchar(255) NOT NULL DEFAULT '',
+    error_code varchar(64) NOT NULL DEFAULT '',
+    error_message varchar(500) NOT NULL DEFAULT '',
+    attempted_at datetime(3) DEFAULT NULL,
+    sent_at datetime(3) DEFAULT NULL,
+    created_at datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    updated_at datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+    deleted_at datetime(3) DEFAULT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_notification_delivery_user (notification_id, user_id),
+    KEY idx_notification_delivery_status (notification_id, status),
+    KEY idx_notification_delivery_job (job_id)
+);

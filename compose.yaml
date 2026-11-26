@@ -1,0 +1,138 @@
+name: casino
+
+x-api: &api
+  image: casino-api:local
+  build:
+    context: .
+    target: api
+  environment: &api-env
+    TZ: ${TZ:-Asia/Kuala_Lumpur}
+    CASINO_APP_ENV: prod
+    CASINO_MYSQL_DSN: "casino:${MYSQL_PASSWORD:?请先运行 python3 scripts/init-env.py}@tcp(mysql:3306)/game_casino?parseTime=true&loc=Local&charset=utf8mb4&collation=utf8mb4_unicode_ci"
+    CASINO_REDIS_DSN: "default:@redis:6379/0"
+    CASINO_MFA_ENCRYPTION_KEY: ${CASINO_MFA_ENCRYPTION_KEY:?请先生成环境配置}
+    CASINO_RABBITMQ_ENABLED: "true"
+    CASINO_RABBITMQ_REQUIRED: "true"
+    CASINO_RABBITMQ_HOST: rabbitmq
+    CASINO_RABBITMQ_USERNAME: casino
+    CASINO_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?请先生成环境配置}
+  volumes:
+    - uploads:/app/static
+  init: true
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-Asia/Kuala_Lumpur}
+      MYSQL_DATABASE: game_casino
+      MYSQL_USER: casino
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?请先生成环境配置}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?请先生成环境配置}
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci", "--log-bin-trust-function-creators=ON"]
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$$MYSQL_PASSWORD\" mysql --protocol=TCP -h 127.0.0.1 -u casino game_casino -e 'SELECT 1' >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  rabbitmq:
+    hostname: casino-rabbitmq
+    image: rabbitmq:4-management-alpine
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: casino
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?请先生成环境配置}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+      start_period: 30s
+
+  migrate:
+    image: mysql:8.4
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_USER: casino
+      MYSQL_DATABASE: game_casino
+      MYSQL_PWD: ${MYSQL_PASSWORD:?请先生成环境配置}
+    volumes:
+      - ./server/game_schema.sql:/migrations/base.sql:ro
+      - ./server/migrations:/migrations/sql:ro
+      - ./deploy/migrate.sh:/migrations/run.sh:ro
+      - ./deploy/migrations.txt:/migrations/manifest.txt:ro
+    entrypoint: ["bash", "/migrations/run.sh"]
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  bootstrap:
+    <<: *api
+    environment:
+      <<: *api-env
+      CASINO_BOOTSTRAP_ADMIN_PASSWORD: ${CASINO_BOOTSTRAP_ADMIN_PASSWORD:?请先生成环境配置}
+    command: ["/app/bootstrap-admin", "-c", "/app/configs/casino.yml"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  api:
+    <<: *api
+    restart: unless-stopped
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:1639/health/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    stop_grace_period: 30s
+
+  web:
+    image: casino-web:local
+    build:
+      context: .
+      target: web
+    restart: unless-stopped
+    ports:
+      - "${BIND_ADDRESS:-0.0.0.0}:${H5_PORT:-80}:8080"
+      - "${BIND_ADDRESS:-0.0.0.0}:${ADMIN_PORT:-8080}:8081"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/nginx-health && wget -q -O /dev/null http://127.0.0.1:8081/nginx-health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  mysql-data:
+  redis-data:
+  rabbitmq-data:
+  uploads:

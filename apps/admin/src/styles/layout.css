@@ -1,0 +1,263 @@
+.admin-layout {
+  height: 100vh;
+  background: var(--admin-bg);
+}
+
+.admin-header {
+  width: 100%;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--admin-header-bg);
+  border-bottom: 1px solid var(--admin-border);
+  padding: 0 20px;
+  flex-shrink: 0;
+}
+
+.admin-body {
+  flex: 1;
+  overflow: hidden;
+}
+
+.admin-aside {
+  background: var(--admin-sidebar-bg);
+  border-right: 1px solid var(--admin-border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.admin-menu-wrap {
+  height: 100%;
+}
+
+.admin-menu {
+  border-right: none;
+  padding: 8px 0;
+}
+
+.admin-menu :deep(.el-menu-item),
+.admin-menu :deep(.el-sub-menu__title) {
+  height: 44px;
+  line-height: 44px;
+  color: var(--admin-text);
+  font-weight: 500;
+  margin: 2px 8px;
+  border-radius: 4px;
+}
+
+.admin-menu :deep(.el-menu-item .el-icon),
+.admin-menu :deep(.el-sub-menu__title .el-icon) {
+  font-size: 16px;
+  margin-right: 8px;
+  color: var(--admin-text-secondary);
+}
+
+.admin-menu :deep(.el-menu-item.is-active) {
+  color: var(--admin-primary);
+  font-weight: 600;
+  background: var(--admin-menu-active-bg);
+}
+
+.admin-menu :deep(.el-menu-item.is-active .el-icon) {
+  color: var(--admin-primary);
+}
+
+.admin-menu :deep(.el-sub-menu.is-active > .el-sub-menu__title) {
+  color: var(--admin-primary);
+  font-weight: 600;
+}
+
+.admin-menu :deep(.el-sub-menu.is-active > .el-sub-menu__title .el-icon) {
+  color: var(--admin-primary);
+}
+
+.admin-menu :deep(.el-menu--inline .el-menu-item) {
+  padding-left: 48px !important;
+  height: 40px;
+  line-height: 40px;
+  font-weight: 500;
+}
+
+.admin-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-header-logo {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  object-fit: contain;
+  display: block;
+}
+
+.admin-brand-title {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--admin-text);
+}
+
+.admin-brand-tag {
+  border-radius: 10px;
+  padding: 0 8px;
+  height: 20px;
+  line-height: 18px;
+  font-size: 11px;
+}
+
+.admin-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-user-block {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.admin-user-block:hover {
+  background: #f5f7fa;
+}
+
+.admin-user-name {
+  font-size: 14px;
+  color: var(--admin-text);
+}
+
+.admin-main {
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  padding: 16px;
+  min-height: 0;
+  background: var(--admin-bg);
+}
+
+.admin-main-body {
+  flex: 1 0 auto;
+}
+
+.admin-footer {
+  flex-shrink: 0;
+  margin-top: 24px;
+  padding: 16px 0 4px;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--admin-text-muted, #909399);
+  border-top: 1px solid var(--admin-border);
+}
+
+@media (max-width: 900px) {
+  .admin-aside {
+    display: none;
+  }
+
+  .admin-main {
+    padding: 12px;
+  }
+
+  .admin-header {
+    padding: 0 12px;
+  }
+
+  .admin-header-right {
+    gap: 6px;
+  }
+
+  .admin-user-name,
+  .admin-brand-tag {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-brand-title,
+  .admin-user-block .el-icon {
+    display: none;
+  }
+
+  .admin-header-right .admin-timezone-select {
+    width: 88px;
+  }
+
+  .admin-header-right .admin-language-select {
+    width: 104px;
+  }
+
+  .admin-main {
+    padding: 10px;
+  }
+}
+
+.page-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.page-stack--search-table {
+  gap: 20px;
+}
+
+.section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--admin-text);
+  margin: 0 0 16px;
+  line-height: 1.4;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.section-header .section-title {
+  margin-bottom: 0;
+  flex-shrink: 0;
+}
+
+.section-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.section-header .section-actions {
+  flex-shrink: 0;
+}
+
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.table-actions :deep(.el-button.is-link) {
+  padding: 0 4px;
+}
+
+.action-link-primary {
+  color: var(--admin-primary);
+}
+
+.action-link-danger {
+  color: #f56c6c;
+}
+
+.action-link-warning {
+  color: #e6a23c;
+}

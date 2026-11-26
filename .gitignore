@@ -1,0 +1,25 @@
+.DS_Store
+.idea/
+.vscode/
+**/node_modules/
+**/dist/
+**/*.tsbuildinfo
+.env
+.env.*
+!.env.example
+!**/.env.example
+*.log
+*.pid
+*.pem
+*.key
+**/firebase-service-account.json
+/server/casino
+/server/bin/
+/coverage/
+
+# Server-specific configuration overrides
+compose.override.yaml
+compose.override.yml
+
+__pycache__/
+*.pyc

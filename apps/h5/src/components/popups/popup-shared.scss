@@ -1,0 +1,57 @@
+.builtin-popup-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 240;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: max(20px, env(safe-area-inset-top)) 18px max(20px, env(safe-area-inset-bottom));
+  background: rgb(3 5 10 / 82%);
+  backdrop-filter: blur(5px);
+}
+
+.builtin-popup-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 1px solid rgb(255 255 255 / 35%);
+  border-radius: 50%;
+  color: white;
+  background: rgb(4 7 14 / 65%);
+  font: 400 27px/1 Arial, sans-serif;
+}
+
+.builtin-popup-cta {
+  position: relative;
+  z-index: 5;
+  min-width: 190px;
+  min-height: 46px;
+  border: 1px solid rgb(255 255 255 / 34%);
+  border-radius: 7px;
+  color: #1d1202;
+  background: #ffd55f;
+  box-shadow: 0 8px 0 #a95712, 0 14px 28px rgb(0 0 0 / 34%);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.builtin-popup-cta:active {
+  translate: 0 5px;
+  box-shadow: 0 3px 0 #a95712, 0 8px 18px rgb(0 0 0 / 30%);
+}
+
+@media (max-height: 620px) {
+  .builtin-popup-layer { padding-block: 10px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .builtin-popup-layer *, .builtin-popup-layer *::before, .builtin-popup-layer *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS game_register_reward_claims (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  created_at DATETIME(3) NULL,
+  updated_at DATETIME(3) NULL,
+  deleted_at DATETIME(3) NULL,
+  user_id BIGINT UNSIGNED NOT NULL,
+  amount DECIMAL(18,2) NOT NULL DEFAULT 0.00,
+  currency VARCHAR(8) NOT NULL DEFAULT 'PKR',
+  wallet_type VARCHAR(32) NOT NULL DEFAULT 'CASH',
+  status TINYINT NOT NULL DEFAULT 1 COMMENT '1 pending, 2 claimed, 3 cancelled',
+  cash_before DECIMAL(18,2) NOT NULL DEFAULT 0.00,
+  cash_after DECIMAL(18,2) NOT NULL DEFAULT 0.00,
+  wallet_transaction_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  idempotency_key VARCHAR(128) NOT NULL,
+  claimed_at DATETIME(3) NULL,
+  raw_metadata JSON NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_register_reward_idempotency (idempotency_key),
+  KEY idx_register_reward_user_status (user_id, status, created_at),
+  KEY idx_register_reward_deleted (deleted_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
