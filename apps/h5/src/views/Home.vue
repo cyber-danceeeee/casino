@@ -24,7 +24,6 @@ import HomeInviteChestDialog from '../components/HomeInviteChestDialog.vue'
 import NotificationPermissionPrompt from '../components/NotificationPermissionPrompt.vue'
 import OperationEntries from '../components/OperationEntries.vue'
 import PendingRewardsDialog from '../components/PendingRewardsDialog.vue'
-import RebateJackpot from '../components/RebateJackpot.vue'
 import RegisterRewardDialog from '../components/RegisterRewardDialog.vue'
 import TopDownloadBanner from '../components/TopDownloadBanner.vue'
 import WelcomeSplash from '../components/WelcomeSplash.vue'
@@ -85,7 +84,7 @@ const notificationPromptVisible = ref(false)
 const rewardsDialogVisible = ref(false)
 const homeOfferEvents = ref<H5OfferEventPayload[]>([])
 const unreadActivitySlugs = ref<string[]>([])
-const guideInitial = ref<'first-deposit' | 'register-gift' | 'app-download'>('first-deposit')
+const guideInitial = ref<'first-deposit' | 'register-gift' | 'app-download'>('register-gift')
 const downloadBannerVisible = ref(!androidAppRuntime)
 let scrollFrame = 0
 let categoryScrollTimer = 0
@@ -175,7 +174,7 @@ const markHomeActivityRead = (slug: string) => {
 
 const scheduleInitialGuide = () => {
   if (initialFlowTimer) window.clearTimeout(initialFlowTimer)
-  guideInitial.value = 'first-deposit'
+  guideInitial.value = isLoggedIn.value ? 'first-deposit' : 'register-gift'
   initialFlowTimer = window.setTimeout(() => {
     initialFlowTimer = 0
     if (!componentActive) return
@@ -186,7 +185,7 @@ const scheduleInitialGuide = () => {
 const resumeInitialHomeFlow = () => {
   if (splashVisible.value || pendingRegisterReward.value || notificationPromptVisible.value) return
 
-  if (shouldShowNotificationPrompt()) {
+  if (androidAppRuntime && shouldShowNotificationPrompt()) {
     notificationPromptVisible.value = true
     return
   }
@@ -454,7 +453,10 @@ const loadHomeSectionPage = async (section: GameSection, page: number) => {
 
 const selectCategory = (category: CategoryKey) => {
   const section = document.getElementById(`section-${category}`)
-  if (!section) return
+  if (!section) {
+    void router.push({ name: 'game-category', params: { category } })
+    return
+  }
 
   activeCategory.value = category
   requestedCategory = category
@@ -594,7 +596,6 @@ onBeforeUnmount(() => {
       <BannerSwiper :banners="homeBanners" />
       <div class="home-gutter">
         <OperationEntries position="HOME_QUICK" />
-        <RebateJackpot />
         <ActivityCards />
       </div>
 
@@ -615,7 +616,7 @@ onBeforeUnmount(() => {
     </main>
 
     <HomeFloatingActions
-      v-if="!splashVisible"
+      v-if="!splashVisible && isLoggedIn"
       :unread-activity-slugs="unreadActivitySlugs"
       :pending-reward-count="pendingActivityRewards.length"
       @events="openFloatingEvents"
@@ -684,12 +685,12 @@ onBeforeUnmount(() => {
 }
 
 .home-gutter {
-  padding: 0 14px;
+  padding: 0 15px;
 }
 
 .has-download-banner {
   :deep(.app-header) {
-    top: 38px;
+    top: 40px;
   }
 
   :deep(.category-tabs) {

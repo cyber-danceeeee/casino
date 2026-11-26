@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, watch, type ComponentPublicInstance } from 'vue'
+import { computed, nextTick, onBeforeUnmount, watch, type ComponentPublicInstance } from 'vue'
 import type { GameItem, GameSection } from '../mock/games'
 import GameFavoriteIcon from './GameFavoriteIcon.vue'
 
 const props = defineProps<{
   sections: GameSection[]
 }>()
+const visibleSections = computed(() => props.sections.filter((section, index) => index === 0 || section.games.length > 0))
 
 const emit = defineEmits<{
   play: [game: GameItem]
@@ -121,7 +122,7 @@ onBeforeUnmount(() => {
 <template>
   <section class="game-sections" aria-label="Game sections">
     <article
-      v-for="section in sections"
+      v-for="section in visibleSections"
       :id="`section-${section.key}`"
       :key="section.key"
       class="game-section"
@@ -291,7 +292,7 @@ onBeforeUnmount(() => {
 }
 
 .game-section__viewport--hot {
-  --game-card-width: calc((min(100vw, 26.875rem) - 3.5rem) / 3);
+  --game-card-width: calc((min(100vw, 26.875rem) - 3.5rem) / 3.5);
 
   padding: 0.75rem 0.875rem 0;
   overflow-x: auto;

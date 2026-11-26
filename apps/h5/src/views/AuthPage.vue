@@ -4,8 +4,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { loginMockUser } from '../mock/session'
 import { normalizePhoneInput, phoneCountryCode, phoneLength } from '../services/runtimeConfig'
 import { getSafeRedirect } from '../utils/authRedirect'
-import customer from '../assets/images/profile/customer.webp'
-import headerBg from '../assets/images/auth-header-bg.webp'
+import customer from '../assets/images/reference/support-avatar.webp'
+import headerBg from '../assets/images/reference/auth-header.webp'
 
 type AuthMode = 'login' | 'register'
 type LoginMethod = 'password' | 'code'
@@ -17,7 +17,7 @@ const phone = ref('')
 const password = ref('')
 const inviteCode = ref('')
 const verificationCode = ref('')
-const passwordVisible = ref(true)
+const passwordVisible = ref(false)
 const agreementAccepted = ref(true)
 const loginMethod = ref<LoginMethod>('password')
 const isSubmitting = ref(false)
@@ -48,10 +48,6 @@ const goHome = () => {
   void router.push({ name: 'home' })
 }
 
-const toggleLoginMethod = () => {
-  loginMethod.value = loginMethod.value === 'password' ? 'code' : 'password'
-}
-
 const limitPhoneInput = (event: Event) => {
   const input = event.target as HTMLInputElement
   const value = normalizePhoneInput(input.value)
@@ -59,8 +55,21 @@ const limitPhoneInput = (event: Event) => {
   input.value = value
 }
 
+const pasteInvitation = async () => {
+  try {
+    const value = await navigator.clipboard?.readText()
+    if (value) inviteCode.value = value.trim()
+  } catch {
+    authError.value = 'Paste the invitation code directly into the field.'
+  }
+}
+
 const submit = async () => {
   if (isSubmitting.value) return
+  if (!agreementAccepted.value) {
+    authError.value = 'Please accept the User Agreement to continue.'
+    return
+  }
 
   authError.value = ''
   isSubmitting.value = true
@@ -84,7 +93,7 @@ const submit = async () => {
 watch(
   mode,
   () => {
-    passwordVisible.value = true
+    passwordVisible.value = false
     loginMethod.value = 'password'
     authError.value = ''
   },
@@ -100,7 +109,7 @@ watch(
         </svg>
       </button>
 
-      <button class="auth-support" type="button">
+      <button class="auth-support" type="button" @click="router.push('/support')">
         <img :src="customer" alt="" />
         <span>Contact Me</span>
       </button>
@@ -117,7 +126,7 @@ watch(
     <main class="auth-card">
       <form class="auth-form" @submit.prevent="submit">
         <label class="auth-field">
-          <span><i>*</i>Phone Number</span>
+          <span><i v-if="isRegister">*</i>Phone Number</span>
           <div class="auth-input auth-input--phone">
             <strong>{{ runtimePhoneCode }}</strong>
             <em />
@@ -127,7 +136,7 @@ watch(
               :pattern="runtimePhonePattern"
               :maxlength="runtimePhoneLength"
               autocomplete="tel"
-              placeholder="3012345678"
+              placeholder="3008567530"
               type="tel"
               @input="limitPhoneInput"
             />
@@ -135,13 +144,18 @@ watch(
         </label>
 
         <div class="auth-field auth-field--password">
-          <div class="auth-label-row">
+          <div v-if="isRegister" class="auth-label-row">
             <span><i>*</i>Password</span>
-            <button v-if="!isRegister" class="auth-code-switch" type="button" @click="toggleLoginMethod">
-              <svg viewBox="0 0 16 16" aria-hidden="true">
-                <path d="M0 11.4V15.2A.8.8 0 0 0 .8 16h3.8v-1.2H1.9a.68.68 0 0 1-.7-.68V11.4H0Zm1.2-9.52c0-.38.3-.68.68-.68H4.6V0H.8A.8.8 0 0 0 0 .8v3.8h1.2V1.88ZM16 .8a.8.8 0 0 0-.8-.8h-3.8v1.2h2.72c.38 0 .68.3.68.68V4.6H16V.8Zm-1.2 13.32c0 .38-.3.68-.68.68H11.4V16h3.8a.8.8 0 0 0 .8-.8v-3.8h-1.2v2.72ZM2 6.9v-.8l1.4-.3h.7v4.7h-.9V6.6L2 6.9Zm6.5.3c0-.2-.1-.4-.2-.5-.2-.1-.4-.2-.7-.2-.4 0-.7.1-1.1.2v-.8c.4-.1.8-.2 1.2-.2.5 0 .9.1 1.2.3.3.3.5.6.4 1 0 .3 0 .5-.1.8-.1.3-.3.5-.5.7-.3.3-.7.7-1.1 1l-.3.2v.1h2.1v.8H6.3v-.9c.6-.5 1-.9 1.4-1.1.2-.2.4-.5.6-.8.1-.2.2-.4.2-.6Zm3.1 3.3v-.8c.3.1.7.1 1 .1.3 0 .6 0 .8-.1.2-.1.3-.3.3-.6 0-.2-.1-.4-.3-.5-.3-.1-.6-.2-.9-.2h-.4v-.7h.4c.3 0 .6-.1.8-.2.2-.1.3-.3.3-.5s-.1-.4-.2-.5c-.2-.1-.4-.2-.7-.2-.3 0-.6.1-.9.2V5.9c.3-.1.7-.2 1.1-.2.4 0 .9.1 1.2.3.3.2.5.6.4 1 0 .5-.3.9-.8 1.1.3 0 .5.2.7.4.2.2.3.5.3.8 0 .9-.7 1.4-2 1.4-.4-.1-.7-.1-1.1-.2Z" />
-              </svg>
-              {{ loginMethod === 'password' ? 'Verification Code' : 'Password' }}
+          </div>
+
+          <div v-if="!isRegister" class="auth-login-methods" role="tablist" aria-label="Login method">
+            <button type="button" role="tab" :aria-selected="loginMethod === 'password'" :class="{ 'is-active': loginMethod === 'password' }" @click="loginMethod = 'password'">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 9a4 4 0 1 1 2 2L5 14H2v-3l4-2Zm5-5h.01" /></svg>
+              Password
+            </button>
+            <button type="button" role="tab" :aria-selected="loginMethod === 'code'" :class="{ 'is-active': loginMethod === 'code' }" @click="loginMethod = 'code'">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="2" /><path d="M5 6h6M5 10h6" /></svg>
+              Verification Code
             </button>
           </div>
 
@@ -175,13 +189,14 @@ watch(
             </div>
             <button class="auth-send" type="button" disabled>Send</button>
           </div>
+          <button v-if="!isRegister && loginMethod === 'password'" class="auth-forgot" type="button" @click="router.push({ path: '/support', query: { topic: 'password' } })">Forgot password</button>
         </div>
 
         <label v-if="isRegister" class="auth-field">
           <span>Invitation Code (Optional)</span>
           <div class="auth-input">
             <input v-model="inviteCode" placeholder="Enter" type="text" />
-            <button class="auth-paste" type="button">Paste</button>
+            <button class="auth-paste" type="button" @click="pasteInvitation">Paste</button>
           </div>
         </label>
 
@@ -192,7 +207,7 @@ watch(
               <path d="M2.5 6 5 8.5 9.5 3.5" />
             </svg>
           </span>
-          <span>I am over 18 and agree to the <a href="#">User Agreement</a></span>
+          <span>I am over 18 and agree to the <RouterLink to="/auth/agreement">User Agreement</RouterLink></span>
         </label>
 
         <p v-if="authError" class="auth-error">{{ authError }}</p>
@@ -200,15 +215,6 @@ watch(
         <button class="auth-submit" type="submit" :disabled="isSubmitting">
           {{ isSubmitting ? 'Please wait...' : actionLabel }}
         </button>
-
-        <div v-if="!isRegister" class="auth-login-tip">
-          <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.2" />
-            <path d="M8 7v4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
-            <circle cx="8" cy="5" r="0.8" fill="currentColor" />
-          </svg>
-          <span>Automatically register on first login</span>
-        </div>
       </form>
     </main>
   </section>
@@ -235,8 +241,8 @@ watch(
 
 .auth-hero {
   position: relative;
-  height: 227px;
-  flex: 0 0 227px;
+  height: 230px;
+  flex: 0 0 230px;
   padding: calc(env(safe-area-inset-top) + 24px) 24px 24px;
   overflow: hidden;
   background-position: center;
@@ -263,7 +269,7 @@ watch(
 
 .auth-support {
   position: absolute;
-  top: calc(env(safe-area-inset-top) + 24px);
+  top: calc(env(safe-area-inset-top) + 72px);
   right: 24px;
   z-index: 2;
   display: flex;
@@ -272,7 +278,7 @@ watch(
   padding: 0;
 
   img {
-    width: 44px;
+    width: 72px;
     height: 55px;
     object-fit: contain;
   }
@@ -294,13 +300,13 @@ watch(
 .auth-title-block {
   position: relative;
   z-index: 2;
-  margin-top: 24px;
+  margin-top: 32px;
 
   h1 {
     margin: 0;
     color: #ffffff;
-    font-size: 36px;
-    font-weight: 650;
+    font-size: 34px;
+    font-weight: 700;
     line-height: 1.3;
     letter-spacing: 0;
   }
@@ -329,7 +335,7 @@ watch(
   margin-top: -48px;
   border-radius: 16px 16px 0 0;
   padding: 24px 24px calc(env(safe-area-inset-bottom) + 24px);
-  background: #1e2438;
+  background: #20263a;
 }
 
 .auth-form {
@@ -368,12 +374,12 @@ watch(
 .auth-input {
   position: relative;
   display: flex;
-  height: 46px;
+  height: 48px;
   align-items: center;
   overflow: hidden;
   border: 1px solid #364169;
   border-radius: 10px;
-  background: #131828;
+  background: #121727;
   transition:
     border-color 180ms ease,
     box-shadow 180ms ease;
@@ -389,7 +395,7 @@ watch(
     place-items: center;
     padding: 0 12px;
     color: #ffffff;
-    font-size: 14px;
+    font-size: 14.5px;
     font-weight: 500;
   }
 
@@ -408,7 +414,7 @@ watch(
     padding: 0 12px;
     background: transparent;
     color: #ffffff;
-    font-size: 14px;
+    font-size: 14.5px;
 
     &::placeholder {
       color: #46537f;
@@ -420,21 +426,20 @@ watch(
   padding-left: 12px;
 }
 
-.auth-code-switch {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 0;
-  color: #4d81e7;
-  font-size: 12px;
-  font-weight: 700;
-
-  svg {
-    width: 16px;
-    height: 16px;
-    fill: currentColor;
-  }
+.auth-login-methods {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  height: 38px;
+  margin-bottom: 0;
+  padding: 2px;
+  border: 1px solid #3b486e;
+  border-radius: 22px;
+  background: #121727;
+  button { display: flex; align-items: center; justify-content: center; gap: 4px; border-radius: 20px; color: #a7b4d5; font-size: 12.5px; white-space: nowrap; }
+  svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
+  button.is-active { color: white; background: #397fe5; }
 }
+.auth-forgot { justify-self: start; padding: 0; color: #51618e; font-size: 12px; }
 
 .auth-eye {
   position: absolute;
@@ -466,7 +471,7 @@ watch(
   border-radius: 8px;
   background: #4d81e7;
   color: #ffffff;
-  font-size: 14px;
+  font-size: 14.5px;
   font-weight: 600;
 
   &:disabled {
@@ -539,7 +544,7 @@ watch(
 .auth-submit {
   display: grid;
   width: 100%;
-  height: 46px;
+  height: 49px;
   place-items: center;
   margin-top: 12px;
   border-radius: 8px;
@@ -547,7 +552,7 @@ watch(
   box-shadow: 0 10px 26px rgba(57, 127, 229, 0.26);
   color: #ffffff;
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 500;
   line-height: 1;
 
   &:disabled {

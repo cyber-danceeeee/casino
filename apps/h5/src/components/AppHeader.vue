@@ -115,11 +115,11 @@ watch(isLoggedIn, () => {
   top: 0;
   z-index: 40;
   display: flex;
-  height: 66px;
+  height: 68px;
   flex-shrink: 0;
   align-items: center;
   width: 100%;
-  padding: 0 14px;
+  padding: 0 15px;
   border-bottom: 1px solid rgba(213, 230, 255, 0.12);
   color: #ffffff;
   background: hsl(var(--background, 224 55% 8%));
@@ -190,13 +190,14 @@ watch(isLoggedIn, () => {
 }
 
 .brand {
-  width: 88px;
-  flex: 0 0 88px;
+  width: 89px;
+  flex: 0 0 89px;
   min-width: 0;
-  margin-right: 8px;
+  margin-right: 0;
 
   img {
-    width: 84px;
+    width: 89px;
+    margin-left: 3px;
     height: auto;
     object-fit: contain;
     filter: drop-shadow(0 4px 3px rgba(0, 0, 0, 0.3));
@@ -206,14 +207,14 @@ watch(isLoggedIn, () => {
 .auth-button {
   position: relative;
   display: grid;
-  height: 36px;
+  height: 40px;
   flex: 1 1 0;
   place-items: center;
   overflow: visible;
   margin-left: 8px;
   border-radius: 8px;
   color: #ffffff;
-  font-size: 16px;
+  font-size: 14.5px;
   font-weight: 500;
   line-height: 1;
   transition:
@@ -230,7 +231,7 @@ watch(isLoggedIn, () => {
   }
 
   &--register {
-    background: linear-gradient(180deg, var(--runtime-primary-color, #58b86b), var(--runtime-button-color, #459e58));
+    background: linear-gradient(180deg, #5db66e, #479c57);
     box-shadow: 0 10px 26px rgba(82, 177, 101, 0.22);
 
     img {

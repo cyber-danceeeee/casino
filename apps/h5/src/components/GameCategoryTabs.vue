@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { nextTick, ref, watch, type ComponentPublicInstance } from 'vue'
+import { useRouter } from 'vue-router'
 import type { CategoryKey, GameCategory } from '../mock/games'
 
 const props = defineProps<{
   categories: GameCategory[]
   modelValue: CategoryKey
 }>()
+const router = useRouter()
 
 const emit = defineEmits<{
   'update:modelValue': [value: CategoryKey]
@@ -67,7 +69,7 @@ watch(
       </button>
     </div>
 
-    <button class="category-search" type="button" aria-label="Search games">
+    <button class="category-search" type="button" aria-label="Search games" @click="router.push({ name: 'game-category', params: { category: modelValue } })">
       <svg viewBox="0 0 20 20" aria-hidden="true">
         <path
           d="M9.1 14.6a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11Zm4.35.3a7.22 7.22 0 1 1 1.46-1.46l2.92 2.92a1 1 0 0 1-1.42 1.42l-2.96-2.88Z"
@@ -80,12 +82,12 @@ watch(
 <style scoped lang="scss">
 .category-tabs {
   position: sticky;
-  top: 66px;
+  top: 68px;
   z-index: 35;
   display: flex;
   align-items: center;
-  margin: 0 0 20px;
-  padding: 8px 14px;
+  margin: 0 0 12px;
+  padding: 5px 15px;
   border-top: 1px solid rgba(213, 230, 255, 0.1);
   border-bottom: 1px solid rgba(213, 230, 255, 0.1);
   background: #090f1f;
@@ -107,13 +109,13 @@ watch(
 
 .category-tab {
   flex: 0 0 auto;
-  min-width: 78px;
-  height: 24px;
+  min-width: 52px;
+  height: 25px;
   padding: 0 12px;
   border-radius: 999px;
   color: #ffffff;
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 14.5px;
+  font-weight: 600;
   line-height: 1;
   text-align: center;
   text-transform: uppercase;
@@ -152,7 +154,7 @@ watch(
   }
 
   .category-tab {
-    min-width: 70px;
+    min-width: 48px;
     padding: 0 10px;
     font-size: 14px;
   }

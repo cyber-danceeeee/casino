@@ -41,7 +41,7 @@ const measure = () => {
   const viewport = viewportRef.value
   if (!viewport) return
   const width = viewport.clientWidth
-  const minEdgeGap = width <= 374 ? 16 : 22
+  const minEdgeGap = width <= 374 ? 16 : 20
   slideWidth.value = Math.min(maxSlideWidth, Math.max(0, width - minEdgeGap * 2))
   sidePadding.value = Math.max(minEdgeGap, Math.round((width - slideWidth.value) / 2))
   slideStep.value = slideWidth.value + slideGap
@@ -147,7 +147,7 @@ onBeforeUnmount(() => {
 
 <style scoped lang="scss">
 .banner-swiper {
-  margin: 10px 0 0;
+  margin: 15px 0 0;
   overflow: hidden;
 }
 

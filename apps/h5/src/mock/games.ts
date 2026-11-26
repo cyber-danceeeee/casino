@@ -5,6 +5,12 @@ import socialTelegram from '../assets/images/dialogs/social-telegram.webp'
 import socialTiktok from '../assets/images/dialogs/social-tiktok.webp'
 import socialWhatsapp from '../assets/images/dialogs/social-whatsapp.webp'
 import socialX from '../assets/images/dialogs/social-x.webp'
+import categoryHot from '../assets/images/reference/category-hot.webp'
+import categorySlot from '../assets/images/reference/category-slot.webp'
+import categoryChance from '../assets/images/reference/category-chance.webp'
+import categoryFish from '../assets/images/reference/category-fish.webp'
+import categoryTable from '../assets/images/reference/category-table.webp'
+import categoryBingo from '../assets/images/reference/category-bingo.webp'
 
 export type CategoryKey = string
 
@@ -70,13 +76,13 @@ export interface SocialLink {
 const image = (fileName: string) => `/static/h5/images/${fileName}`
 
 export const categories: GameCategory[] = [
-  { key: 'hot', label: 'Hot', short: 'H', icon: image('category-hot.webp') },
-  { key: 'slots', label: 'Slots', short: 'S', icon: image('category-slot.webp') },
-  { key: 'live-casino', label: 'Live Casino', short: 'LC', icon: image('category-casino.webp') },
-  { key: 'table-games', label: 'Table Games', short: 'TG', icon: image('category-casino.webp') },
-  { key: 'crash', label: 'Crash', short: 'CR', icon: image('category-hot.webp') },
-  { key: 'fishing', label: 'Fishing', short: 'F', icon: image('category-casino.webp') },
-  { key: 'sports', label: 'Sports', short: 'SP' },
+  { key: 'hot', label: 'HOT', short: 'HOT', icon: categoryHot },
+  { key: 'slots', label: 'SLOTS', short: 'SLOTS', icon: categorySlot },
+  { key: 'chance', label: 'CHANCE', short: 'CHANCE', icon: categoryChance },
+  { key: 'fishing', label: 'FISH', short: 'FISH', icon: categoryFish },
+  { key: 'live-casino', label: 'LIVE', short: 'LIVE' },
+  { key: 'table-games', label: 'TABLE', short: 'TABLE', icon: categoryTable },
+  { key: 'bingo', label: 'BINGO', short: 'BINGO', icon: categoryBingo },
 ]
 
 export const banners: BannerItem[] = [

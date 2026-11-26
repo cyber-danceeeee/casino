@@ -15,11 +15,10 @@ import { runtimeConfig } from '../services/runtimeConfig'
 import { h5Image } from '../utils/staticAssets'
 
 const worldCup = h5Image('world-cup-source.gif')
-const worldCupProviderGameCode = 'xa403d3a763119db'
 const fallbackItems: H5NavigationItem[] = [
   { id: -1, menuCode: 'home', label: 'Home', labelZh: '首页', labelEn: 'Home', labels: { 'zh-CN': '首页', 'en-US': 'Home' }, iconURL: '', lottieURL: '', soundURL: '', displayPosition: 'BOTTOM_NAV', badgeType: 'NONE', actionType: 'OPEN_INTERNAL_PAGE', actionTarget: '/', providerCode: '', gameID: 0, providerGameCode: '', gameName: '', sortOrder: 10, configVersion: 0, enabled: true },
   { id: -2, menuCode: 'offers', label: 'Offers', labelZh: '优惠', labelEn: 'Offers', labels: { 'zh-CN': '优惠', 'en-US': 'Offers' }, iconURL: '', lottieURL: '', soundURL: '', displayPosition: 'BOTTOM_NAV', badgeType: 'NONE', actionType: 'OPEN_INTERNAL_PAGE', actionTarget: '/offers', providerCode: '', gameID: 0, providerGameCode: '', gameName: '', sortOrder: 20, configVersion: 0, enabled: true },
-  { id: -3, menuCode: 'world', label: 'World Cup', labelZh: '世界杯', labelEn: 'World Cup', labels: { 'zh-CN': '世界杯', 'en-US': 'World Cup' }, iconURL: '', lottieURL: '', soundURL: '', displayPosition: 'BOTTOM_NAV', badgeType: 'NONE', actionType: 'OPEN_GAME', actionTarget: worldCupProviderGameCode, providerCode: 'softaggregator', gameID: 0, providerGameCode: worldCupProviderGameCode, gameName: 'World Cup', sortOrder: 30, configVersion: 0, enabled: true },
+  { id: -3, menuCode: 'vip', label: 'VIP', labelZh: 'VIP', labelEn: 'VIP', labels: { 'zh-CN': 'VIP', 'en-US': 'VIP' }, iconURL: '', lottieURL: '', soundURL: '', displayPosition: 'BOTTOM_NAV', badgeType: 'NONE', actionType: 'OPEN_INTERNAL_PAGE', actionTarget: '/vip', providerCode: '', gameID: 0, providerGameCode: '', gameName: '', sortOrder: 30, configVersion: 0, enabled: true },
   { id: -4, menuCode: 'share', label: 'Share', labelZh: '分享', labelEn: 'Share', labels: { 'zh-CN': '分享', 'en-US': 'Share' }, iconURL: '', lottieURL: '', soundURL: '', displayPosition: 'BOTTOM_NAV', badgeType: 'NONE', actionType: 'OPEN_INTERNAL_PAGE', actionTarget: '/share', providerCode: '', gameID: 0, providerGameCode: '', gameName: '', sortOrder: 40, configVersion: 0, enabled: true },
   { id: -5, menuCode: 'profile', label: 'Profile', labelZh: '我的', labelEn: 'Profile', labels: { 'zh-CN': '我的', 'en-US': 'Profile' }, iconURL: '', lottieURL: '', soundURL: '', displayPosition: 'BOTTOM_NAV', badgeType: 'NONE', actionType: 'OPEN_INTERNAL_PAGE', actionTarget: '/profile', providerCode: '', gameID: 0, providerGameCode: '', gameName: '', sortOrder: 50, configVersion: 0, enabled: true },
 ]
@@ -91,7 +90,9 @@ const activeIndex = computed(() => {
       ? route.path === '/'
       : route.path === item.actionTarget || route.path.startsWith(`${item.actionTarget}/`)))
   if (direct >= 0) return direct
-  const groupedCode = routeName === 'activity-detail'
+  const groupedCode = routeName === 'vip'
+    ? 'vip'
+    : routeName === 'activity-detail'
     ? 'offers'
     : ['profile', 'wallet-records', 'wallet-deposit', 'cash-center', 'bonus-center', 'bet-records', 'security', 'bank-account', 'support', 'about', 'user-agreement', 'settings'].includes(routeName)
       ? 'profile'
@@ -133,7 +134,6 @@ const openNavItem = (item: H5NavigationItem, index: number) => {
     >
       <span class="bottom-nav__icon" aria-hidden="true">
         <ActivityUnreadBadge v-if="item.menuCode === 'offers' && offersUnread" class="bottom-nav__activity-badge" />
-        <i v-if="item.menuCode === 'profile'" class="bottom-nav__badge" />
         <LottiePlayer v-if="item.lottieURL" :src="item.lottieURL" />
         <img v-else-if="item.iconURL" :src="item.iconURL" alt="" />
         <svg v-else-if="item.menuCode === 'home'" viewBox="0 0 24 24">
@@ -141,6 +141,9 @@ const openNavItem = (item: H5NavigationItem, index: number) => {
         </svg>
         <svg v-else-if="item.menuCode === 'offers'" viewBox="0 0 24 24">
             <path d="M5 10h14v10H5V10Zm2-4a3 3 0 0 1 5-2.24A3 3 0 0 1 17 6v2H7V6Zm6 14V8h-2v12h2Z" />
+        </svg>
+        <svg v-else-if="item.menuCode === 'vip'" viewBox="0 0 24 24">
+          <path d="m2 5 5 4 5-7 5 7 5-4-3 13H5L2 5Zm4 15h12v2H6v-2Z" />
         </svg>
         <span v-else-if="item.actionType === 'OPEN_GAME'" class="bottom-nav__placeholder" />
         <svg v-else-if="item.menuCode === 'share'" viewBox="0 0 24 24">
@@ -175,8 +178,8 @@ const openNavItem = (item: H5NavigationItem, index: number) => {
   grid-template-columns: repeat(var(--nav-count, 5), minmax(0, 1fr));
   width: 100%;
   max-width: 430px;
-  min-height: calc(var(--bottom-nav-height, 76px) + env(safe-area-inset-bottom));
-  padding: 12px 8px calc(env(safe-area-inset-bottom) + 11px);
+  min-height: calc(var(--bottom-nav-height, 72px) + env(safe-area-inset-bottom));
+  padding: 12px 8px calc(env(safe-area-inset-bottom) + 10px);
   border-top: 1px solid rgba(216, 234, 255, 0.09);
   background: rgba(8, 15, 30, 0.96);
   backdrop-filter: blur(16px);
@@ -208,16 +211,16 @@ const openNavItem = (item: H5NavigationItem, index: number) => {
 .bottom-nav__icon {
   position: relative;
   display: grid;
-  width: 27px;
-  height: 27px;
+  width: 24px;
+  height: 24px;
   place-items: center;
   transition: transform 240ms ease;
 
   svg,
   img,
   .bottom-nav__placeholder {
-    width: 27px;
-    height: 27px;
+    width: 24px;
+    height: 24px;
   }
 
   img {

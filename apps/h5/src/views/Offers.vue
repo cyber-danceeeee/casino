@@ -2,9 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ActivityGuideFlow from '../components/ActivityGuideFlow.vue'
-import ActivityUnreadBadge from '../components/ActivityUnreadBadge.vue'
 import AppHeader from '../components/AppHeader.vue'
-import TopDownloadBanner from '../components/TopDownloadBanner.vue'
 import { h5Api, type H5OffersPayload, type H5VipPayload } from '../services/h5Api'
 import {
   isActivityUnread,
@@ -15,9 +13,10 @@ import {
 } from '../services/activityReadState'
 import { formatCurrency } from '../services/runtimeConfig'
 import { isAndroidAppRuntime } from '../utils/runtimeEnvironment'
+import rewardsEntry from '../assets/images/reference/vip-rewards-entry.webp'
+import vipZeroLabel from '../assets/images/reference/vip-label-zero.webp'
 import {
   offerEvents as mockOfferEvents,
-  offerTabAssets,
   vipAssets,
   vipRequirements as mockVipRequirements,
   type VipBenefit,
@@ -37,10 +36,9 @@ const normalizeOfferTab = (value: unknown): OfferTab => {
 const route = useRoute()
 const router = useRouter()
 const androidAppRuntime = isAndroidAppRuntime()
-const activeTab = ref<OfferTab>(normalizeOfferTab(route.query.tab))
+const activeTab = ref<OfferTab>(route.name === 'vip' ? 'vip' : normalizeOfferTab(route.query.tab))
 const requirementTab = ref<VipRequirementTab>('level-up')
 const selectedVipLevel = ref(1)
-const downloadBannerVisible = ref(!androidAppRuntime)
 const guideVisible = ref(false)
 const offerEvents = ref<OfferEvent[]>(mockOfferEvents)
 const vipLevels = ref<H5VipPayload['levels']>([])
@@ -155,7 +153,7 @@ const selectedVipInfo = computed(() =>
 )
 
 const currentVipIcon = computed(() => {
-  if (currentVipLevel.value === 0) return vipAssets.current
+  if (currentVipLevel.value === 0) return vipZeroLabel
   return vipLevels.value.find((level) => Number(level.levelNo) === currentVipLevel.value)?.iconURL || vipAssets.current
 })
 
@@ -245,10 +243,7 @@ const requirementHeaders = computed(() =>
     : ['Level', 'Base Level', 'Deposit', 'Valid bets'],
 )
 
-const tabIndicatorStyle = computed(() => ({
-  left: activeTab.value === 'events' ? '25%' : '75%',
-}))
-const hasUnreadEvents = computed(() => offerEvents.value.some((event) => event.unread))
+
 
 const openLogin = () => {
   void router.push({ name: 'auth-login' })
@@ -258,24 +253,6 @@ const openRegister = () => {
   void router.push({ name: 'auth-register' })
 }
 
-const selectTab = async (tab: OfferTab) => {
-  activeTab.value = tab
-  const currentQueryTab = firstQueryValue(route.query.tab)
-
-  if (currentQueryTab !== tab) {
-    await router.replace({
-      query: {
-        ...route.query,
-        tab,
-      },
-    })
-  }
-
-  await nextTick()
-  window.requestAnimationFrame(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  })
-}
 
 const openDownloadGuide = () => {
   if (androidAppRuntime) return
@@ -369,9 +346,9 @@ onMounted(() => {
 onBeforeUnmount(() => stopActivityReadListener())
 
 watch(
-  () => route.query.tab,
-  async (tab) => {
-    const nextTab = normalizeOfferTab(tab)
+  () => [route.name, route.query.tab] as const,
+  async ([name, tab]) => {
+    const nextTab = name === 'vip' ? 'vip' : normalizeOfferTab(tab)
     if (activeTab.value === nextTab) return
 
     activeTab.value = nextTab
@@ -382,43 +359,10 @@ watch(
 </script>
 
 <template>
-  <div class="offers-shell text-white" :class="{ 'has-download-banner': downloadBannerVisible }">
-    <TopDownloadBanner
-      v-if="downloadBannerVisible"
-      @close="downloadBannerVisible = false"
-      @download="openDownloadGuide"
-    />
-
+  <div class="offers-shell text-white">
     <AppHeader @login="openLogin" @register="openRegister" />
 
     <main class="offers-content">
-      <section class="offers-tabs" role="tablist" aria-label="Offers categories">
-        <button
-          type="button"
-          class="offers-tabs__button"
-          :class="{ 'is-active': activeTab === 'events' }"
-          role="tab"
-          :aria-selected="activeTab === 'events'"
-          @click="selectTab('events')"
-        >
-          <span class="offers-tabs__art">
-            <img :src="activeTab === 'events' ? offerTabAssets.events.active : offerTabAssets.events.inactive" alt="Events" />
-            <ActivityUnreadBadge v-if="hasUnreadEvents" />
-          </span>
-        </button>
-        <button
-          type="button"
-          class="offers-tabs__button"
-          :class="{ 'is-active': activeTab === 'vip' }"
-          role="tab"
-          :aria-selected="activeTab === 'vip'"
-          @click="selectTab('vip')"
-        >
-          <img :src="activeTab === 'vip' ? offerTabAssets.vip.active : offerTabAssets.vip.inactive" alt="VIP" />
-        </button>
-        <span class="offers-tabs__indicator" :style="tabIndicatorStyle" aria-hidden="true" />
-      </section>
-
       <section v-if="activeTab === 'events'" class="events-pane" aria-label="Events">
         <button
           v-for="event in offerEvents"
@@ -429,7 +373,6 @@ watch(
           @click="openOffer(event)"
         >
           <img :src="event.image" :alt="event.title" loading="lazy" decoding="async" />
-          <ActivityUnreadBadge v-if="event.unread" />
         </button>
       </section>
 
@@ -457,6 +400,7 @@ watch(
           </div>
         </article>
 
+        <button class="vip-rewards-entry" type="button" @click="router.push('/activity/welfare-card')"><img :src="rewardsEntry" alt="" /><strong>UNLOCK MORE REWARDS</strong><span>Explore weekly &amp; monthly reward cards</span><em>View Rewards</em></button>
         <div class="vip-tip">
           <img :src="vipAssets.emptyBonus" alt="" aria-hidden="true" loading="lazy" />
           <span>Upgrade your VIP level, get generous benefits!</span>
@@ -618,62 +562,6 @@ watch(
   background: #090f1f;
 }
 
-.offers-tabs {
-  position: sticky;
-  top: 66px;
-  z-index: 28;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  height: 44px;
-  border-bottom: 1px solid rgba(216, 234, 255, 0.09);
-  background: #090f1f;
-}
-
-.offers-tabs__button {
-  position: relative;
-  display: grid;
-  min-width: 0;
-  place-items: center;
-  opacity: 0.55;
-  filter: saturate(0.4);
-  transition:
-    opacity 220ms ease,
-    filter 220ms ease,
-    transform 220ms ease;
-
-  .offers-tabs__art {
-    position: relative;
-    display: inline-flex;
-  }
-
-  img {
-    max-height: 31px;
-    width: auto;
-    object-fit: contain;
-  }
-
-  &.is-active {
-    opacity: 1;
-    filter: none;
-  }
-
-  &:active {
-    transform: scale(0.97);
-  }
-}
-
-.offers-tabs__indicator {
-  position: absolute;
-  bottom: 0;
-  width: 52px;
-  height: 3px;
-  border-radius: 999px;
-  background: linear-gradient(96deg, #3d8aef 18%, #2f69d1 71%);
-  box-shadow: 0 2px 8px rgba(135, 187, 255, 0.9);
-  transform: translateX(-50%);
-  transition: left 260ms ease;
-}
-
 .events-pane {
   display: grid;
   gap: 12px;
@@ -787,16 +675,23 @@ watch(
   }
 }
 
+.vip-rewards-entry { position: relative; padding: 0; border-radius: 10px; overflow: hidden; text-align: left; }
+.vip-rewards-entry strong,.vip-rewards-entry span,.vip-rewards-entry em { position: absolute; left: 14px; max-width: 66%; }
+.vip-rewards-entry strong { top: 20px; font-size: 13px; }
+.vip-rewards-entry span { top: 43px; color: #b2cefa; font-size: 10px; }
+.vip-rewards-entry em { bottom: 15px; padding: 5px 12px; border-radius: 16px; background: #66d9f8; color: #063e7e; font-size: 10px; font-style: normal; font-weight: 700; }
+.vip-rewards-entry img { width: 100%; height: auto; display: block; }
+
 .vip-tip {
   position: relative;
   display: flex;
-  min-height: 34px;
+  min-height: 42px;
   align-items: center;
   overflow: visible;
   border-radius: 6px;
   padding: 0 12px 0 40px;
-  background: linear-gradient(90deg, #621fd7 0%, #ba76f7 100%);
-  color: #ffffff;
+  background: transparent;
+  color: #8e9aad;
   font-size: 12px;
   font-weight: 500;
 
@@ -812,9 +707,10 @@ watch(
 
 .vip-benefits {
   overflow: hidden;
-  border-radius: 6px;
+  border: 1px solid #34425f;
+  border-radius: 12px;
   padding-bottom: 6px;
-  background: linear-gradient(180deg, #3714a1 0%, #211169 100%);
+  background: #10192e;
 }
 
 .vip-requirements {
@@ -830,11 +726,9 @@ watch(
   align-items: center;
   gap: 8px;
   padding: 0 18px;
-  background: linear-gradient(270deg, rgba(119, 52, 220, 0) 0%, #7e56ff 49%, rgba(120, 53, 220, 0) 100%);
-  border-top: 1px solid rgba(181, 188, 255, 0.3);
-  border-bottom: 1px solid rgba(181, 188, 255, 0.3);
-  font-style: italic;
-  text-shadow: rgba(83, 17, 193, 0.77) 0 1px 0;
+  background: transparent;
+  border-bottom: 1px solid #34425f;
+  color: #eef4ff;
 
   h2 {
     flex: 1;
@@ -865,10 +759,10 @@ watch(
 
   h3 {
     margin: 0;
-    padding: 11px 0 8px;
+    padding: 11px 0 8px 6px;
     color: rgba(255, 255, 255, 0.9);
-    text-align: center;
-    font-size: 12px;
+    text-align: left;
+    font-size: 13px;
     font-weight: 600;
     line-height: 1;
   }
@@ -877,21 +771,12 @@ watch(
 .benefit-row {
   display: grid;
   grid-template-columns: 36fr 49fr;
-  height: 32px;
+  height: 33px;
   gap: 1px;
+  border-bottom: 1px dashed #263451;
   color: #ffffff;
   font-size: 12px;
-  font-weight: 600;
-
-  &.is-alt {
-    .benefit-row__label {
-      background: linear-gradient(90deg, #795fef 0%, #4c33db 100%);
-    }
-
-    .benefit-row__value {
-      background: linear-gradient(90deg, #4c33db 0%, #795fef 100%);
-    }
-  }
+  font-weight: 500;
 }
 
 .benefit-row__label,
@@ -899,11 +784,11 @@ watch(
   display: flex;
   min-width: 0;
   align-items: center;
-  background: linear-gradient(90deg, #4c33db 0%, #795fef 100%);
+  background: transparent;
 }
 
 .benefit-row__label {
-  justify-content: center;
+  justify-content: flex-start;
   padding: 0 5px;
   color: rgba(255, 255, 255, 0.9);
   text-align: center;
@@ -912,7 +797,7 @@ watch(
 .benefit-row__value {
   justify-content: space-between;
   padding: 0 8px 0 16px;
-  background: linear-gradient(90deg, #795fef 0%, #4c33db 100%);
+  background: transparent;
 
   img {
     width: 12px;
@@ -921,7 +806,7 @@ watch(
 }
 
 .benefit-row__delta {
-  color: #67efff;
+  color: #8fbeff;
   font-size: 12px;
   font-weight: 700;
 }

@@ -11,7 +11,7 @@ let cachedHomeCatalog: HomeCatalogSnapshot | null = null
 let pendingHomeCatalog: Promise<HomeCatalogSnapshot> | null = null
 let cachedAt = 0
 
-const storagePrefix = 'casino-h5-home-catalog-v3'
+const storagePrefix = 'casino-h5-home-catalog-v4'
 const cacheTtlMs = 5 * 60 * 1000
 
 interface StoredHomeCatalog {

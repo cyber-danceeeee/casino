@@ -37,6 +37,11 @@ const routes: RouteRecordRaw[] = [
     component: Share,
   },
   {
+    path: '/vip',
+    name: 'vip',
+    component: Offers,
+  },
+  {
     path: '/profile',
     name: 'profile',
     component: Profile,

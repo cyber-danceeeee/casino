@@ -98,6 +98,11 @@ const selfRankEntriesLayer = ref<HTMLElement | null>(null)
 const selfRankSocialLayer = ref<HTMLElement | null>(null)
 const shareActions = ref<ShareAction[]>(mockShareActions)
 const socialLinks = ref<SocialLink[]>(mockSocialLinks)
+const orderedSocialLinks = computed(() => {
+  const order = ['whatsapp', 'telegram', 'facebook', 'messenger', 'instagram', 'tiktok', 'x', 'twitter']
+  const seen = new Set<string>()
+  return socialLinks.value.filter((item) => { const key = String(item.id || item.label).toLowerCase(); if (seen.has(key)) return false; seen.add(key); return true }).sort((a, b) => order.indexOf(String(a.id || a.label).toLowerCase()) - order.indexOf(String(b.id || b.label).toLowerCase()))
+})
 const shareHomeEntries = ref<ShareHomeEntry[]>(mockShareHomeEntries)
 const chestRewards = ref<string[]>(mockChestRewards)
 const agentCommissionRules = ref<AgentCommissionRule[]>(mockAgentCommissionRules)
@@ -490,7 +495,7 @@ onBeforeUnmount(() => {
 
         <div class="social-links" aria-label="Share channels">
           <button
-            v-for="social in socialLinks"
+            v-for="social in orderedSocialLinks"
             :key="social.label"
             type="button"
             class="social-links__button"
@@ -512,26 +517,27 @@ onBeforeUnmount(() => {
 
           <article class="task-card task-card--primary">
             <div class="task-card__gloss" aria-hidden="true" />
+            <h2 class="small-chest-title">SMALL CHEST</h2>
             <div class="task-card__badge task-card__badge--wide">
               <img class="task-card__badge-bg" :src="shareAssets.badge" alt="" aria-hidden="true" />
               <strong>{{ formatCurrency(100) }}</strong>
-              <span>Chest</span>
             </div>
 
             <div class="task-card__content">
+              <div class="task-card__block chest-value"><span>Chest Value</span><p>View available cash rewards and requirements below.</p></div>
               <div class="task-card__block task-card__block--narrow">
-                <span>How to Get?</span>
+                <span>How to Get</span>
                 <strong>Invite 1 registrations</strong>
               </div>
               <div class="task-card__block">
-                <span>How to Open?</span>
-                <p>Invited registrations Deposit ≥ {{ formatCurrency(500) }}</p>
-                <p>Invited registrations Valid bets ≥ {{ formatCurrency(3000) }}</p>
+                <span>How to Open</span>
+                <p>Invitee deposits ≥ <b>{{ formatCurrency(500) }}</b></p>
+                <p>Invitee valid bets ≥ <b>{{ formatCurrency(3000) }}</b></p>
               </div>
 
               <div class="stats-strip">
                 <div v-for="stat in chestStats" :key="stat.label" class="stats-strip__item">
-                  <span>{{ stat.label }}</span>
+                  <span>{{ stat.label === 'Earned' ? 'Cash Reward' : stat.label }}</span>
                   <strong>
                     {{ stat.value }}
                     <svg v-if="stat.navigable" viewBox="0 0 6 10" aria-hidden="true">
@@ -721,7 +727,7 @@ onBeforeUnmount(() => {
             <div class="ranking-self-card__switcher">
               <div ref="selfRankSocialLayer" class="ranking-self-card__layer ranking-self-card__layer--social">
                 <button
-                  v-for="social in socialLinks"
+                  v-for="social in orderedSocialLinks"
                   :key="`self-${social.label}`"
                   type="button"
                   class="ranking-self-card__social"
@@ -1227,6 +1233,22 @@ onBeforeUnmount(() => {
     0 3px 0 #7b5919,
     inset 0 0 4px #001e52;
 }
+
+.small-chest-title { margin: 0 0 16px; color: #ffc341; font-size: 16px; line-height: 1.3; }
+.task-card--primary { border-radius: 16px; background: #0c1947; box-shadow: none; }
+.task-card--primary .task-card__gloss { display: none; }
+.task-card--primary .task-card__badge { top: 16px; height: 25px; width: auto; min-width: 76px; right: -5px; border: 1px solid #82e99b; border-radius: 16px; background: linear-gradient(#c6ffd3,#67d47b); padding: 0 10px; color: #123d1b; font-style: normal; }
+.task-card--primary .task-card__badge-bg { display: none; }
+.task-card--primary .task-card__block > span:first-child { color: #fff; font-weight: 600; }
+.task-card--primary .task-card__block > span:first-child::before { content: '◆'; margin-right: 6px; color: #ffce23; font-size: 8px; }
+.task-card--primary .task-card__block p { font-size: 13px; line-height: 1.5; }
+.task-card--primary .task-card__block p b { color: #ffc341; }
+.task-card--primary .stats-strip { height: auto; overflow: visible; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; background: transparent; padding: 0; }
+.task-card--primary .stats-strip__item { display: grid; justify-items: center; align-content: center; gap: 8px; min-height: 61px; border-radius: 9px; background: #071235; }
+.task-card--primary .stats-strip__item::before { display: none; }
+.task-card--primary .stats-strip__item:last-child { grid-column: 1/-1; }
+.task-card--primary .stats-strip__item:last-child strong { color: #a8eb47; }
+.task-card--primary .calendar-scroll { padding-top: 18px; }
 
 .task-card__gloss {
   pointer-events: none;

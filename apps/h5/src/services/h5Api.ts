@@ -6,7 +6,7 @@ import type {
   GameSection,
   SocialLink,
 } from '../mock/games'
-import { socialLinks as localSocialLinks } from '../mock/games'
+import { socialLinks as localSocialLinks, categories as defaultCategories } from '../mock/games'
 import { h5SessionFlagKey, h5SessionTokenKey, h5SessionUserKey } from '../utils/authStorage'
 import { phoneCountryCode, runtimeConfig } from './runtimeConfig'
 
@@ -26,6 +26,7 @@ interface RemoteBanner {
 }
 
 interface RemoteCategory {
+  id?: number
   categoryKey: string
   label: string
   shortLabel: string
@@ -806,7 +807,7 @@ const normalizeHome = (payload: RemoteHomePayload): HomePayload => {
       title: banner.title,
       image: toAssetUrl(banner.imageURL),
     })),
-    categories: categoryItems,
+    categories: (payload.categories || []).some((category) => Number(category.id) > 0) ? categoryItems : defaultCategories,
     socialLinks: (payload.socialLinks || [])
       .filter((link) => link.label)
       .map(toSocialLink)

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { HomeProvider } from '../services/h5Api'
-import { toRuntimeAssetUrl } from '../services/runtimeConfig'
+import { runtimeConfig, toRuntimeAssetUrl } from '../services/runtimeConfig'
+import { useRouter } from 'vue-router'
 import type { SocialLink } from '../mock/games'
 import { buildShareUrl, resolveShareText } from '../utils/shareLinks'
 import { isLoggedIn } from '../mock/session'
@@ -10,6 +11,8 @@ const props = defineProps<{
   socials: SocialLink[]
   providers: HomeProvider[]
 }>()
+const router = useRouter()
+const brandName = computed(() => runtimeConfig.value.branding.appName || runtimeConfig.value.branding.siteName || '56MVP')
 
 // Cached home data from older versions can contain both defaults and H5 rows.
 const visibleSocials = computed(() => {
@@ -50,7 +53,7 @@ const openSocial = async (social: SocialLink) => {
 
 <template>
   <footer class="footer-info">
-    <button class="quick-register" type="button" aria-label="Quick Registration" v-if="!isLoggedIn">
+    <button class="quick-register" type="button" aria-label="Quick Registration" v-if="!isLoggedIn" @click="router.push('/auth/register')">
       <img :src="quickRegister" alt="Quick Registration" loading="lazy" />
     </button>
 
@@ -71,9 +74,9 @@ const openSocial = async (social: SocialLink) => {
     </div>
 
     <nav class="legal-links" aria-label="Legal">
-      <button type="button">About Us</button>
-      <button type="button">User Agreement</button>
-      <button type="button">FAQ</button>
+      <button type="button" @click="router.push('/about')">About Us</button>
+      <button type="button" @click="router.push('/auth/agreement')">User Agreement</button>
+      <button type="button" @click="router.push('/support')">FAQ</button>
     </nav>
 
     <p>
@@ -81,7 +84,7 @@ const openSocial = async (social: SocialLink) => {
       years of age. We are not liable for any violations of your local iGaming laws. Play responsibly
       and have fun.
     </p>
-    <p>Copyright © 2019-2030 11N. All rights reserved.</p>
+    <p>Copyright © 2019-2030 {{ brandName }}. All rights reserved.</p>
   </footer>
 </template>
 
