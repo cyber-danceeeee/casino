@@ -4,42 +4,54 @@ const registrationTimeoutMs = 2000
 
 let registrationPromise: Promise<ServiceWorkerRegistration | null> | null = null
 
-const waitForController = () => {
-  if (navigator.serviceWorker.controller) return Promise.resolve()
+const serviceWorkers = () => {
+  if (typeof window === 'undefined' || !window.isSecureContext || typeof navigator === 'undefined') {
+    return null
+  }
+  try {
+    return navigator.serviceWorker ?? null
+  } catch {
+    return null
+  }
+}
+
+const waitForController = (workers: ServiceWorkerContainer) => {
+  if (workers.controller) return Promise.resolve()
   return new Promise<void>((resolve) => {
     const timer = window.setTimeout(done, 1500)
     function done() {
       window.clearTimeout(timer)
-      navigator.serviceWorker.removeEventListener('controllerchange', done)
+      workers.removeEventListener('controllerchange', done)
       resolve()
     }
-    navigator.serviceWorker.addEventListener('controllerchange', done, { once: true })
+    workers.addEventListener('controllerchange', done, { once: true })
   })
 }
 
 export const registerAssetCache = () => {
   if (registrationPromise) return registrationPromise
-  if (!('serviceWorker' in navigator) || !window.isSecureContext) {
+  const workers = serviceWorkers()
+  if (!workers) {
     registrationPromise = Promise.resolve(null)
     return registrationPromise
   }
-  const hadController = Boolean(navigator.serviceWorker.controller)
+  const hadController = Boolean(workers.controller)
   let refreshing = false
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
+  workers.addEventListener('controllerchange', () => {
     if (!hadController || refreshing) return
     refreshing = true
     window.location.reload()
   })
 
-  registrationPromise = navigator.serviceWorker
-    .register(workerPath, { scope: '/', updateViaCache: 'none' })
+  registrationPromise = Promise.resolve()
+    .then(() => workers.register(workerPath, { scope: '/', updateViaCache: 'none' }))
     .then(async (registration) => {
       void registration.update().catch(() => undefined)
       await Promise.race([
-        navigator.serviceWorker.ready,
+        workers.ready,
         new Promise<void>((resolve) => window.setTimeout(resolve, registrationTimeoutMs)),
       ])
-      await waitForController()
+      await waitForController(workers)
       return registration
     })
     .catch((error) => {
@@ -50,17 +62,29 @@ export const registerAssetCache = () => {
 }
 
 const sendMessage = async (payload: Record<string, unknown>) => {
+  const workers = serviceWorkers()
+  if (!workers || typeof MessageChannel === 'undefined') return false
   const registration = await registerAssetCache()
-  const worker = navigator.serviceWorker.controller || registration?.active
+  const worker = workers.controller || registration?.active
   if (!worker) return false
   return new Promise<boolean>((resolve) => {
     const channel = new MessageChannel()
-    const timer = window.setTimeout(() => resolve(false), messageTimeoutMs)
-    channel.port1.onmessage = (event) => {
+    const done = (ok: boolean) => {
       window.clearTimeout(timer)
-      resolve(Boolean(event.data?.ok))
+      channel.port1.close()
+      channel.port2.close()
+      resolve(ok)
     }
-    worker.postMessage(payload, [channel.port2])
+    const timer = window.setTimeout(() => done(false), messageTimeoutMs)
+    channel.port1.onmessage = (event) => {
+      done(Boolean(event.data?.ok))
+    }
+    channel.port1.onmessageerror = () => done(false)
+    try {
+      worker.postMessage(payload, [channel.port2])
+    } catch {
+      done(false)
+    }
   })
 }
 

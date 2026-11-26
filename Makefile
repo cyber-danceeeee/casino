@@ -18,6 +18,7 @@ install:
 	npm --prefix apps/admin ci
 check:
 	npm --prefix apps/h5 run build
+	npm --prefix apps/h5 test
 	npm --prefix apps/admin run build
 	npm --prefix apps/admin test
 	cd server && GOTOOLCHAIN=go1.24.13 go test ./...
