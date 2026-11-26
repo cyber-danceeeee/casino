@@ -53,6 +53,7 @@ func InitApp() {
 		panic(err)
 	}
 	logger.Debug(config.Show())
+	logger.Info("[configuration] loaded", logger.String("source", config.Source()))
 	logger.Info("[logger] was initialized")
 
 	// initializing tracing
@@ -155,15 +156,15 @@ func initConfig() {
 	flag.StringVar(&configFile, "c", "", "configuration file")
 	flag.Parse()
 
-	getConfigFromLocal()
+	loadStartupConfiguration()
 
 	if version != "" {
 		config.Get().App.Version = version
 	}
 }
 
-// get configuration from local configuration file
-func getConfigFromLocal() {
+// Load startup configuration from the selected local or Nacos source.
+func loadStartupConfiguration() {
 	if configFile == "" {
 		configFile = configs.Location("casino.yml")
 	}

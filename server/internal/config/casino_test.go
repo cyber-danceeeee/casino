@@ -20,3 +20,19 @@ func TestShowRedactsEmailCredentials(t *testing.T) {
 		}
 	}
 }
+
+func TestShowRedactsProviderCredentials(t *testing.T) {
+	previous := config
+	t.Cleanup(func() { config = previous })
+	config = &Config{}
+	config.Game.SoftAggregator.APILogin = "sensitive-login"
+	config.Game.SoftAggregator.APIPassword = "sensitive-api-password"
+	config.Game.SoftAggregator.SaltKey = "sensitive-signature-key"
+	config.Game.AG.SecretKey = "sensitive-ag-key"
+	shown := Show()
+	for _, value := range []string{"sensitive-login", "sensitive-api-password", "sensitive-signature-key", "sensitive-ag-key"} {
+		if strings.Contains(shown, value) {
+			t.Fatal("configuration output exposed a provider credential")
+		}
+	}
+}

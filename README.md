@@ -38,6 +38,39 @@ Compose 会依次启动 MySQL、Redis、RabbitMQ，执行数据库迁移、初�
 
 H5 地址接受 `https://h5.example.com` 或本地 `http://服务器IP:端口`，无需再登记租户域名或传递租户请求头。H5 始终读取当前安装绑定的唯一站点；后台预览入口打开配置的 H5 地址。页面标题、Logo、主题主按钮和背景会应用已发布配置。`server/cmd/seed-h5` 是原有演示数据工具，不会自动插入演示玩家或支付渠道。
 
+## Nacos 配置中心
+
+支持 Nacos 2.3.2，启动时通过 HTTP OpenAPI 登录并读取 YAML。API、管理员初始化程序和演示数据工具使用同一套读取逻辑。配置中心读取失败、鉴权失败或 YAML 无效时直接停止启动，不回退到本地旧配置，也不在磁盘缓存远程配置。
+
+在私有 `.env` 配置以下变量；账号、密码不要写入仓库：
+
+```dotenv
+CASINO_CONFIG_SOURCE=nacos
+NACOS_SERVER_ADDR=http://nacos.internal:8848
+NACOS_NAMESPACE_ID=
+NACOS_GROUP=DEFAULT_GROUP
+NACOS_DATA_ID=game
+NACOS_USERNAME=casino-reader
+NACOS_PASSWORD=填写该账号的密码
+NACOS_TIMEOUT_SECONDS=15
+```
+
+Nacos 2.3.2 的 `public` 命名空间 ID 留空；自定义命名空间填写实际 ID。`NACOS_SERVER_ADDR` 也可包含 `/nacos` 路径，登录和配置读取合计默认超时 15 秒。当前接入使用 8848 的 HTTP 接口，不依赖 9848。建议项目账号只授予读取该配置的权限。
+
+远程 YAML 采用 `server/configs/casino.yml` 的结构，至少包含 `app`、`http`、`database` 节，HTTP 端口必须有效、数据库驱动为 `mysql`。显式环境变量优先于 Nacos；Docker 中已有的数据库、Redis、RabbitMQ、MFA 密钥覆盖继续生效，与 Compose 内的服务保持一致。数据库迁移容器仍使用 Compose 的数据库连接，不从 Nacos 选择其他数据库。要改用外部数据库，需要同步调整迁移与运行服务的连接及依赖。
+
+配置源 `auto`（默认）在提供 `NACOS_SERVER_ADDR` 时选用 Nacos，否则读取本地 YAML；显式设置 `local` 可用于离线开发。配置修改后重启 API 生效，不对数据库连接池、钱包密钥或供应商运行时做热更新。相对资源路径仍按 `-c` 指定文件所在目录解析；国家、币种与供应商账号继续由后台管理并保存在业务数据库。
+
+只检查读取和格式，不连接业务数据库：
+
+```bash
+python3 scripts/dev-api.py --check-config
+# Docker 镜像构建后也可以独立检查
+docker compose run --rm --no-deps api /app/check-config -c /app/configs/casino.yml
+```
+
+`make dev-api` 自动读取根目录私有 `.env`，已导出的进程环境变量优先；启动脚本不执行 `.env` 中的 shell 命令，也不展开其中的变量引用。Nacos 的修改不会由仓库自动发布；更新后按前面的部署命令重建并启动容器。
+
 ## 域名和 HTTPS
 
 可将 H5 和后台的不同域名分别反向代理到本机两个端口，在外层 Nginx/Caddy/负载均衡器配置 TLS 并保留原始 `Host`。将 H5 对外访问地址填写到后台 H5 配置中即可；API 不按域名分流站点。两个 Vue 应用都部署在各自站点根路径，不要把后台直接挂到 `/admin/` 子路径。
@@ -103,13 +136,13 @@ docker compose exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_PASSWORD" mysqldump -u cas
 ```bash
 make install
 make check
-# 分别在三个终端中启动；API 的数据库/Redis需配置到 server/configs/casino.yml
+# 分别在三个终端中启动；API 从私有 .env 选择 Nacos 或本地 YAML
 make dev-api
 make dev-h5
 make dev-admin
 ```
 
-本地 Vite 将 `/api`、`/static` 代理到 `127.0.0.1:1639`。Go 通过 `CASINO_MYSQL_DSN`、`CASINO_REDIS_DSN`、`CASINO_MFA_ENCRYPTION_KEY` 等环境变量覆盖 YAML；根目录 `.env` 由 Compose 读取，直接运行 Go 时需要自行导出对应环境变量。
+本地 Vite 将 `/api`、`/static` 代理到 `127.0.0.1:1639`。Go 通过 `CASINO_MYSQL_DSN`、`CASINO_REDIS_DSN`、`CASINO_MFA_ENCRYPTION_KEY` 等环境变量覆盖所选配置源；根目录 `.env` 由 Compose 和 `make dev-api` 读取，直接运行 Go 时需要自行导出对应环境变量。
 
 部署后检查（端口可通过环境变量覆盖）：
 

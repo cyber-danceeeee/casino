@@ -6,7 +6,8 @@ RUN go mod download
 COPY server/ ./
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/casino ./cmd/casino && \
     CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/bootstrap-admin ./cmd/bootstrap-admin && \
-    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/seed-h5 ./cmd/seed-h5
+    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/seed-h5 ./cmd/seed-h5 && \
+    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/check-config ./cmd/check-config
 
 FROM alpine:3.22 AS api
 RUN apk add --no-cache ca-certificates tzdata wget && \

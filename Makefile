@@ -22,7 +22,7 @@ check:
 	npm --prefix apps/admin test
 	cd server && GOTOOLCHAIN=go1.24.13 go test ./...
 dev-api:
-	cd server && GOTOOLCHAIN=go1.24.13 go run ./cmd/casino -c configs/casino.yml
+	python3 scripts/dev-api.py
 dev-h5:
 	npm --prefix apps/h5 run dev
 dev-admin:

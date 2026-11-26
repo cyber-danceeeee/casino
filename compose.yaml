@@ -8,6 +8,14 @@ x-api: &api
   environment: &api-env
     TZ: ${TZ:-Asia/Kuala_Lumpur}
     CASINO_APP_ENV: prod
+    CASINO_CONFIG_SOURCE: ${CASINO_CONFIG_SOURCE:-auto}
+    NACOS_SERVER_ADDR: ${NACOS_SERVER_ADDR:-}
+    NACOS_NAMESPACE_ID: ${NACOS_NAMESPACE_ID:-}
+    NACOS_GROUP: ${NACOS_GROUP:-DEFAULT_GROUP}
+    NACOS_DATA_ID: ${NACOS_DATA_ID:-game}
+    NACOS_USERNAME: ${NACOS_USERNAME:-}
+    NACOS_PASSWORD: ${NACOS_PASSWORD:-}
+    NACOS_TIMEOUT_SECONDS: ${NACOS_TIMEOUT_SECONDS:-15}
     CASINO_MYSQL_DSN: "casino:${MYSQL_PASSWORD:?请先运行 python3 scripts/init-env.py}@tcp(mysql:3306)/game_casino?parseTime=true&loc=Local&charset=utf8mb4&collation=utf8mb4_unicode_ci"
     CASINO_REDIS_DSN: "default:@redis:6379/0"
     CASINO_MFA_ENCRYPTION_KEY: ${CASINO_MFA_ENCRYPTION_KEY:?请先生成环境配置}

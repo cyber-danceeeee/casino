@@ -7,6 +7,7 @@ import (
 )
 
 func TestInitDeploymentEnvironment(t *testing.T) {
+	t.Setenv("CASINO_CONFIG_SOURCE", "local")
 	previous := config
 	t.Cleanup(func() { config = previous })
 	dir := t.TempDir()

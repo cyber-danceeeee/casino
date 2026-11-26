@@ -3,6 +3,8 @@
 package config
 
 import (
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -12,25 +14,50 @@ import (
 )
 
 var config *Config
+var loadedSource = "local"
+
+// Source identifies the last successfully loaded configuration.
+func Source() string { return loadedSource }
 
 func Init(configFile string, fs ...func()) error {
-	config = &Config{}
-	if err := conf.Parse(configFile, config, fs...); err != nil {
+	source, err := configurationSource()
+	if err != nil {
 		return err
 	}
-	if err := applyEnvironment(config); err != nil {
+	next := &Config{}
+	if source == "nacos" {
+		settings, err := nacosFromEnvironment()
+		if err != nil {
+			return err
+		}
+		data, err := readNacosConfig(context.Background(), settings)
+		if err != nil {
+			return err
+		}
+		if err := parseNacosYAML(data, next); err != nil {
+			return err
+		}
+	} else if err := conf.Parse(configFile, next, fs...); err != nil {
 		return err
 	}
-	if value := strings.TrimSpace(config.App.StaticDir); value != "" && !filepath.IsAbs(value) {
-		config.App.StaticDir = filepath.Clean(filepath.Join(filepath.Dir(configFile), value))
+	if err := applyEnvironment(next); err != nil {
+		return err
 	}
-	if value := strings.TrimSpace(config.Notification.FCM.CredentialsFile); value != "" && !filepath.IsAbs(value) {
-		config.Notification.FCM.CredentialsFile = filepath.Clean(filepath.Join(filepath.Dir(configFile), value))
+	if source == "nacos" && (next.HTTP.Port < 1 || next.HTTP.Port > 65535 || next.Database.Driver != "mysql" || strings.TrimSpace(next.Database.Mysql.Dsn) == "") {
+		return errors.New("Nacos configuration requires a valid HTTP port and MySQL driver/DSN")
 	}
+	if value := strings.TrimSpace(next.App.StaticDir); value != "" && !filepath.IsAbs(value) {
+		next.App.StaticDir = filepath.Clean(filepath.Join(filepath.Dir(configFile), value))
+	}
+	if value := strings.TrimSpace(next.Notification.FCM.CredentialsFile); value != "" && !filepath.IsAbs(value) {
+		next.Notification.FCM.CredentialsFile = filepath.Clean(filepath.Join(filepath.Dir(configFile), value))
+	}
+	config, loadedSource = next, source
 	return nil
 }
 
 func Show(hiddenFields ...string) string {
+	hiddenFields = append(hiddenFields, `"mfaEncryptionKey"`, `"apiPassword"`, `"saltKey"`, `"secretKey"`, `"apiLogin"`, `"merchantCode"`, `"subMerchantCode"`)
 	return conf.Show(config, hiddenFields...)
 }
 
