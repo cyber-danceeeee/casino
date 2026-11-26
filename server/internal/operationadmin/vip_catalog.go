@@ -66,7 +66,9 @@ func saveVIPRequirements(tx *gorm.DB, level vipRecord, in VIPLevelInput) error {
 		return err
 	}
 	if in.RetainPeriodDays == nil && in.RetainDeposit == nil && in.RetainValidBet == nil {
-		return nil
+		return tx.Model(&model.GameVipRequirements{}).
+			Where("site_id=? AND vip_level_id=? AND requirement_type='retain'", level.SiteID, level.ID).
+			Update("target_level_no", level.LevelNo).Error
 	}
 	if in.RetainPeriodDays == nil || in.RetainDeposit == nil || in.RetainValidBet == nil {
 		return newError("INVALID_VIP_RETENTION", "retention period, deposit and valid bets must be supplied together")

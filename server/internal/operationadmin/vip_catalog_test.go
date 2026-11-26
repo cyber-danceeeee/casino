@@ -50,6 +50,7 @@ func TestVIPAdminSaveKeepsRewardsAndH5RequirementsTogether(t *testing.T) {
 	in.LevelUpReward, in.WeeklyReward, in.DailyWithdrawCount = nil, nil, nil
 	in.RetainPeriodDays, in.RetainDeposit, in.RetainValidBet = nil, nil, nil
 	in.RequiredDeposit = "200.00"
+	in.Level = 3
 	_, err = s.SaveVIPLevel(id, in, actor)
 	require.NoError(t, err)
 	require.NoError(t, db.First(&saved, id).Error)
@@ -60,6 +61,8 @@ func TestVIPAdminSaveKeepsRewardsAndH5RequirementsTogether(t *testing.T) {
 	require.NoError(t, db.Order("requirement_type").Find(&rules).Error)
 	require.Len(t, rules, 2)
 	require.Equal(t, "200.00", rules[0].DepositAmount.StringFixed(2))
+	require.Equal(t, uint(3), rules[0].TargetLevelNo)
+	require.Equal(t, uint(3), rules[1].TargetLevelNo)
 
 	// Validation rolls back both the level and its display requirements.
 	negative := "-1"
