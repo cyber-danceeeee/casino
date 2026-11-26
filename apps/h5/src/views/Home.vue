@@ -672,14 +672,14 @@ onBeforeUnmount(() => {
   max-width: 430px;
   margin: 0 auto;
   overflow: clip;
-  background: #090f1f;
+  background: var(--runtime-background-color, #090f1f);
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
 .home-content {
   min-height: 100vh;
   padding: 0;
-  background: #090f1f;
+  background: var(--runtime-background-color, #090f1f);
 }
 
 .home-gutter {

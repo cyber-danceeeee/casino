@@ -90,7 +90,8 @@ onBeforeUnmount(() => {
     <div v-if="loadingAnimation" class="welcome-splash__lottie">
       <LottiePlayer :src="loadingAnimation" :loop="true" :autoplay="true" />
     </div>
-    <img v-else class="welcome-splash__logo" :src="logo" alt="Brand" />
+    <img v-else-if="logo" class="welcome-splash__logo" :src="logo" :alt="runtimeConfig.branding.appName || 'Casino'" />
+    <strong v-else class="welcome-brand-name">{{ runtimeConfig.branding.appName || runtimeConfig.branding.siteName || 'Casino' }}</strong>
 
     <div
       class="welcome-splash__progress"
@@ -109,6 +110,7 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped lang="scss">
+.welcome-brand-name { color:var(--runtime-text-color,#fff); font-size:32px; font-weight:800; text-align:center; }
 .welcome-splash {
   position: fixed;
   inset: 0;

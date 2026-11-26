@@ -1,6 +1,7 @@
 package systemadmin
 
 import (
+	"casino/internal/singlesite"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
@@ -57,6 +58,9 @@ func (s *Service) AccountProfile(actor Actor) (map[string]any, error) {
 	adminType := "TENANT"
 	if row.TenantID == 0 {
 		adminType = "PLATFORM"
+	}
+	if singlesite.Active() {
+		adminType = "SITE"
 	}
 	return map[string]any{"profile": row, "adminType": adminType, "roles": roles}, nil
 }

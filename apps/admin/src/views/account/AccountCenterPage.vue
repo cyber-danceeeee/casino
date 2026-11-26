@@ -238,7 +238,7 @@ onMounted(() => {
   <main v-loading="loading" class="account-page">
     <header class="account-heading">
       <div>
-        <p>{{ account?.adminType === "PLATFORM" ? t("portal.platform.badge") : t("portal.tenant.badge") }}</p>
+        <p>{{ t("singleSite.console") }}</p>
         <h1>{{ t("accountCenter.title") }}</h1>
         <span>{{ account?.profile.username }} · {{ account?.roles.join(", ") }}</span>
       </div>
@@ -271,7 +271,6 @@ onMounted(() => {
         <el-form-item :label="t('accountCenter.profile.displayName')"><el-input v-model="profileForm.displayName" /></el-form-item>
         <el-form-item :label="t('accountCenter.profile.email')"><el-input v-model="profileForm.email" /></el-form-item>
         <el-form-item :label="t('accountCenter.profile.mobile')"><el-input v-model="profileForm.mobile" /></el-form-item>
-        <el-form-item :label="t('accountCenter.profile.tenant')"><el-input :model-value="account?.profile.tenantName || t('portal.platform.badge')" disabled /></el-form-item>
         <el-form-item :label="t('accountCenter.profile.defaultSite')"><el-input :model-value="account?.profile.defaultSiteName || '-'" disabled /></el-form-item>
         <el-form-item :label="t('accountCenter.profile.language')"><el-select v-model="profileForm.preferredLanguage"><el-option label="简体中文" value="zh-CN" /><el-option label="English" value="en-US" /></el-select></el-form-item>
         <el-form-item :label="t('accountCenter.profile.timezone')"><el-select v-model="profileForm.timezone" filterable allow-create><el-option v-for="option in accountTimezoneOptions" :key="option" :label="option" :value="option" /></el-select></el-form-item>

@@ -24,6 +24,7 @@ import (
 	"casino/docs"
 	"casino/internal/config"
 	"casino/internal/handler"
+	"casino/internal/singlesite"
 	"casino/internal/storage"
 )
 
@@ -50,6 +51,13 @@ func NewRouter() *gin.Engine {
 	}
 
 	r.Use(gin.Recovery())
+	r.Use(func(c *gin.Context) {
+		if singlesite.Active() && (singlesite.SaaSPath(c.Request.URL.Path) || (c.Request.Method == "POST" && strings.HasSuffix(c.Request.URL.Path, "/admin/system/sites")) || (c.Request.Method == "DELETE" && strings.Contains(c.Request.URL.Path, "/admin/system/sites/"))) {
+			c.AbortWithStatus(http.StatusNotFound)
+			return
+		}
+		c.Next()
+	})
 	r.Use(middleware.Cors())
 
 	if config.Get().HTTP.Timeout > 0 {

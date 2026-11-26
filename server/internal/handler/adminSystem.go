@@ -14,6 +14,7 @@ import (
 
 	"casino/internal/adminauth"
 	"casino/internal/database"
+	"casino/internal/singlesite"
 	"casino/internal/storage"
 	"casino/internal/systemadmin"
 )
@@ -73,6 +74,19 @@ func (h *AdminSystemHandler) CurrentAdmin(c *gin.Context) {
 		return
 	}
 	systemWrite(c, actor, nil)
+}
+
+func (h *AdminSystemHandler) H5Markets(c *gin.Context) {
+	data, err := h.service.ListCountries(systemadmin.Query{Page: 1, PageSize: 200, Values: map[string]string{"status": "1"}})
+	systemWrite(c, data, err)
+}
+
+func (h *AdminSystemHandler) SaveH5Settings(c *gin.Context) {
+	var input systemadmin.SiteInput
+	if !systemBind(c, &input) {
+		return
+	}
+	systemWrite(c, nil, h.service.SaveSingleSiteSettings(input, systemActor(c)))
 }
 
 func (h *AdminSystemHandler) BrandOverview(c *gin.Context) {
@@ -1282,6 +1296,15 @@ func (h *AdminSystemHandler) AppConfig(c *gin.Context) {
 				themeValues[target] = value
 			}
 		}
+		branding["appName"] = h5FirstNonEmpty(h5AnyString(brand, "appName", ""), site.SiteName)
+		branding["siteName"] = site.SiteName
+		data["seo"] = h5BootstrapJSON(site.SEOConfig)
+		if languages, ok := data["language"].(map[string]any); ok && site.DefaultLanguage != "" {
+			languages["default"] = site.DefaultLanguage
+			if c.Query("language") == "" {
+				languages["current"] = site.DefaultLanguage
+			}
+		}
 		branding["theme"] = themeValues
 		data["branding"] = branding
 		data["maintenance"] = h5EffectiveMaintenance(c, db, scope)
@@ -1477,6 +1500,11 @@ type taskCommand struct {
 
 func systemActor(c *gin.Context) systemadmin.Actor {
 	actor, _ := adminauth.FromContext(c)
+	if singlesite.Active() && singlesite.ControlResource(c.Request.URL.Path) {
+		actor.Platform = true
+		actor.TenantID = 0
+		actor.SiteID = 0
+	}
 	return systemadmin.Actor{ID: actor.ID, SessionID: actor.SessionID, Username: actor.Username, TenantID: actor.TenantID, SiteID: actor.SiteID, Platform: actor.Platform, IP: c.ClientIP(), UserAgent: c.GetHeader("User-Agent"), CorrelationID: systemCorrelationID(c), Sensitive: actor.Can(adminauth.PermissionSensitiveView)}
 }
 func systemCorrelationID(c *gin.Context) string {

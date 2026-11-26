@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"casino/internal/singlesite"
 	"strings"
 	"time"
 
@@ -278,6 +279,13 @@ func h5NormalizeFeatures(config gin.H) gin.H {
 }
 
 func h5NormalizeMaintenance(config gin.H, tenant h5BootstrapTenantRow, site h5BootstrapSiteRow) gin.H {
+	if singlesite.Active() {
+		tenant.ExpiresAt = nil
+		tenant.Enabled = true
+		tenant.Status = "ACTIVE"
+		tenant.MaintenanceEnabled = false
+		tenant.MaintenanceMessage = ""
+	}
 	enabled := tenant.MaintenanceEnabled
 	if value, ok := config["enabled"].(bool); ok && value {
 		enabled = true

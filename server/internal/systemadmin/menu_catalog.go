@@ -1,6 +1,7 @@
 package systemadmin
 
 import (
+	"casino/internal/singlesite"
 	"strings"
 	"time"
 
@@ -399,7 +400,17 @@ func (s *Service) Navigation(actor Actor, superAdmin bool) (map[string]any, erro
 	if err := s.db.Table("game_admin_menus").Select("id,parent_id,code,route_path,icon").Where("enabled=1 AND visible=1 AND deleted_at IS NULL").Order("sort_order,id").Find(&rows).Error; err != nil {
 		return nil, err
 	}
-	rows = filterNavigationPortal(rows, actor.Platform)
+	if singlesite.Active() {
+		filtered := make([]NavigationRow, 0, len(rows))
+		for _, row := range rows {
+			if singleSiteMenuAllowed(row.Code, row.RoutePath) {
+				filtered = append(filtered, row)
+			}
+		}
+		rows = filtered
+	} else {
+		rows = filterNavigationPortal(rows, actor.Platform)
+	}
 	if superAdmin {
 		return map[string]any{"list": rows}, nil
 	}
@@ -426,4 +437,12 @@ func (s *Service) Navigation(actor Actor, superAdmin bool) (map[string]any, erro
 		}
 	}
 	return map[string]any{"list": filtered}, nil
+}
+
+func singleSiteMenuAllowed(code, path string) bool {
+	switch code {
+	case "tenants", "sites", "create-brand", "brand-deliveries", "tenant-domains", "tenant-packages", "tenant-audit", "platform-dashboard":
+		return false
+	}
+	return !strings.HasPrefix(path, "/platform/") && path != "/system/tenants" && path != "/system/sites" && !strings.Contains(path, "/tenant-")
 }

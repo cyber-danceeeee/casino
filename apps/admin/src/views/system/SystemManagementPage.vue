@@ -32,7 +32,12 @@ const route = useRoute();
 const { t, te, locale } = useI18n();
 const { can, actor, loadPermissions, reloadNavigation } = useAdminPermissions();
 const moduleKey = computed(() => String(route.meta.moduleKey || "admins"));
-const config = computed(() => systemConfigs[moduleKey.value]);
+const config = computed(() => {
+  const source = systemConfigs[moduleKey.value];
+  if (!source) return source;
+  const internal = new Set(["tenantID", "tenant", "siteID", "site"]);
+  return { ...source, filters: source.filters.filter((field) => !internal.has(field.key)), columns: source.columns.filter((field) => !internal.has(field.key)), form: source.form?.filter((field) => !internal.has(field.key)) };
+});
 const query = reactive<Record<string, string | string[]>>({});
 const rows = ref<SystemRecord[]>([]);
 const total = ref(0);

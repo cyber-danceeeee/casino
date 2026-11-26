@@ -24,6 +24,7 @@ import (
 	"gorm.io/gorm/clause"
 
 	"casino/internal/config"
+	"casino/internal/singlesite"
 )
 
 const (
@@ -276,6 +277,9 @@ func (s *Service) AdminLogin(input LoginInput, ip, userAgent, correlationID stri
 	username := strings.TrimSpace(input.Username)
 	tenantCode := strings.TrimSpace(input.TenantCode)
 	portalType := strings.ToUpper(strings.TrimSpace(input.PortalType))
+	if singlesite.Active() {
+		portalType, tenantCode = "", ""
+	}
 	if portalType != "" && portalType != "PLATFORM" && portalType != "TENANT" {
 		return nil, NewError("INVALID_PORTAL_TYPE", "invalid administrator portal type")
 	}
@@ -304,6 +308,9 @@ func (s *Service) AdminLogin(input LoginInput, ip, userAgent, correlationID stri
 	} else if portalType == "TENANT" {
 		db = db.Where("a.tenant_id>0")
 	}
+	if scope, ok := singlesite.Scope(); ok {
+		db = db.Where("a.tenant_id IN (0, ?)", scope.TenantID)
+	}
 	err := db.Take(&account).Error
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, fmt.Errorf("query administrator credential: %w", err)
@@ -329,6 +336,9 @@ func (s *Service) AdminLogin(input LoginInput, ip, userAgent, correlationID stri
 	if account.TenantID == 0 {
 		accountType = "PLATFORM"
 	}
+	if singlesite.Active() {
+		accountType = "SITE"
+	}
 	if portalType != "" && portalType != accountType {
 		s.writeLoginLog(&account.ID, account.TenantID, account.SiteID, username, false, "PORTAL_TYPE_MISMATCH", ip, userAgent, correlationID)
 		return nil, NewError("PORTAL_TYPE_MISMATCH", "this account cannot sign in to the selected administrator portal")
@@ -339,6 +349,7 @@ func (s *Service) AdminLogin(input LoginInput, ip, userAgent, correlationID stri
 		"tenant":        map[string]any{"id": account.TenantID, "code": account.TenantCode, "name": account.TenantName},
 		"site":          map[string]any{"id": account.SiteID, "code": account.SiteCode, "name": account.SiteName},
 	}
+	response = singleSiteAuthResponse(response)
 	if !account.MFAEnabled {
 		secret, err := generateMFASecret()
 		if err != nil {
@@ -418,12 +429,15 @@ func (s *Service) issueSession(tx *gorm.DB, challenge mfaChallenge, correlationI
 	if challenge.TenantID == 0 {
 		adminType = "PLATFORM"
 	}
-	return map[string]any{
+	if singlesite.Active() {
+		adminType = "SITE"
+	}
+	return singleSiteAuthResponse(map[string]any{
 		"status": authStatusAuthenticated, "token": token, "expiresAt": expiresAt,
 		"administrator": map[string]any{"id": challenge.AdminID, "username": challenge.AdminUsername, "displayName": challenge.AdminDisplayName, "tenantID": challenge.TenantID, "siteID": challenge.SiteID, "defaultSiteID": challenge.SiteID, "adminType": adminType, "mustChangePassword": challenge.MustChangePassword},
 		"tenant":        map[string]any{"id": challenge.TenantID, "code": challenge.TenantCode, "name": challenge.TenantName},
 		"site":          map[string]any{"id": challenge.SiteID, "code": challenge.SiteCode, "name": challenge.SiteName},
-	}, nil
+	}), nil
 }
 
 func (s *Service) ConfirmMFASetup(input MFAChallengeInput, correlationID string) (map[string]any, error) {
@@ -517,4 +531,18 @@ func (s *Service) Logout(token string) error {
 		return NewError("AUTHENTICATION_REQUIRED", "authentication required")
 	}
 	return nil
+}
+
+func singleSiteAuthResponse(response map[string]any) map[string]any {
+	if scope, ok := singlesite.Scope(); ok {
+		if profile, ok := response["administrator"].(map[string]any); ok {
+			profile["adminType"] = "SITE"
+			profile["tenantID"] = scope.TenantID
+			profile["siteID"] = scope.SiteID
+			profile["defaultSiteID"] = scope.SiteID
+		}
+		delete(response, "tenant")
+		response["site"] = map[string]any{"id": scope.SiteID}
+	}
+	return response
 }

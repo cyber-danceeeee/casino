@@ -69,8 +69,8 @@
 }
 
 :root {
-  color: #ffffff;
-  background: #050913;
+  color: var(--runtime-text-color, #ffffff);
+  background: var(--runtime-background-color, #050913);
   font-family:
     Montserrat, -apple-system, "SF Pro Text", BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
     sans-serif;
@@ -93,9 +93,7 @@ body,
 
 body {
   overflow-x: hidden;
-  background:
-    linear-gradient(180deg, #050913 0%, #081122 54%, #050913 100%),
-    #050913;
+  background: var(--runtime-background-color, #050913);
 }
 
 button,
@@ -267,7 +265,7 @@ img {
   z-index: 1200;
   width: 100%;
   height: 3px;
-  background: linear-gradient(90deg, #20c5ff 0%, #4d81e7 55%, #38cfff 100%);
+  background: var(--runtime-primary-color, #4d81e7);
   box-shadow: 0 0 14px rgba(77, 129, 231, 0.75);
 }
 

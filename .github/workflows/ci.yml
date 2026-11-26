@@ -47,6 +47,8 @@ jobs:
       - run: python3 scripts/init-env.py
       - run: docker compose up -d --build --wait --wait-timeout 600
       - run: python3 scripts/smoke-test.py
+      - name: Verify direct H5 configuration
+        run: python3 scripts/test-single-site.py --disposable
       - name: Check migration replay
         run: docker compose run --rm migrate
       - if: failure()

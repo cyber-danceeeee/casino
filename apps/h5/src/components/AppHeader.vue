@@ -11,6 +11,7 @@ const router = useRouter()
 const logo = computed(() =>
   toRuntimeAssetUrl(runtimeConfig.value.branding.headerLogoUrl || runtimeConfig.value.branding.logoUrl),
 )
+const appName = computed(() => runtimeConfig.value.branding.appName || runtimeConfig.value.branding.siteName || 'Casino')
 const cashLabel = computed(() => formatCurrency(String(mockUser.value.cash || '0').replace(/[^\d.]/g, '') || 0))
 const unreadNotifications = ref(0)
 const hasUnreadNotifications = computed(() => isLoggedIn.value && unreadNotifications.value > 0)
@@ -62,7 +63,7 @@ watch(isLoggedIn, () => {
 <template>
   <header class="app-header">
     <div class="brand">
-      <img :src="logo" alt="56MVP" />
+      <img v-if="logo" :src="logo" :alt="appName" /><strong v-else class="brand-name">{{ appName }}</strong>
     </div>
 
     <template v-if="isLoggedIn">
@@ -108,6 +109,7 @@ watch(isLoggedIn, () => {
 </template>
 
 <style scoped lang="scss">
+.brand-name { display:block; max-width:130px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:18px; font-weight:800; color:var(--runtime-text-color,#fff); }
 .app-header {
   position: sticky;
   top: 0;
@@ -172,7 +174,7 @@ watch(isLoggedIn, () => {
   color: #ffffff;
   font-size: 14px;
   font-weight: 500;
-  background: linear-gradient(96deg, #3d8aef 18%, #2f69d1 71%);
+  background: linear-gradient(96deg, var(--runtime-primary-color, #3d8aef) 18%, var(--runtime-button-color, #2f69d1) 71%);
   box-shadow: 0 4px 14px rgba(61, 138, 239, 0.34);
   cursor: pointer;
 
@@ -223,12 +225,12 @@ watch(isLoggedIn, () => {
   }
 
   &--login {
-    background: linear-gradient(180deg, #438cf0 0%, #2f73de 100%);
+    background: linear-gradient(180deg, var(--runtime-primary-color, #438cf0), var(--runtime-button-color, #2f73de));
     box-shadow: 0 10px 26px rgba(57, 127, 229, 0.26);
   }
 
   &--register {
-    background: linear-gradient(180deg, #58b86b 0%, #459e58 100%);
+    background: linear-gradient(180deg, var(--runtime-primary-color, #58b86b), var(--runtime-button-color, #459e58));
     box-shadow: 0 10px 26px rgba(82, 177, 101, 0.22);
 
     img {

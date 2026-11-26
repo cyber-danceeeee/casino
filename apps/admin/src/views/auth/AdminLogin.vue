@@ -2,7 +2,7 @@
 import { computed, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
-import { ArrowLeft, Key, Lock, OfficeBuilding, User } from "@element-plus/icons-vue";
+import { ArrowLeft, Key, Lock, User } from "@element-plus/icons-vue";
 import QrcodeVue from "qrcode.vue";
 import { useI18n } from "vue-i18n";
 import {
@@ -25,12 +25,8 @@ const { establishSession } = useAdminAuth();
 const step = ref<LoginStep>("credentials");
 const loading = ref(false);
 const challenge = ref<AdminAuthResponse | null>(null);
-const credentials = reactive({ username: "", password: "", tenantCode: "" });
+const credentials = reactive({ username: "", password: "" });
 const verificationCode = ref("");
-const portalType = computed(() =>
-  route.meta.portalType === "TENANT" ? "TENANT" : "PLATFORM",
-);
-const isTenantPortal = computed(() => portalType.value === "TENANT");
 
 const currentLocale = computed({
   get: () => locale.value as SupportedLocale,
@@ -43,17 +39,13 @@ const currentLocale = computed({
 const title = computed(() => {
   if (step.value === "setup") return t("auth.setupTitle");
   if (step.value === "verify") return t("auth.verifyTitle");
-  return isTenantPortal.value
-    ? t("auth.tenantLoginTitle")
-    : t("auth.platformLoginTitle");
+  return t("auth.loginTitle");
 });
 
 const subtitle = computed(() => {
   if (step.value === "setup") return t("auth.setupSubtitle");
   if (step.value === "verify") return t("auth.verifySubtitle");
-  return isTenantPortal.value
-    ? t("auth.tenantLoginSubtitle")
-    : t("auth.platformLoginSubtitle");
+  return t("auth.loginSubtitle");
 });
 
 function resetChallenge() {
@@ -85,18 +77,16 @@ async function finishLogin(response: AdminAuthResponse) {
 
 async function submitCredentials() {
   credentials.username = credentials.username.trim();
-  credentials.tenantCode = credentials.tenantCode.trim();
   if (
     !credentials.username ||
-    !credentials.password ||
-    (isTenantPortal.value && !credentials.tenantCode)
+    !credentials.password
   ) {
     ElMessage.warning(t("auth.requiredFields"));
     return;
   }
   loading.value = true;
   try {
-    const response = await loginAdmin({ ...credentials, portalType: portalType.value });
+    const response = await loginAdmin({ ...credentials });
     challenge.value = response;
     verificationCode.value = "";
     if (response.status === "MFA_SETUP_REQUIRED") step.value = "setup";
@@ -151,9 +141,9 @@ async function copySecret() {
         </div>
       </div>
       <div class="login-brand-content">
-        <p>{{ isTenantPortal ? t("auth.tenantPortal") : t("auth.platformPortal") }}</p>
+        <p>{{ t("singleSite.console") }}</p>
         <h1>{{ t("auth.brandTitle") }}</h1>
-        <span>{{ isTenantPortal ? t("auth.tenantBrandDescription") : t("auth.platformBrandDescription") }}</span>
+        <span>{{ t("auth.brandDescription") }}</span>
       </div>
       <div class="login-brand-footer">{{ t("auth.securityNotice") }}</div>
     </section>
@@ -201,19 +191,6 @@ async function copySecret() {
           class="login-form"
           @submit.prevent="submitCredentials"
         >
-          <label v-if="isTenantPortal">
-            <span>{{ t("auth.tenantCode") }}</span>
-            <el-input
-              v-model="credentials.tenantCode"
-              size="large"
-              autocomplete="organization"
-              :placeholder="t('auth.tenantCodePlaceholder')"
-            >
-              <template #prefix
-                ><el-icon><OfficeBuilding /></el-icon
-              ></template>
-            </el-input>
-          </label>
           <label>
             <span>{{ t("auth.username") }}</span>
             <el-input
@@ -303,13 +280,6 @@ async function copySecret() {
           <p class="mfa-expiry">{{ t("auth.challengeExpiry") }}</p>
         </div>
 
-        <router-link
-          v-if="step === 'credentials'"
-          class="portal-switch"
-          :to="isTenantPortal ? '/platform/login' : '/tenant/login'"
-        >
-          {{ isTenantPortal ? t("auth.goToPlatformLogin") : t("auth.goToTenantLogin") }}
-        </router-link>
       </div>
     </section>
   </main>

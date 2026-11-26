@@ -11,6 +11,7 @@ import (
 
 	"casino/internal/config"
 	"casino/internal/database"
+	"casino/internal/singlesite"
 )
 
 const actorContextKey = "admin_actor"
@@ -826,7 +827,7 @@ func RequireAny(permissions ...string) gin.HandlerFunc {
 func RequirePlatform() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		actor, ok := FromContext(c)
-		if !ok || !actor.Platform {
+		if !ok || (!actor.Platform && !singlesite.Active()) {
 			abort(c, http.StatusForbidden, "PLATFORM_ACCESS_REQUIRED", "platform administrator access required")
 			return
 		}
@@ -843,7 +844,7 @@ func EnforceSystemPortalBoundary() gin.HandlerFunc {
 	}
 	return func(c *gin.Context) {
 		actor, ok := FromContext(c)
-		if ok && !actor.Platform {
+		if ok && !actor.Platform && !singlesite.Active() {
 			for _, prefix := range platformPrefixes {
 				if strings.Contains(c.Request.URL.Path, prefix) {
 					abort(c, http.StatusForbidden, "PLATFORM_ACCESS_REQUIRED", "platform administrator access required")
@@ -918,10 +919,14 @@ func resolveActor(c *gin.Context) (Actor, bool) {
 		if row.TenantID == 0 {
 			adminType = "PLATFORM"
 		}
+		tenantID, siteID, platform := row.TenantID, row.SiteID, row.TenantID == 0
+		if scope, ok := singlesite.Scope(); ok {
+			tenantID, siteID, platform, adminType = scope.TenantID, scope.SiteID, false, "SITE"
+		}
 		return Actor{
 			ID: row.ID, SessionID: row.SessionID, Username: row.Username, DisplayName: row.DisplayName,
-			TenantID: row.TenantID, SiteID: row.SiteID, DefaultSiteID: row.SiteID,
-			Platform: row.TenantID == 0, AdminType: adminType, MustChangePassword: row.MustChangePassword,
+			TenantID: tenantID, SiteID: siteID, DefaultSiteID: siteID,
+			Platform: platform, AdminType: adminType, MustChangePassword: row.MustChangePassword,
 			RoleCodes: roleCodes, Permissions: permissions,
 		}
 	}

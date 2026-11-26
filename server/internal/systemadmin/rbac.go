@@ -1,6 +1,7 @@
 package systemadmin
 
 import (
+	"casino/internal/singlesite"
 	"strings"
 	"time"
 
@@ -320,6 +321,9 @@ func (s *Service) ListPermissions(q Query) (Result, error) {
 	rows := []PermissionRow{}
 	db := s.db.Table("game_admin_permissions p").Select(`p.id,p.code,p.name_zh,p.name_en,p.module,p.permission_type,p.api_path,p.enabled,p.system_protected,p.updated_at,
 		(SELECT COUNT(DISTINCT rp.role_id) FROM game_admin_role_permissions rp WHERE rp.permission_id=p.id AND rp.deleted_at IS NULL) assigned_role_count`).Where("p.deleted_at IS NULL")
+	if singlesite.Active() {
+		db = db.Where("p.code NOT LIKE ?", "system:tenant:%")
+	}
 	db = like(db, "p.code", value(q, "code"))
 	name := value(q, "name")
 	if name != "" {

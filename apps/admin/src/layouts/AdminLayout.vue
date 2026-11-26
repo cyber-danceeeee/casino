@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch, type Component } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { ArrowDown, Plus } from "@element-plus/icons-vue";
+import { ArrowDown } from "@element-plus/icons-vue";
 import * as ElementPlusIcons from "@element-plus/icons-vue";
 import { ElMessage } from "element-plus";
 import { dashboardItem, menuGroupsForAdmin } from "@/data/adminMenu";
@@ -134,7 +134,7 @@ async function handleUserCommand(command: string) {
   if (command === "sessions") return router.push("/account/sessions");
   if (command === "login-records") return router.push("/account/login-records");
   if (command !== "logout") return;
-  const loginPath = actor.value?.adminType === "TENANT" ? "/tenant/login" : "/platform/login";
+  const loginPath = "/login";
   await logout();
   ElMessage.success(t("auth.logoutSuccess"));
   await router.replace(loginPath);
@@ -149,23 +149,15 @@ async function handleUserCommand(command: string) {
         <span class="admin-brand-title">{{ platformName }}</span>
         <el-tag
           class="admin-brand-tag"
-          :type="actor?.platform === false ? 'success' : 'danger'"
+          type="success"
           effect="dark"
           size="small"
         >
-          {{ actor?.platform === false ? t("portal.tenant.badge") : t("portal.platform.badge") }}
+          {{ t("singleSite.console") }}
         </el-tag>
       </div>
 
       <div class="admin-header-right">
-        <el-button
-          v-if="actor?.platform && hasNavigation('/platform/tenants/create')"
-          type="primary"
-          :icon="Plus"
-          @click="router.push('/platform/tenants/create')"
-        >
-          {{ t("portal.createBrand") }}
-        </el-button>
         <el-select
           v-model="currentTimezone"
           class="admin-timezone-select"
@@ -260,7 +252,7 @@ async function handleUserCommand(command: string) {
 
       <el-main class="admin-main">
         <div class="admin-main-body">
-          <BrandDraftStatusBar v-if="actor?.platform === false" />
+          <BrandDraftStatusBar />
           <router-view />
         </div>
         <footer class="admin-footer">{{ platformFooter }}</footer>

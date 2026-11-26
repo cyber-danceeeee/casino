@@ -15,7 +15,7 @@ export type AdminActor = {
   siteID?: number
   defaultSiteID?: number
   platform?: boolean
-  adminType: 'PLATFORM' | 'TENANT'
+  adminType: 'PLATFORM' | 'TENANT' | 'SITE'
   mustChangePassword?: boolean
   roleCodes?: string[]
   permissions: string[]

@@ -2,7 +2,7 @@ import { ref, shallowRef } from 'vue'
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '/api/v1').replace(/\/$/, '')
 const API_ORIGIN = API_BASE_URL.startsWith('http') ? new URL(API_BASE_URL).origin : ''
-const runtimeConfigStoragePrefix = 'casino-h5-runtime-config'
+const runtimeConfigStoragePrefix = 'casino-h5-runtime-config-single-site-v2'
 
 export interface RuntimeConfig {
   resourceVersion: string
@@ -28,7 +28,10 @@ export interface RuntimeConfig {
     current: string
     supported: string[]
   }
+  seo?: { title?: string; description?: string }
   branding: {
+    appName?: string
+    siteName?: string
     logoUrl?: string
     faviconUrl?: string
     loginLogoUrl?: string
@@ -110,6 +113,16 @@ function setLink(rel: string, href: string, sizes?: string) {
 }
 
 function applyDocumentBranding(config: RuntimeConfig) {
+  const title = config.seo?.title || config.branding.appName || config.branding.siteName
+  if (title) document.title = title
+  let description = document.head.querySelector<HTMLMetaElement>('meta[name="description"]')
+  if (!description) {
+    description = document.createElement('meta')
+    description.name = 'description'
+    document.head.append(description)
+  }
+  description.content = config.seo?.description || ''
+
   const language = config.language.current || config.language.default || 'en'
   document.documentElement.lang = language
 

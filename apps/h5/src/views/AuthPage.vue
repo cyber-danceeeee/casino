@@ -227,7 +227,7 @@ watch(
   flex-direction: column;
   overflow-y: auto;
   overflow-x: hidden;
-  background: #090f1f;
+  background: var(--runtime-background-color, #090f1f);
   color: #ffffff;
   transform: translateX(-50%);
   -webkit-overflow-scrolling: touch;
@@ -543,7 +543,7 @@ watch(
   place-items: center;
   margin-top: 12px;
   border-radius: 8px;
-  background: linear-gradient(180deg, #438cf0 0%, #2f73de 100%);
+  background: linear-gradient(180deg, var(--runtime-primary-color, #438cf0), var(--runtime-button-color, #2f73de));
   box-shadow: 0 10px 26px rgba(57, 127, 229, 0.26);
   color: #ffffff;
   font-size: 16px;

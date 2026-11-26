@@ -22,6 +22,7 @@ import (
 	"casino/internal/database"
 	"casino/internal/hotranking"
 	"casino/internal/model"
+	"casino/internal/singlesite"
 	"casino/internal/storage"
 	"casino/internal/tenancy"
 )
@@ -140,6 +141,9 @@ func h5ScopeDefaults(db *gorm.DB, scope tenancy.Scope) h5ScopeDefaultValues {
 }
 
 func h5TenancyScope(c *gin.Context) tenancy.Scope {
+	if scope, ok := singlesite.Scope(); ok {
+		return scope
+	}
 	if value, ok := c.Get("h5_tenancy_scope"); ok {
 		if scope, ok := value.(tenancy.Scope); ok {
 			return scope

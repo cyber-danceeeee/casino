@@ -748,7 +748,7 @@ const tenantExperienceItems: MenuItem[] = [
 	{ key: "brand-overview", label: "品牌概览", i18nKey: "tenantExperience.menu.brandOverview", path: "/brand/overview", navigationPath: "/system/brand", icon: DataBoard },
 	{ key: "brand-theme", label: "主题", i18nKey: "tenantExperience.menu.theme", path: "/brand/theme", navigationPath: "/system/brand", icon: Brush },
 	{ key: "brand-seo", label: "SEO", i18nKey: "tenantExperience.menu.seo", path: "/brand/seo", navigationPath: "/system/brand", icon: Search },
-	{ key: "brand-domain", label: "域名", i18nKey: "tenantExperience.menu.domain", path: "/brand/domain", navigationPath: "/system/sites", icon: Link },
+	{ key: "brand-domain", label: "域名", i18nKey: "tenantExperience.menu.domain", path: "/brand/domain", navigationPath: "/system/brand", icon: Link },
 	{ key: "brand-region", label: "国家与币种", i18nKey: "tenantExperience.menu.countryCurrency", path: "/brand/region", navigationPath: "/system/brand", icon: Position },
 	{ key: "brand-languages", label: "语言", i18nKey: "tenantExperience.menu.languages", path: "/brand/languages", navigationPath: "/system/brand", icon: Message },
 	{ key: "brand-preview", label: "预览", i18nKey: "tenantExperience.menu.preview", path: "/brand/preview", navigationPath: "/system/brand", icon: Monitor },
@@ -869,25 +869,27 @@ export const tenantMenuGroups: MenuGroup[] = [
 	{ key: "tenant-ops", label: "运维中心", i18nKey: "tenantExperience.menu.operations", icon: Monitor, children: [...sharedOpsItems, ...platformOpsItems.filter((item) => ["jobs-retries", "alert-center"].includes(item.key))] },
 ];
 
-export function menuGroupsForAdmin(platform: boolean) {
-  return platform ? platformMenuGroups : tenantMenuGroups;
-}
+export const removedSaaSKeys = new Set(["tenants", "sites", "create-brand", "brand-deliveries", "tenant-domains", "tenant-packages", "tenant-audit"]);
+export const singleSiteMenuGroups: MenuGroup[] = [
+  ...menuGroups.map((group) => ({ ...group,
+    ...(group.key === "brand" ? { label: "H5 配置", i18nKey: "singleSite.settings" } : {}),
+    children: group.children.filter((item) => !removedSaaSKeys.has(item.key)),
+  })),
+  { key: "site-support", label: "支持中心", i18nKey: "opsV1.support.eyebrow", icon: Headset, children: supportItems },
+  { key: "site-ops", label: "运维中心", i18nKey: "opsV1.stability.eyebrow", icon: Monitor, children: [...sharedOpsItems, ...platformOpsItems] },
+];
+export function menuGroupsForAdmin(_platform = false) { return singleSiteMenuGroups; }
 
 export const allMenuItems = [
   dashboardItem,
   ...menuGroups.flatMap((group) => group.children),
-  createBrandItem,
-  brandDeliveriesItem,
-  tenantDomainsItem,
-  tenantPackagesItem,
-  tenantAuditItem,
   popupComponentsItem,
   providerReconciliationItem,
 	...supportItems,
 	...sharedOpsItems,
 		...platformOpsItems,
 		...tenantExperienceItems,
-];
+].filter((item) => !removedSaaSKeys.has(item.key));
 
 export const userCenterKeys = new Set([
   "user-list",

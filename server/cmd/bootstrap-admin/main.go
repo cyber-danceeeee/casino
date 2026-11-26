@@ -12,6 +12,7 @@ import (
 
 	"casino/internal/config"
 	"casino/internal/database"
+	"casino/internal/systemadmin"
 )
 
 func main() {
@@ -22,10 +23,13 @@ func main() {
 	}
 	database.InitDB()
 	defer database.CloseDB()
+	if err := systemadmin.New(database.GetDB()).EnsureSingleSite(); err != nil {
+		log.Fatal(err)
+	}
 	if err := initialize(database.GetDB(), os.Getenv("CASINO_BOOTSTRAP_ADMIN_PASSWORD")); err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("Platform administrator initialized (existing passwords are preserved).")
+	fmt.Println("H5 site and administrator initialized (existing configuration and passwords are preserved).")
 }
 
 func initialize(db *gorm.DB, password string) error {

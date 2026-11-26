@@ -83,6 +83,8 @@ func adminSystemRouter(group *gin.RouterGroup, h *handler.AdminSystemHandler) {
 	g.Use(adminauth.EnforceSystemPortalBoundary())
 	g.GET("/navigation", h.Navigation)
 	g.GET("/brand/overview", adminauth.Require(adminauth.PermissionSystemSiteView), h.BrandOverview)
+	g.GET("/h5/markets", adminauth.Require(adminauth.PermissionSystemSiteView), h.H5Markets)
+	g.PUT("/h5/settings", adminauth.Require(adminauth.PermissionSystemSiteUpdate), h.SaveH5Settings)
 
 	g.GET("/admins", adminauth.RequirePlatform(), adminauth.Require(adminauth.PermissionSystemAdminList), h.ListAdmins)
 	g.POST("/admins", adminauth.RequirePlatform(), adminauth.Require(adminauth.PermissionSystemAdminCreate), h.CreateAdmin)

@@ -86,4 +86,13 @@ for (const phrase of ["玩家编号", "Player Number", "游戏编码", "Game Cod
   assert.ok(messages.includes(phrase), `missing bilingual label: ${phrase}`);
 }
 
-console.log("Tenant Admin UI compliance checks passed.");
+assert.match(menu, /return singleSiteMenuGroups/, "navigation must use the single-site menu");
+const login = read("src/views/auth/AdminLogin.vue");
+assert.doesNotMatch(login, /tenantCode|isTenantPortal|portalType|router-link/, "login still exposes a tenant or portal selector");
+assert.match(routes, /name: "admin-login"/, "the unified login route is missing");
+assert.doesNotMatch(routes, /path: "system\/tenants\/:id"/, "tenant detail is still routable");
+const settings = read("src/views/brand/BrandSettingsPage.vue");
+assert.match(settings, /systemAPI.brand.save/, "H5 settings must save to the bound site");
+assert.match(settings, /form.h5Domain/, "the H5 address field is missing");
+assert.doesNotMatch(settings, /v-model="form.(?:countryCode|currencyCode)" disabled/, "market fields remain locked");
+console.log("Single-site administration and operational UI checks passed.");

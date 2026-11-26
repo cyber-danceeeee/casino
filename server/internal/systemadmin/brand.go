@@ -1,6 +1,7 @@
 package systemadmin
 
 import (
+	"casino/internal/singlesite"
 	"fmt"
 	"strings"
 )
@@ -39,7 +40,7 @@ func (s *Service) BrandOverview(actor Actor) (map[string]any, error) {
 		Where("tenant_id=? AND site_id=? AND deleted_at IS NULL AND COALESCE(platform_enabled_draft,platform_enabled)=1", row.TenantID, row.ID).
 		Count(&gamesConfigured).Error
 	gameLimit, providerLimit := -1, -1
-	if s.db.Migrator().HasTable("game_saas_tenant_packages") {
+	if !singlesite.Active() && s.db.Migrator().HasTable("game_saas_tenant_packages") {
 		var limits struct {
 			Games     int `gorm:"column:game_limit"`
 			Providers int `gorm:"column:provider_limit"`
@@ -177,11 +178,11 @@ func (s *Service) brandSetupChecklist(row SiteRow, draft map[string]any, gamesEn
 		{Key: "country", Status: status(country != ""), Path: "/system/brand"},
 		{Key: "currency", Status: status(currency != ""), Path: "/system/brand"},
 		{Key: "language", Status: status(language != ""), Path: "/system/brand"},
-		{Key: "domain", Status: status(domainCount > 0 || firstNonEmpty(row.PrimaryDomain, row.H5Domain) != ""), Path: "/system/domains"},
-		{Key: "paymentChannel", Status: status(paymentCount > 0), Path: "/funds/payment-channels"},
-		{Key: "provider", Status: status(providersEnabled > 0), Path: "/games/game-list"},
-		{Key: "games", Status: status(gamesEnabled > 0), Path: "/games/game-list"},
-		{Key: "lobby", Status: status(lobbyCount > 0), Path: "/system/lobby"},
+		{Key: "domain", Status: status(domainCount > 0 || firstNonEmpty(row.PrimaryDomain, row.H5Domain) != ""), Path: "/system/brand"},
+		{Key: "paymentChannel", Status: status(paymentCount > 0), Path: "/funds/deposit-channels"},
+		{Key: "provider", Status: status(providersEnabled > 0), Path: "/games/list"},
+		{Key: "games", Status: status(gamesEnabled > 0), Path: "/games/list"},
+		{Key: "lobby", Status: status(lobbyCount > 0), Path: "/games/lobby-sections"},
 		{Key: "banner", Status: status(bannerCount > 0), Path: "/operations/banners"},
 		{Key: "customerSupport", Status: status(supportCount > 0), Path: "/operations/social-links"},
 		{Key: "preview", Status: status(row.ConfigDraftUpdatedAt != nil || row.ConfigPublishedAt != nil), Path: "/system/brand"},

@@ -75,3 +75,4 @@
 20260727_tenant_operation_default_unique_scope.sql
 20261126_catalog_schema_completion.sql
 20261126_bonus_schema_completion.sql
+20261126_single_site_binding.sql

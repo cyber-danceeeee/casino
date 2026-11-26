@@ -92,21 +92,15 @@ const reportCenterComponents: Record<string, RouteRecordRaw["component"]> = {
 };
 
 const systemCenterComponents: Record<string, RouteRecordRaw["component"]> = {
-  "create-brand": () => import("@/views/platform/CreateBrandPage.vue"),
   "brand-config": () => import("@/views/brand/BrandSettingsPage.vue"),
 	"brand-overview": () => import("@/views/brand/BrandOverviewPage.vue"),
 	"brand-theme": () => import("@/views/brand/BrandSettingsPage.vue"),
 	"brand-seo": () => import("@/views/brand/BrandSettingsPage.vue"),
-	"brand-domain": () => import("@/views/system/SystemManagementPage.vue"),
+	"brand-domain": () => import("@/views/brand/BrandSettingsPage.vue"),
 	"brand-region": () => import("@/views/brand/BrandSettingsPage.vue"),
 	"brand-languages": () => import("@/views/brand/BrandSettingsPage.vue"),
 	"brand-preview": () => import("@/views/brand/BrandReleasePage.vue"),
 	"brand-publish": () => import("@/views/brand/BrandReleasePage.vue"),
-  tenants: () => import("@/views/platform/TenantManagementPage.vue"),
-  "brand-deliveries": () => import("@/views/platform/BrandDeliveryPage.vue"),
-  "tenant-domains": () => import("@/views/platform/DomainManagementPage.vue"),
-  "tenant-packages": () => import("@/views/platform/TenantPackagesPage.vue"),
-  "tenant-audit": () => import("@/views/platform/TenantAuditPage.vue"),
   sites: () => import("@/views/system/SystemManagementPage.vue"),
   admins: () => import("@/views/system/SystemManagementPage.vue"),
   roles: () => import("@/views/system/SystemManagementPage.vue"),
@@ -115,7 +109,6 @@ const systemCenterComponents: Record<string, RouteRecordRaw["component"]> = {
   menus: () => import("@/views/system/SystemManagementPage.vue"),
   "system-config": () => import("@/views/system/SystemManagementPage.vue"),
   "country-config": () => import("@/views/system/SystemManagementPage.vue"),
-  "popup-components": () => import("@/views/platform/PopupComponentsPage.vue"),
   "audit-logs": () => import("@/views/system/SystemManagementPage.vue"),
   "admin-login-logs": () => import("@/views/system/SystemManagementPage.vue"),
   "scheduled-tasks": () => import("@/views/system/SystemManagementPage.vue"),
@@ -185,32 +178,11 @@ const registeredModuleKeys = new Set(allMenuItems.map((item) => item.key));
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    {
-      path: "/login",
-      redirect: "/platform/login",
-    },
-    {
-      path: "/platform/login",
-      name: "platform-admin-login",
-      component: () => import("@/views/auth/AdminLogin.vue"),
-      meta: {
-        title: "Platform Administrator Login",
-        i18nKey: "auth.platformLoginTitle",
-        portalType: "PLATFORM",
-        public: true,
-      },
-    },
-    {
-      path: "/tenant/login",
-      name: "tenant-admin-login",
-      component: () => import("@/views/auth/AdminLogin.vue"),
-      meta: {
-        title: "Tenant Administrator Login",
-        i18nKey: "auth.tenantLoginTitle",
-        portalType: "TENANT",
-        public: true,
-      },
-    },
+    { path: "/login", name: "admin-login", component: () => import("@/views/auth/AdminLogin.vue"),
+      meta: { title: "Administrator Login", i18nKey: "auth.loginTitle", public: true } },
+    { path: "/platform/login", redirect: "/login" },
+    { path: "/tenant/login", redirect: "/login" },
+    { path: "/system/sites", redirect: "/system/brand" },
     {
       path: "/",
       component: AdminLayout,
@@ -245,12 +217,7 @@ const router = createRouter({
           component: () => import("@/views/account/AccountCenterPage.vue"),
           meta: { title: "Login Records", i18nKey: "accountCenter.loginRecords.title" },
         },
-        {
-          path: "system/tenants/:id",
-          name: "tenant-detail",
-          component: () => import("@/views/platform/TenantDetailPage.vue"),
-          meta: { title: "Tenant Detail", i18nKey: "tenantCenter.detail.title", moduleKey: "tenants", navigationPath: "/system/tenants" },
-        },
+
 		{
 		  path: "players/:playerNo",
 		  name: "player-business-detail",
@@ -270,15 +237,7 @@ const router = createRouter({
 router.beforeEach(async (to) => {
   const token = window.localStorage.getItem("casino-admin-token");
   const isPublic = Boolean(to.meta.public);
-  const storedProfile = window.localStorage.getItem("casino-admin-profile");
-  let preferredLogin = "/platform/login";
-  if (storedProfile) {
-    try {
-      if (JSON.parse(storedProfile).adminType === "TENANT") preferredLogin = "/tenant/login";
-    } catch {
-      // Invalid cached profile is replaced after the next successful login.
-    }
-  }
+  const preferredLogin = "/login";
   if (!isPublic && !token) {
     return { path: preferredLogin, query: { redirect: to.fullPath } };
   }

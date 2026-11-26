@@ -350,6 +350,8 @@ export const systemAPI = {
     service: (name: string) => apiGet<SystemDetail>(`${root}/monitoring/services/${encodeURIComponent(name)}`),
   },
   brand: {
+    markets: () => apiGet<SystemPage>(`${root}/h5/markets`),
+    save: (payload: Record<string, unknown>) => apiPut<void>(`${root}/h5/settings`, payload),
     overview: () => apiGet<BrandOverview>(`${root}/brand/overview`),
   },
 }

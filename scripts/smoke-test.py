@@ -8,7 +8,7 @@ from urllib.error import HTTPError
 from urllib.request import urlopen
 
 for port, deep_link in [(os.getenv('H5_PORT', '80'), '/wallet'),
-                        (os.getenv('ADMIN_PORT', '8080'), '/platform/login')]:
+                        (os.getenv('ADMIN_PORT', '8080'), '/login')]:
     base = f'http://127.0.0.1:{port}'
     for path in ['/', deep_link, '/health/ready']:
         with urlopen(base + path, timeout=15) as response:

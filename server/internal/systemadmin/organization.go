@@ -1,6 +1,7 @@
 package systemadmin
 
 import (
+	"casino/internal/singlesite"
 	"strings"
 	"time"
 
@@ -205,6 +206,9 @@ func (s *Service) ListMenus(q Query) (Result, error) {
 	rows := []MenuRow{}
 	db := s.db.Table("game_admin_menus m").Select("m.id,m.parent_id,COALESCE(p.name_en,'') parent,m.menu_type,m.code,m.name_zh,m.name_en,m.route_path,m.component_path,m.icon,m.permission_code,m.sort_order,m.visible,m.enabled,m.cacheable,m.external_link,m.system_protected,m.updated_at").
 		Joins("LEFT JOIN game_admin_menus p ON p.id=m.parent_id AND p.deleted_at IS NULL").Where("m.deleted_at IS NULL")
+	if singlesite.Active() {
+		db = db.Where("m.code NOT IN ? AND m.route_path NOT LIKE ? AND m.route_path NOT LIKE ? AND m.route_path <> ?", []string{"tenants", "sites", "create-brand", "brand-deliveries", "tenant-domains", "tenant-packages", "tenant-audit"}, "/platform/%", "/system/tenant%", "/system/sites")
+	}
 	db = like(db, "m.code", value(q, "code"))
 	name := value(q, "name")
 	if name != "" {

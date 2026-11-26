@@ -2,7 +2,7 @@
 import { computed, onMounted, reactive, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Monitor, UploadFilled } from "@element-plus/icons-vue";
-import { systemAPI, type BrandOverview } from "@/api/adminSystem";
+import { systemAPI, type SystemRecord, type BrandOverview } from "@/api/adminSystem";
 import H5PreviewFrame from "@/components/brand/H5PreviewFrame.vue";
 import { formatBackendTime } from "@/utils/timezone";
 import { useI18n } from "vue-i18n";
@@ -14,9 +14,11 @@ const publishing = ref(false);
 const previewVisible = ref(false);
 const previewLoading = ref(false);
 const overview = ref<BrandOverview | null>(null);
+const markets = ref<SystemRecord[]>([]);
 
 const form = reactive({
   siteName: "",
+  h5Domain: "",
   logo: "",
   appName: "",
   customerService: "",
@@ -56,6 +58,7 @@ function assignFromOverview(row: BrandOverview) {
   const maintenance = objectValue(draft.maintenanceConfig);
   Object.assign(form, {
     siteName: String(draft.siteName || row.brandName || ""),
+    h5Domain: String(row.h5Domain || ""),
     logo: String(brand.logo || ""),
     appName: String(brand.appName || row.brandName || ""),
     customerService: String(brand.customerService || ""),
@@ -81,7 +84,8 @@ function assignFromOverview(row: BrandOverview) {
 async function load() {
   loading.value = true;
   try {
-    const row = await systemAPI.brand.overview();
+    const [row, options] = await Promise.all([systemAPI.brand.overview(), systemAPI.brand.markets()]);
+    markets.value = options.list;
     overview.value = row;
     assignFromOverview(row);
   } catch (error) {
@@ -91,9 +95,18 @@ async function load() {
   }
 }
 
+function selectMarket(code: string) {
+ const market=markets.value.find((row)=>row.countryCode===code);
+ if(!market)return;
+ form.currencyCode=String(market.currencyCode || "");
+ form.defaultLanguage=String(market.defaultLanguage || form.defaultLanguage);
+ form.timezone=String(market.timezone || form.timezone);
+}
+
 function payload() {
   return {
     siteName: form.siteName.trim(),
+    h5Domain: form.h5Domain.trim(),
     countryCode: form.countryCode.trim().toUpperCase(),
     currencyCode: form.currencyCode.trim().toUpperCase(),
     defaultLanguage: form.defaultLanguage.trim(),
@@ -129,7 +142,7 @@ async function saveDraft() {
   if (!overview.value?.siteID) return;
   saving.value = true;
   try {
-    await systemAPI.sites.update(overview.value.siteID, payload());
+    await systemAPI.brand.save(payload());
     ElMessage.success(t("brandPortal.messages.draftSaved"));
     window.dispatchEvent(new Event("brand-config-refresh"));
     await load();
@@ -183,7 +196,7 @@ onMounted(load);
   <div v-loading="loading" class="brand-settings">
     <section class="settings-header">
       <div>
-        <p class="eyebrow">{{ t("brandPortal.settings.eyebrow") }}</p>
+        <p class="eyebrow">{{ t("singleSite.settings") }}</p>
         <h1>{{ overview?.brandName || "-" }}</h1>
         <div class="status-row">
           <el-tag :type="statusType" effect="plain">{{ overview?.publishStatus || "-" }}</el-tag>
@@ -193,7 +206,7 @@ onMounted(load);
         </div>
       </div>
       <div class="header-actions">
-        <el-button :icon="Monitor" @click="preview">{{ t("brandPortal.actions.preview") }}</el-button>
+        <el-button :icon="Monitor" @click="preview">{{ t("singleSite.viewH5") }}</el-button>
         <el-button type="primary" :icon="UploadFilled" :loading="publishing" @click="publish">
           {{ t("brandPortal.actions.publish") }}
         </el-button>
@@ -222,6 +235,11 @@ onMounted(load);
             </el-form-item>
           </el-col>
           <el-col :xs="24">
+            <el-form-item :label="t('singleSite.h5Address')">
+              <el-input v-model="form.h5Domain" placeholder="https://your-h5.example.com" />
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24">
             <el-form-item :label="t('brandPortal.settings.fields.logo')">
               <el-input v-model="form.logo" placeholder="https://..." />
             </el-form-item>
@@ -243,8 +261,8 @@ onMounted(load);
       <section class="form-section">
         <h2>{{ t("brandPortal.settings.sections.locale") }}</h2>
         <el-row :gutter="16">
-          <el-col :xs="24" :md="8"><el-form-item :label="t('brandPortal.settings.fields.country')"><el-input v-model="form.countryCode" disabled /></el-form-item></el-col>
-          <el-col :xs="24" :md="8"><el-form-item :label="t('brandPortal.settings.fields.currency')"><el-input v-model="form.currencyCode" disabled /></el-form-item></el-col>
+          <el-col :xs="24" :md="8"><el-form-item :label="t('brandPortal.settings.fields.country')"><el-select v-model="form.countryCode" filterable @change="selectMarket"><el-option v-for="market in markets" :key="String(market.countryCode)" :value="String(market.countryCode)" :label="`${market.countryCode} · ${market.countryName || market.countryNameEn || market.countryNameZh}`" /></el-select></el-form-item></el-col>
+          <el-col :xs="24" :md="8"><el-form-item :label="t('brandPortal.settings.fields.currency')"><el-input v-model="form.currencyCode" readonly /></el-form-item></el-col>
           <el-col :xs="24" :md="8"><el-form-item :label="t('brandPortal.settings.fields.language')"><el-input v-model="form.defaultLanguage" /></el-form-item></el-col>
           <el-col :xs="24" :md="8"><el-form-item :label="t('brandPortal.settings.fields.timezone')"><el-input v-model="form.timezone" /></el-form-item></el-col>
         </el-row>

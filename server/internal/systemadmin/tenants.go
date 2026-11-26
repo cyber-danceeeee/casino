@@ -1,6 +1,7 @@
 package systemadmin
 
 import (
+	"casino/internal/singlesite"
 	"encoding/json"
 	"regexp"
 	"strconv"
@@ -857,11 +858,19 @@ func (s *Service) UpdateSite(id uint64, input SiteInput, actor Actor) error {
 	if err := db.Take(&before).Error; err != nil {
 		return rowNotFound("site")
 	}
-	if !actor.Platform {
+	if !actor.Platform && !singlesite.Active() {
 		// Country and currency are commercial dimensions fixed during platform
 		// provisioning. Tenant operators cannot alter them through a crafted request.
 		input.CountryCode = mapString(before, "country_code")
 		input.CurrencyCode = mapString(before, "currency_code")
+	}
+	if scope, ok := singlesite.Scope(); ok {
+		if id != scope.SiteID {
+			return NewError("SITE_NOT_FOUND", "site not found")
+		}
+		if err := s.validateSingleSiteMarket(input, scope); err != nil {
+			return err
+		}
 	}
 	input = preserveSiteDraftDefaults(input, before)
 	updates := siteDraftInputRow(input, actor.ID)
@@ -947,6 +956,13 @@ func (s *Service) DeleteSite(id uint64, reason string, actor Actor) error {
 }
 
 func (s *Service) ensureTenantAvailable(id uint64) error {
+	if scope, ok := singlesite.Scope(); ok {
+		if id != scope.TenantID {
+			return NewError("SITE_NOT_FOUND", "site not found")
+		}
+		return nil
+	}
+
 	var count int64
 	if err := s.db.Table("game_saas_tenants").Where("id=? AND enabled=1 AND deleted_at IS NULL", id).Count(&count).Error; err != nil {
 		return err

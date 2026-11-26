@@ -38,8 +38,6 @@ onMounted(load);
     <section v-if="overview" class="business-details">
       <h2>{{ overview.brandName }}</h2>
       <dl>
-        <dt>{{ t("tenantExperience.fields.brandCode") }}</dt>
-        <dd>{{ overview.tenantCode || "-" }}</dd>
         <dt>{{ t("tenantExperience.fields.site") }}</dt>
         <dd>{{ overview.currentSite }} · {{ overview.siteCode }}</dd>
         <dt>{{ t("tenantExperience.fields.market") }}</dt>

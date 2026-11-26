@@ -20,6 +20,7 @@ import (
 	rabbitadapter "casino/internal/eventbus/rabbitmq"
 	"casino/internal/eventconsumers"
 	"casino/internal/notificationpush"
+	"casino/internal/systemadmin"
 )
 
 var (
@@ -79,6 +80,9 @@ func InitApp() {
 
 	// initializing database
 	database.InitDB()
+	if err := systemadmin.New(database.GetDB()).EnsureSingleSite(); err != nil {
+		panic(err)
+	}
 	logger.Infof("[%s] was initialized", cfg.Database.Driver)
 	//if err := notificationpush.EnsureSchema(database.GetDB()); err != nil {
 	//	panic("init push notification schema error: " + err.Error())

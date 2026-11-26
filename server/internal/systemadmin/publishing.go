@@ -1,6 +1,7 @@
 package systemadmin
 
 import (
+	"casino/internal/singlesite"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -120,6 +121,12 @@ func (s *Service) PublishSiteConfigWithKey(id uint64, reason, idempotencyKey str
 		row, err := s.siteRowForActor(tx, id, actor, true)
 		if err != nil {
 			return err
+		}
+		if scope, ok := singlesite.Scope(); ok {
+			draft := siteDraftConfig(row)
+			if err := New(tx).validateSingleSiteMarket(SiteInput{CountryCode: stringFromMap(draft, "countryCode"), CurrencyCode: stringFromMap(draft, "currencyCode"), Timezone: stringFromMap(draft, "timezone")}, scope); err != nil {
+				return err
+			}
 		}
 		key := releaseIdempotencyKey(row.TenantID, row.ID, idempotencyKey)
 		if existing, ok, err := existingReleaseByKey(tx, row.TenantID, row.ID, key); err != nil {

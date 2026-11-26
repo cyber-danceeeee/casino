@@ -1,6 +1,7 @@
 package systemadmin
 
 import (
+	"casino/internal/singlesite"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -127,6 +128,12 @@ func validateAdminInput(input AdminInput, creating bool) error {
 }
 
 func (s *Service) normalizeAdminScope(input *AdminInput, actor Actor) error {
+	if scope, ok := singlesite.Scope(); ok {
+		if (input.TenantID != 0 && input.TenantID != scope.TenantID) || (input.SiteID != 0 && input.SiteID != scope.SiteID) {
+			return NewError("INVALID_SCOPE", "administrator must belong to this installation")
+		}
+	}
+
 	if !actor.Platform {
 		input.TenantID = actor.TenantID
 		if input.SiteID == 0 {
@@ -188,6 +195,19 @@ func (s *Service) CreateAdmin(input AdminInput, actor Actor) (uint64, error) {
 	}
 	var id uint64
 	err = s.db.Transaction(func(tx *gorm.DB) error {
+		if singlesite.Active() {
+			var binding struct{ ID uint64 }
+			if err := tx.Table("casino_site_binding").Clauses(clause.Locking{Strength: "UPDATE"}).Select("id").Where("id=1").Take(&binding).Error; err != nil {
+				return err
+			}
+			var existing int64
+			if err := tx.Table("game_admin_accounts").Where("username=? AND deleted_at IS NULL", row["username"]).Count(&existing).Error; err != nil {
+				return err
+			}
+			if existing > 0 {
+				return NewError("USERNAME_EXISTS", "administrator username already exists")
+			}
+		}
 		result := tx.Table("game_admin_accounts").Create(row)
 		if result.Error != nil {
 			return duplicateError(result.Error)

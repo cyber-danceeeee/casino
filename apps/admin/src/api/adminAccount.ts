@@ -20,7 +20,7 @@ export type AccountProfile = {
 
 export type AccountProfileResponse = {
   profile: AccountProfile;
-  adminType: "PLATFORM" | "TENANT";
+  adminType: "PLATFORM" | "TENANT" | "SITE";
   roles: string[];
 };
 

@@ -34,11 +34,7 @@ const categorySaving = ref(false);
 const categoryForm = reactive({ ids: [] as number[], reason: "" });
 const publishing = ref(false);
 const brandOverview = ref<BrandOverview | null>(null);
-const packageUsage = computed(() => {
-  const limit = Number(brandOverview.value?.gameLimit ?? -1);
-  const used = Number(brandOverview.value?.gamesConfigured ?? brandOverview.value?.gamesEnabled ?? 0);
-  return limit < 0 ? t("tenantExperience.gameOps.packageUnlimited", { used }) : t("tenantExperience.gameOps.packageUsage", { used, limit });
-});
+
 const selectedLabel = computed(() =>
   selected.value
     .map(
@@ -227,7 +223,7 @@ onMounted(async () => {
         <span>{{ t("tenantExperience.gameOps.description") }}</span>
       </div>
       <div class="header-actions">
-        <el-tag effect="plain">{{ packageUsage }}</el-tag>
+
         <el-button :icon="Refresh" @click="load">{{ t("common.refresh") }}</el-button>
         <el-button v-if="can('system:site:config:publish')" type="primary" :icon="UploadFilled" :loading="publishing" @click="publish">{{ t("brandPortal.actions.publish") }}</el-button>
       </div>

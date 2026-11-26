@@ -31,18 +31,11 @@ http.interceptors.request.use((config) => {
 function unwrap<T>(response: ApiResponse<T>) {
   if (response.code !== 0) {
     if (response.code === 401) {
-      const cachedProfile = window.localStorage.getItem("casino-admin-profile");
       window.localStorage.removeItem("casino-admin-token");
       window.localStorage.removeItem("casino-admin-profile");
       if (!window.location.pathname.endsWith("/login")) {
         const redirect = `${window.location.pathname}${window.location.search}`;
-        let loginPath = "/platform/login";
-        try {
-          const profile = JSON.parse(cachedProfile || "{}");
-          if (profile.adminType === "TENANT") loginPath = "/tenant/login";
-        } catch {
-          // Fall back to the platform login when cached identity data is invalid.
-        }
+        const loginPath = "/login";
         window.location.assign(
           `${loginPath}?redirect=${encodeURIComponent(redirect)}`,
         );

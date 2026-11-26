@@ -8,7 +8,7 @@ export type AdminProfile = {
   tenantID?: number;
   siteID?: number;
   defaultSiteID?: number;
-  adminType: "PLATFORM" | "TENANT";
+  adminType: "PLATFORM" | "TENANT" | "SITE";
   mustChangePassword?: boolean;
 };
 
@@ -28,7 +28,7 @@ export type AdminAuthResponse = {
   recoveryCodes?: string[];
 };
 
-export const loginAdmin = (payload: { username: string; password: string; tenantCode?: string; portalType: "PLATFORM" | "TENANT" }) =>
+export const loginAdmin = (payload: { username: string; password: string; portalType?: "PLATFORM" | "TENANT" | "SITE" }) =>
   apiPost<AdminAuthResponse>("/admin/auth/login", payload);
 
 export const confirmAdminMFASetup = (payload: {

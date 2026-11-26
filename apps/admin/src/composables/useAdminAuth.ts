@@ -39,8 +39,7 @@ export function useAdminAuth() {
     if (!window.localStorage.getItem("casino-admin-token")) return null;
     const actor = await fetchCurrentAdmin();
     setAdminActor(actor);
-    if (!profile.value) {
-      profile.value = {
+    profile.value = {
         id: actor.id,
         username: actor.username,
         displayName: actor.displayName || actor.username,
@@ -49,8 +48,8 @@ export function useAdminAuth() {
         defaultSiteID: actor.defaultSiteID,
         adminType: actor.adminType,
         mustChangePassword: actor.mustChangePassword,
-      };
-    }
+    };
+    window.localStorage.setItem("casino-admin-profile", JSON.stringify(profile.value));
     return actor;
   }
 
