@@ -513,7 +513,7 @@ func (r *Repository) providerByCodeReadable(ctx context.Context, scope content.S
 
 func applyReadableScope(db *gorm.DB, alias string, scope content.Scope) *gorm.DB {
 	if scope.Platform {
-		return db.Where(repositoryColumn(alias, "")+" = ? AND "+repositoryColumn(alias, "site_id")+" = ?", 0, 0)
+		return db.Where(repositoryColumn(alias, "site_id")+" = ?", 0)
 	}
 	return content.ApplySite(db, alias, scope)
 }
