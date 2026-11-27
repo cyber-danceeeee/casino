@@ -26,46 +26,6 @@ const f = (key: string, type: Filter['type'] = 'text', options?: string[]): Filt
 const c = (key: string, width = 150, kind?: Column['kind']): Column => ({ key, width, kind })
 const dates = (key: string) => f(`${key}Range`, 'dateRange')
 const detail = (value: unknown) => value as Promise<Record<string, unknown>>
-const timezoneOptions = [
-  'UTC',
-  'Asia/Karachi',
-  'Asia/Shanghai',
-  'Asia/Kuala_Lumpur',
-  'Asia/Tokyo',
-  'Asia/Bangkok',
-  'Asia/Jakarta',
-  'Asia/Manila',
-  'Asia/Ho_Chi_Minh',
-  'Asia/Kolkata',
-  'Asia/Dhaka',
-  'Asia/Singapore',
-  'Asia/Dubai',
-  'Africa/Lagos',
-  'Africa/Johannesburg',
-  'America/New_York',
-  'America/Los_Angeles',
-  'America/Mexico_City',
-  'America/Toronto',
-  'America/Sao_Paulo',
-  'America/Argentina/Buenos_Aires',
-  'America/Bogota',
-  'America/Lima',
-  'Europe/London',
-  'Europe/Istanbul',
-  'Australia/Sydney',
-]
-const languageOptions = [
-  'en', 'en-US', 'zh-CN', 'ur', 'es', 'es-MX', 'es-AR', 'es-CO', 'es-PE',
-  'pt-BR', 'ja', 'th', 'id', 'fil', 'vi', 'hi', 'bn', 'ms', 'ta', 'fr', 'tr', 'ar',
-]
-const countryCodeOptions = [
-  'PK', 'MX', 'BR', 'MY', 'TH', 'ID', 'JP', 'PH', 'VN', 'IN', 'BD', 'SG',
-  'NG', 'ZA', 'US', 'CA', 'GB', 'AU', 'TR', 'AR', 'CO', 'PE', 'AE',
-]
-const phoneCountryCodeOptions = [
-  '+1', '+27', '+44', '+51', '+52', '+54', '+55', '+57', '+60', '+61', '+62',
-  '+63', '+65', '+66', '+81', '+84', '+90', '+91', '+92', '+234', '+880', '+971',
-]
 
 export const systemConfigs: Record<string, SystemConfig> = {
   admins: {
@@ -113,44 +73,6 @@ export const systemConfigs: Record<string, SystemConfig> = {
     filters: [f('key'), f('name'), f('category', 'select', ['PLATFORM', 'BASIC', 'SECURITY', 'WALLET', 'PAYMENT', 'RISK', 'NOTIFICATION', 'FILE_STORAGE']), f('valueType', 'select', ['STRING', 'NUMBER', 'BOOLEAN', 'JSON', 'ENUM', 'SECRET'])],
     columns: [c('key', 240), c('nameZh'), c('nameEn'), c('category', 140, 'status'), c('value', 220), c('valueType', 110, 'status'), c('editable', 95, 'boolean'), c('sensitive', 95, 'boolean'), c('restartRequired', 125, 'boolean'), c('updatedAt', 175, 'time')],
     tabs: ['overview'], form: [fForm('value'), fForm('reason')], loader: systemAPI.configs.list,
-  },
-  'country-config': {
-    permission: 'system:country:list', createPermission: 'system:country:create', updatePermission: 'system:country:update', statusPermission: 'system:country:status', deletePermission: 'system:country:delete',
-    filters: [f('countryCode'), f('countryName'), f('currencyCode'), f('status', 'select', ['ENABLED', 'DISABLED']), f('isDefault', 'select', ['YES', 'NO']), dates('created')],
-    columns: [c('countryCode', 110), c('isoCountryCode', 125), c('countryName', 170), c('currencyCode', 115), c('currencySymbol', 115), c('phoneCountryCode', 115), c('phoneLength', 110), c('defaultLanguage', 130), c('timezone', 180), c('isDefault', 100, 'boolean'), c('enabled', 95, 'boolean'), c('updatedAt', 175, 'time')],
-    tabs: ['overview', 'logoAssets', 'theme', 'loadingAssets', 'operationLogs'],
-    form: [
-      fForm('countryCode'),
-      fForm('isoCountryCode', 'select', countryCodeOptions),
-      fForm('countryNameZh'),
-      fForm('countryNameEn'),
-      fForm('currencyCode'),
-      fForm('currencyNameZh'),
-      fForm('currencyNameEn'),
-      fForm('currencySymbol'),
-      fForm('currencyDecimalPlaces', 'number'),
-      fForm('timezone', 'select', timezoneOptions),
-      fForm('defaultLanguage', 'select', languageOptions),
-      fForm('supportedLanguages', 'multiSelect', languageOptions),
-      fForm('phoneCountryCode', 'select', phoneCountryCodeOptions),
-      fForm('phoneLength', 'number'),
-      fForm('enabled', 'boolean', undefined, true),
-      fForm('logoUrl', 'asset', undefined, false, 'image'),
-      fForm('faviconUrl', 'asset', undefined, false, 'image'),
-      fForm('loginLogoUrl', 'asset', undefined, false, 'image'),
-      fForm('headerLogoUrl', 'asset', undefined, false, 'image'),
-      fForm('loadingLogoUrl', 'asset', undefined, false, 'image'),
-      fForm('appIconUrl', 'asset', undefined, false, 'image'),
-      fForm('loadingAnimationUrl', 'asset', undefined, false, 'lottie'),
-      fForm('loadingBackgroundUrl', 'asset', undefined, false, 'image'),
-      fForm('primaryColor', 'color'),
-      fForm('secondaryColor', 'color'),
-      fForm('buttonColor', 'color'),
-      fForm('backgroundColor', 'color'),
-      fForm('textColor', 'color'),
-      fForm('reason'),
-    ],
-    loader: systemAPI.countries.list, detail: (id) => detail(systemAPI.countries.detail(id)), create: systemAPI.countries.create, update: systemAPI.countries.update, remove: systemAPI.countries.remove, status: systemAPI.countries.status,
   },
   'audit-logs': {
     permission: 'system:audit-log:view', readOnly: true,

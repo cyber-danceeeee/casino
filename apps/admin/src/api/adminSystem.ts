@@ -173,6 +173,7 @@ export const systemAPI = {
     reorder: (siteID: number, ids: number[], reason?: string) => apiPost<void>(`${root}/sites/${siteID}/popups/reorder`, { ids, reason }),
   },
   countries: {
+    presets: () => apiGet<SystemRecord[]>(`${root}/countries/presets`),
     list: (params: SystemQuery) => apiGet<SystemPage>(`${root}/countries`, params),
     detail: (id: number) => apiGet<SystemDetail>(`${root}/countries/${id}`),
     create: (payload: unknown) => apiPost<{ id: number }>(`${root}/countries`, payload),

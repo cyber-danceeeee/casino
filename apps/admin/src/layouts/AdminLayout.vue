@@ -252,7 +252,7 @@ async function handleUserCommand(command: string) {
 
       <el-main class="admin-main">
         <div class="admin-main-body">
-          <BrandDraftStatusBar />
+          <BrandDraftStatusBar v-if="route.path !== '/system/countries'" />
           <router-view />
         </div>
         <footer class="admin-footer">{{ platformFooter }}</footer>

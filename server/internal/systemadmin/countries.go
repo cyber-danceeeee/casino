@@ -172,6 +172,7 @@ func (s *Service) CountryDetail(id uint64) (map[string]any, error) {
 }
 
 func (s *Service) CreateCountry(input CountryInput, actor Actor) (uint64, error) {
+	input = countryInputDefaults(input)
 	if err := validateCountryInput(input, true); err != nil {
 		return 0, err
 	}
@@ -195,6 +196,7 @@ func (s *Service) CreateCountry(input CountryInput, actor Actor) (uint64, error)
 }
 
 func (s *Service) UpdateCountry(id uint64, input CountryInput, actor Actor) error {
+	input = countryInputDefaults(input)
 	if err := validateCountryInput(input, false); err != nil {
 		return err
 	}
@@ -203,20 +205,14 @@ func (s *Service) UpdateCountry(id uint64, input CountryInput, actor Actor) erro
 		return err
 	}
 	updates := countryUpdates(input, false)
+	if input.CountryCode != before.CountryCode {
+		return NewError("COUNTRY_CODE_IMMUTABLE", "create a different country instead of renaming an existing code")
+	}
 	updates["updated_at"] = now()
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		countryCode, _ := updates["country_code"].(string)
-		if countryCode != "" && countryCode != before.CountryCode {
-			var existing uint64
-			if err := tx.Table("game_country_configs").
-				Select("id").
-				Where("country_code=? AND id<>? AND deleted_at IS NULL", countryCode, id).
-				Limit(1).
-				Scan(&existing).Error; err != nil {
+		if input.CurrencyCode != before.CurrencyCode {
+			if err := countryNotInUse(tx, before.CountryCode); err != nil {
 				return err
-			}
-			if existing > 0 {
-				return NewError("DUPLICATE_COUNTRY_CODE", "country code already exists")
 			}
 		}
 		if err := tx.Table("game_country_configs").Where("id=? AND deleted_at IS NULL", id).Updates(updates).Error; err != nil {
@@ -239,6 +235,11 @@ func (s *Service) CountryStatus(id uint64, enabled bool, reason string, actor Ac
 	}
 	updates := map[string]any{"status": boolValue(enabled), "updated_at": now()}
 	return s.db.Transaction(func(tx *gorm.DB) error {
+		if !enabled {
+			if err := countryNotInUse(tx, before.CountryCode); err != nil {
+				return err
+			}
+		}
 		if err := tx.Table("game_country_configs").Where("id=? AND deleted_at IS NULL", id).Updates(updates).Error; err != nil {
 			return err
 		}
@@ -259,6 +260,9 @@ func (s *Service) DeleteCountry(id uint64, reason string, actor Actor) error {
 	}
 	updates := map[string]any{"deleted_at": now(), "updated_at": now()}
 	return s.db.Transaction(func(tx *gorm.DB) error {
+		if err := countryNotInUse(tx, before.CountryCode); err != nil {
+			return err
+		}
 		if err := tx.Table("game_country_configs").Where("id=? AND deleted_at IS NULL", id).Updates(updates).Error; err != nil {
 			return err
 		}
@@ -423,9 +427,6 @@ func countryUpdates(input CountryInput, creating bool) map[string]any {
 		phoneCountryCode = "+92"
 	}
 	phoneLength := input.PhoneLength
-	if phoneLength == 0 {
-		phoneLength = 10
-	}
 	branding := countryBranding{
 		LogoURL: countryAssetRef(input.LogoURL), FaviconURL: countryAssetRef(input.FaviconURL), LoginLogoURL: countryAssetRef(input.LoginLogoURL),
 		HeaderLogoURL: countryAssetRef(input.HeaderLogoURL), LoadingLogoURL: countryAssetRef(input.LoadingLogoURL), AppIconURL: countryAssetRef(input.AppIconURL),
@@ -444,6 +445,10 @@ func countryUpdates(input CountryInput, creating bool) map[string]any {
 		"branding_config": marshal(branding), "theme_config": marshal(theme),
 		"status": boolValue(boolDefault(input.Enabled, true)),
 	}
+	if !creating {
+		delete(updates, "branding_config")
+		delete(updates, "theme_config")
+	}
 	return updates
 }
 
@@ -456,14 +461,20 @@ func validateCountryInput(input CountryInput, creating bool) error {
 	if isoCountryCode != "" && !regexp.MustCompile(`^[A-Z]{2}$`).MatchString(isoCountryCode) {
 		return NewError("INVALID_ISO_COUNTRY_CODE", "ISO country code must be alpha-2")
 	}
+	if isoCountryCode != "" && isoCountryCode != countryCode {
+		return NewError("INVALID_ISO_COUNTRY_CODE", "country and ISO country code must be the same")
+	}
+	if !regexp.MustCompile(`^[A-Z]{3}$`).MatchString(strings.ToUpper(strings.TrimSpace(input.CurrencyCode))) {
+		return NewError("INVALID_CURRENCY", "currency code must have three letters")
+	}
 	if strings.TrimSpace(input.CountryNameEn) == "" || strings.TrimSpace(input.CurrencyCode) == "" || strings.TrimSpace(input.CurrencySymbol) == "" {
 		return NewError("INVALID_REQUEST", "country name, currency code and currency symbol are required")
 	}
-	if input.PhoneCountryCode != "" && !regexp.MustCompile(`^\+\d{1,4}$`).MatchString(strings.TrimSpace(input.PhoneCountryCode)) {
+	if !regexp.MustCompile(`^\+\d{1,4}$`).MatchString(strings.TrimSpace(input.PhoneCountryCode)) {
 		return NewError("INVALID_PHONE_COUNTRY_CODE", "phone country code must start with +")
 	}
 	if input.PhoneLength < 0 || input.PhoneLength > 15 {
-		return NewError("INVALID_PHONE_LENGTH", "phone length must be between 1 and 15, or 0 for the default")
+		return NewError("INVALID_PHONE_LENGTH", "phone length must be between 1 and 15, or 0 for variable length")
 	}
 	if input.CurrencyDecimalPlaces < 0 || input.CurrencyDecimalPlaces > 8 {
 		return NewError("INVALID_CURRENCY_DECIMALS", "invalid currency decimal places")

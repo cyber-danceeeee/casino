@@ -157,6 +157,7 @@ func adminSystemRouter(group *gin.RouterGroup, h *handler.AdminSystemHandler) {
 	g.PATCH("/sites/:siteId/status", adminauth.Require(adminauth.PermissionSystemSiteStatus), h.SiteStatus)
 
 	g.GET("/countries", adminauth.Require(adminauth.PermissionSystemCountryList), h.ListCountries)
+	g.GET("/countries/presets", adminauth.Require(adminauth.PermissionSystemCountryList), h.CountryPresets)
 	g.POST("/countries", adminauth.Require(adminauth.PermissionSystemCountryCreate), h.CreateCountry)
 	g.GET("/countries/:id", adminauth.Require(adminauth.PermissionSystemCountryView), h.GetCountry)
 	g.PUT("/countries/:id", adminauth.Require(adminauth.PermissionSystemCountryUpdate), h.UpdateCountry)

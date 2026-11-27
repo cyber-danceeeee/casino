@@ -69,3 +69,20 @@ func TestH5AuthPhoneCountryCode(t *testing.T) {
 		require.Error(t, err)
 	}
 }
+
+func TestH5AuthPhonePreservesIndonesianNumbersAndDistinctPrefixes(t *testing.T) {
+	for _, value := range []string{"81234567890", "821234567890", "3008567530"} {
+		phone, err := h5AuthPhone(value)
+		require.NoError(t, err)
+		require.Equal(t, value, phone)
+	}
+	first, err := h5AuthPhone("81234567890")
+	require.NoError(t, err)
+	second, err := h5AuthPhone("91234567890")
+	require.NoError(t, err)
+	require.NotEqual(t, first, second)
+	for _, value := range []string{"12345", "1234567890123456"} {
+		_, err = h5AuthPhone(value)
+		require.Error(t, err)
+	}
+}

@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { loginMockUser } from '../mock/session'
-import { normalizePhoneInput, phoneCountryCode, phoneLength } from '../services/runtimeConfig'
+import { normalizePhoneInput, phoneCountryCode, phoneLength, phoneMinimumLength } from '../services/runtimeConfig'
 import { getSafeRedirect } from '../utils/authRedirect'
 import customer from '../assets/images/reference/support-avatar.webp'
 import headerBg from '../assets/images/reference/auth-header.webp'
@@ -34,7 +34,7 @@ const actionLabel = computed(() => (isRegister.value ? 'Register' : 'Login'))
 const passwordInputType = computed(() => (passwordVisible.value ? 'text' : 'password'))
 const runtimePhoneCode = computed(() => phoneCountryCode())
 const runtimePhoneLength = computed(() => phoneLength())
-const runtimePhonePattern = computed(() => `[0-9]{${runtimePhoneLength.value}}`)
+const runtimePhonePattern = computed(() => `[0-9]{${phoneMinimumLength()},${runtimePhoneLength.value}}`)
 
 const switchAuthMode = () => {
   const redirect = getSafeRedirect(route.query.redirect)
@@ -136,7 +136,7 @@ watch(
               :pattern="runtimePhonePattern"
               :maxlength="runtimePhoneLength"
               autocomplete="tel"
-              placeholder="3008567530"
+              :placeholder="runtimePhoneCode === '+62' ? '81234567890' : '3008567530'"
               type="tel"
               @input="limitPhoneInput"
             />

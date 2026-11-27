@@ -1,4 +1,5 @@
 import { ref, shallowRef } from 'vue'
+import { phoneLimits } from '../utils/phoneNumber'
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '/api/v1').replace(/\/$/, '')
 const API_ORIGIN = API_BASE_URL.startsWith('http') ? new URL(API_BASE_URL).origin : ''
@@ -225,8 +226,11 @@ export function phoneCountryCode() {
 }
 
 export function phoneLength() {
-  const length = Number(runtimeConfig.value.country.phoneLength)
-  return Number.isFinite(length) && length > 0 ? length : 10
+  return phoneLimits(runtimeConfig.value.country.phoneLength ?? 10, phoneCountryCode()).max
+}
+
+export function phoneMinimumLength() {
+  return phoneLimits(runtimeConfig.value.country.phoneLength ?? 10, phoneCountryCode()).min
 }
 
 export function normalizePhoneInput(value: string) {

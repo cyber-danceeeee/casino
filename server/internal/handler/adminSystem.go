@@ -828,6 +828,9 @@ func (h *AdminSystemHandler) ListCountries(c *gin.Context) {
 	data, err := h.service.ListCountries(systemQuery(c, countrySystemKeys))
 	systemWrite(c, data, err)
 }
+func (h *AdminSystemHandler) CountryPresets(c *gin.Context) {
+	systemWrite(c, systemadmin.CountryPresets(), nil)
+}
 func (h *AdminSystemHandler) GetCountry(c *gin.Context) {
 	id, ok := systemID(c)
 	if !ok {

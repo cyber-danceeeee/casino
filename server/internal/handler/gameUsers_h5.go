@@ -399,7 +399,7 @@ func h5RegistrationValidationError(err error) bool {
 		return false
 	}
 	switch err.Error() {
-	case "phone is required", "password is required", "invalid phone country code":
+	case "phone is required", "password is required", "invalid phone country code", "invalid phone number":
 		return true
 	default:
 		return false
@@ -411,8 +411,13 @@ func h5AuthPhone(value string) (string, error) {
 	if phone == "" {
 		return "", errors.New("phone is required")
 	}
-	if len(phone) > 10 {
-		phone = phone[len(phone)-10:]
+	if len(phone) < 6 || len(phone) > 15 {
+		return "", errors.New("invalid phone number")
+	}
+	for _, char := range phone {
+		if char < '0' || char > '9' {
+			return "", errors.New("invalid phone number")
+		}
 	}
 	return phone, nil
 }
