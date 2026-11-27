@@ -1445,7 +1445,7 @@ watch(depositReturnExpanded, async (expanded) => {
               @click="selectDepositAmount(option)"
             >
               <span>{{ formatDepositMoney(option.amountValue) }}</span>
-              <em v-if="getDepositAmountOptionReward(option) > 0">{{ formatDepositNumber(getDepositAmountOptionReward(option)) }}</em>
+              <em v-if="getDepositAmountOptionReward(option) > 0" :aria-label="`Reward ${formatDepositMoney(getDepositAmountOptionReward(option))}`">+{{ formatDepositNumber(getDepositAmountOptionReward(option)) }}</em>
             </button>
           </div>
 
@@ -1454,6 +1454,10 @@ watch(depositReturnExpanded, async (expanded) => {
             <input v-model="depositAmount" inputmode="decimal" aria-label="Amount" />
             <button type="button" aria-label="Clear amount" @click="depositAmount = ''">×</button>
           </label>
+          <div v-if="selectedDepositReward.rewardAmountValue > 0" class="deposit-reward-summary" aria-live="polite">
+            <strong>Reward +{{ formatDepositMoney(selectedDepositReward.rewardAmountValue) }}</strong>
+            <span>Bonus {{ formatDepositMoney(depositBonusReward) }} · Cash {{ formatDepositMoney(depositCashReward) }}</span>
+          </div>
 
           <div class="deposit-label-row">
             <span><img class="deposit-label-row__icon" :src="depositVoucherImage" alt="" aria-hidden="true" /> Deposit Voucher</span>
@@ -2510,6 +2514,7 @@ watch(depositReturnExpanded, async (expanded) => {
 </template>
 
 <style scoped lang="scss">
+.deposit-reward-summary { display: grid; gap: 4px; margin: 10px 0 16px; font-size: 12px; line-height: 1.5; color: #b4c7de; strong { color: #00e6a0; font-weight: 600; } }
 .deposit-info { color: #b4c7de; font-size: 12px; line-height: 1.6; margin: 10px 0; }
 .profile-subpage {
   min-height: 100vh;

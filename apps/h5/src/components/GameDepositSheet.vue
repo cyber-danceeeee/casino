@@ -336,7 +336,7 @@ watch(
                   @click="selectAmount(option)"
                 >
                   <span>{{ formatMoney(option.amountValue) }}</span>
-                  <em v-if="getOptionReward(option) > 0">{{ formatNumber(getOptionReward(option)) }}</em>
+                  <em v-if="getOptionReward(option) > 0" :aria-label="`Reward ${formatMoney(getOptionReward(option))}`">+{{ formatNumber(getOptionReward(option)) }}</em>
                 </button>
               </div>
 
@@ -345,6 +345,10 @@ watch(
                 <input v-model="amount" inputmode="decimal" aria-label="Amount" />
                 <button type="button" aria-label="Clear amount" @click="amount = ''">×</button>
               </label>
+              <div v-if="selectedReward.rewardAmountValue > 0" class="game-deposit-reward-summary" aria-live="polite">
+                <strong>Reward +{{ formatMoney(selectedReward.rewardAmountValue) }}</strong>
+                <span>Bonus {{ formatMoney(selectedReward.bonusRewardValue) }} · Cash {{ formatMoney(selectedReward.cashRewardValue) }}</span>
+              </div>
 
               <div class="game-deposit-label">
                 <span><img :src="voucherTicketIcon" alt="" aria-hidden="true" /> Deposit Voucher</span>
@@ -497,6 +501,7 @@ watch(
 </template>
 
 <style scoped lang="scss">
+.game-deposit-reward-summary { display: grid; gap: 4px; margin: 10px 0 16px; font-size: 12px; line-height: 1.5; color: #b4c7de; strong { color: #00e6a0; font-weight: 600; } }
 .game-deposit-info { color: #b4c7de; font-size: 12px; line-height: 1.6; margin: 10px 0; }
 .game-deposit-overlay {
   position: fixed;
