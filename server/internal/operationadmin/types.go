@@ -126,16 +126,16 @@ type VIPBenefitInput struct {
 
 type VIPLevelInput struct {
 	Level              uint              `json:"level" binding:"required"`
-	Code               string            `json:"code" binding:"required,max=32"`
+	Code               string            `json:"code" binding:"max=32"`
 	NameZh             string            `json:"nameZh" binding:"max=64"`
 	NameEn             string            `json:"nameEn" binding:"max=64"`
 	Icon               string            `json:"icon" binding:"max=500"`
 	RequiredExperience uint64            `json:"requiredExperience"`
 	RequiredDeposit    string            `json:"requiredDeposit" binding:"required"`
 	RequiredValidBet   string            `json:"requiredValidBet" binding:"required"`
-	WithdrawalLimit    string            `json:"withdrawalLimit" binding:"required"`
-	CashbackRate       string            `json:"cashbackRate" binding:"required"`
-	BirthdayReward     string            `json:"birthdayReward" binding:"required"`
+	WithdrawalLimit    string            `json:"withdrawalLimit"`
+	CashbackRate       string            `json:"cashbackRate"`
+	BirthdayReward     string            `json:"birthdayReward"`
 	MonthlyReward      string            `json:"monthlyReward" binding:"required"`
 	LevelUpReward      *string           `json:"levelUpReward"`
 	WeeklyReward       *string           `json:"weeklyReward"`

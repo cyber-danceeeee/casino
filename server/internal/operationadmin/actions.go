@@ -173,14 +173,14 @@ func (s *Service) ListVIPLevels(q ListQuery) (PageResult, error) {
 		db = boolFilter(db, "enabled", q.Values["enabled"])
 	}
 	if !q.Scope.SiteScoped() {
-		result, err := page(db.Order("sort_order,level_no"), q, &rows)
+		result, err := page(db.Order("level_no,id"), q, &rows)
 		if err != nil {
 			return result, err
 		}
 		for i := range rows {
 			content.ApplySite(s.db.Table("game_users"), "", q.Scope).Where("vip_level=? AND deleted_at IS NULL", rows[i].LevelNo).Count(&rows[i].UserCount)
 			signVIPAssets(&rows[i])
-			if err := loadVIPRetention(s.db, &rows[i]); err != nil {
+			if err := loadVIPRequirements(s.db, &rows[i]); err != nil {
 				return result, err
 			}
 		}
@@ -188,7 +188,7 @@ func (s *Service) ListVIPLevels(q ListQuery) (PageResult, error) {
 		return result, nil
 	}
 	db = boolFilter(db, "enabled", q.Values["enabled"])
-	result, err := page(db.Order("sort_order,level_no"), q, &rows)
+	result, err := page(db.Order("level_no,id"), q, &rows)
 	if err != nil {
 		return result, err
 	}
@@ -196,7 +196,7 @@ func (s *Service) ListVIPLevels(q ListQuery) (PageResult, error) {
 		rows[i].Metadata = operationdefaults.Metadata{CanEdit: true, CanDelete: true, Visible: rows[i].Enabled}
 		content.ApplySite(s.db.Table("game_users"), "", q.Scope).Where("vip_level=? AND deleted_at IS NULL", rows[i].LevelNo).Count(&rows[i].UserCount)
 		signVIPAssets(&rows[i])
-		if err := loadVIPRetention(s.db, &rows[i]); err != nil {
+		if err := loadVIPRequirements(s.db, &rows[i]); err != nil {
 			return result, err
 		}
 	}
@@ -235,7 +235,7 @@ func (s *Service) GetVIPLevel(id uint64, scope content.Scope) (map[string]any, e
 		return nil, notFound(err, "VIP_LEVEL_NOT_FOUND")
 	}
 	row.Metadata = operationdefaults.Metadata{CanEdit: true, CanDelete: true, Visible: row.Enabled}
-	if err := loadVIPRetention(s.db, &row); err != nil {
+	if err := loadVIPRequirements(s.db, &row); err != nil {
 		return nil, err
 	}
 	signVIPAssets(&row)
@@ -258,18 +258,6 @@ func (s *Service) SaveVIPLevel(id uint64, in VIPLevelInput, actor Actor) (uint64
 	if err != nil {
 		return 0, err
 	}
-	withdrawal, err := parseDecimal(in.WithdrawalLimit, "withdrawalLimit")
-	if err != nil {
-		return 0, err
-	}
-	cashback, err := parseDecimal(in.CashbackRate, "cashbackRate")
-	if err != nil {
-		return 0, err
-	}
-	birthday, err := parseDecimal(in.BirthdayReward, "birthdayReward")
-	if err != nil {
-		return 0, err
-	}
 	monthly, err := parseDecimal(in.MonthlyReward, "monthlyReward")
 	if err != nil {
 		return 0, err
@@ -282,9 +270,36 @@ func (s *Service) SaveVIPLevel(id uint64, in VIPLevelInput, actor Actor) (uint64
 				return notFound(err, "VIP_LEVEL_NOT_FOUND")
 			}
 			action = "update"
-			if err := loadVIPRetention(tx, &before); err != nil {
+			if err := loadVIPRequirements(tx, &before); err != nil {
 				return err
 			}
+		}
+		withdrawal, err := optionalVIPAmount(in.WithdrawalLimit, before.WithdrawalLimit, "withdrawalLimit")
+		if err != nil {
+			return err
+		}
+		cashback, err := optionalVIPAmount(in.CashbackRate, before.CashbackRate, "cashbackRate")
+		if err != nil {
+			return err
+		}
+		birthday, err := optionalVIPAmount(in.BirthdayReward, before.BirthdayReward, "birthdayReward")
+		if err != nil {
+			return err
+		}
+		code := strings.TrimSpace(in.Code)
+		if code == "" {
+			code = before.Code
+		}
+		if code == "" {
+			code = fmt.Sprintf("vip-%d", in.Level)
+		}
+		experience := in.RequiredExperience
+		if experience == 0 {
+			experience = before.RequiredExperience
+		}
+		sortOrder := in.SortOrder
+		if sortOrder == 0 {
+			sortOrder = before.SortOrder
 		}
 		nameZh := strings.TrimSpace(in.NameZh)
 		nameEn := strings.TrimSpace(in.NameEn)
@@ -315,7 +330,7 @@ func (s *Service) SaveVIPLevel(id uint64, in VIPLevelInput, actor Actor) (uint64
 		if name == "" {
 			name = nameZh
 		}
-		row := vipRecord{ID: id, SiteID: actor.Scope.SiteID, LevelNo: in.Level, Code: strings.TrimSpace(in.Code), Name: name, NameZh: nameZh, NameEn: nameEn, IconURL: icon, RequiredExperience: in.RequiredExperience, RequiredDeposit: &requiredDeposit, RequiredValidBet: &requiredBet, WithdrawalLimit: &withdrawal, CashbackRate: &cashback, BirthdayReward: &birthday, MonthlyReward: &monthly, SortOrder: in.SortOrder, Status: operationStatus(in.Enabled), Enabled: in.Enabled}
+		row := vipRecord{ID: id, SiteID: actor.Scope.SiteID, LevelNo: in.Level, Code: code, Name: name, NameZh: nameZh, NameEn: nameEn, IconURL: icon, RequiredExperience: experience, RequiredDeposit: &requiredDeposit, RequiredValidBet: &requiredBet, WithdrawalLimit: &withdrawal, CashbackRate: &cashback, BirthdayReward: &birthday, MonthlyReward: &monthly, SortOrder: sortOrder, Status: operationStatus(in.Enabled), Enabled: in.Enabled}
 		if id > 0 {
 			row.SiteID = before.SiteID
 		}
@@ -338,20 +353,22 @@ func (s *Service) SaveVIPLevel(id uint64, in VIPLevelInput, actor Actor) (uint64
 		if err := saveVIPRequirements(tx, row, in); err != nil {
 			return err
 		}
-		if err := loadVIPRetention(tx, &row); err != nil {
+		if err := loadVIPRequirements(tx, &row); err != nil {
 			return err
 		}
-		now := time.Now()
-		if err := content.ApplySite(tx.Table("game_vip_benefits"), "", actor.Scope).Where("vip_level_id = ?", id).Updates(map[string]any{"deleted_at": now, "updated_at": now}).Error; err != nil {
-			return err
-		}
-		for _, b := range in.Benefits {
-			v, e := parseDecimal(b.BenefitValue, "benefitValue")
-			if e != nil {
-				return e
-			}
-			if err := tx.Create(&model.GameVIPBenefit{SiteID: actor.Scope.SiteID, VIPLevelID: id, BenefitCode: b.BenefitCode, NameZh: b.NameZh, NameEn: b.NameEn, BenefitValue: &v, ValueUnit: b.ValueUnit, Enabled: b.Enabled, SortOrder: b.SortOrder}).Error; err != nil {
+		if in.Benefits != nil {
+			now := time.Now()
+			if err := content.ApplySite(tx.Table("game_vip_benefits"), "", actor.Scope).Where("vip_level_id = ?", id).Updates(map[string]any{"deleted_at": now, "updated_at": now}).Error; err != nil {
 				return err
+			}
+			for _, b := range in.Benefits {
+				v, e := parseDecimal(b.BenefitValue, "benefitValue")
+				if e != nil {
+					return e
+				}
+				if err := tx.Create(&model.GameVIPBenefit{SiteID: actor.Scope.SiteID, VIPLevelID: id, BenefitCode: b.BenefitCode, NameZh: b.NameZh, NameEn: b.NameEn, BenefitValue: &v, ValueUnit: b.ValueUnit, Enabled: b.Enabled, SortOrder: b.SortOrder}).Error; err != nil {
+					return err
+				}
 			}
 		}
 		if err := content.ApplySite(tx.Model(&vipRecord{}), "", actor.Scope).Where("id=?", id).First(&row).Error; err != nil {

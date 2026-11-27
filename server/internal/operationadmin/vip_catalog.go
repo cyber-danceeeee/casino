@@ -39,10 +39,18 @@ func applyVIPRewards(row *vipRecord, before vipRecord, in VIPLevelInput) error {
 	return nil
 }
 
-func loadVIPRetention(db *gorm.DB, level *vipRecord) error {
+func loadVIPRequirements(db *gorm.DB, level *vipRecord) error {
+	var upgrade model.GameVipRequirements
+	err := db.Where("site_id=? AND vip_level_id=? AND requirement_type='level_up'", level.SiteID, level.ID).Order("id DESC").Take(&upgrade).Error
+	if err == nil {
+		level.RequiredDeposit, level.RequiredValidBet = upgrade.DepositAmount, upgrade.ValidBetAmount
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+
 	level.RetainPeriodDays, level.RetainDeposit, level.RetainValidBet = 0, "0.00", "0.00"
 	var row model.GameVipRequirements
-	err := db.Where("site_id=? AND vip_level_id=? AND requirement_type='retain'", level.SiteID, level.ID).Order("id DESC").Take(&row).Error
+	err = db.Where("site_id=? AND vip_level_id=? AND requirement_type='retain'", level.SiteID, level.ID).Order("id DESC").Take(&row).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil
 	}
@@ -101,4 +109,14 @@ func upsertVIPRequirement(tx *gorm.DB, level vipRecord, kind string, days uint, 
 		return tx.Create(&row).Error
 	}
 	return tx.Model(&row).Updates(map[string]any{"target_level_no": level.LevelNo, "period_days": days, "deposit_amount": deposit, "valid_bet_amount": bet}).Error
+}
+
+func optionalVIPAmount(value string, previous *decimal.Decimal, name string) (decimal.Decimal, error) {
+	if value == "" {
+		if previous != nil {
+			return *previous, nil
+		}
+		return decimal.Zero, nil
+	}
+	return parseDecimal(value, name)
 }

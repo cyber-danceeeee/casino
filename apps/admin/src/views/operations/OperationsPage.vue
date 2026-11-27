@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import VipLevelForm from "@/components/operations/VipLevelForm.vue";
 import { computed, onMounted, reactive, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
@@ -69,15 +70,6 @@ type RewardRule = {
   enabled: boolean;
   sortOrder: number;
 };
-type BenefitRule = {
-  benefitCode: string;
-  nameZh: string;
-  nameEn: string;
-  benefitValue: string;
-  valueUnit: string;
-  enabled: boolean;
-  sortOrder: number;
-};
 type VoucherRewardTier = {
   id: number;
   amountOptionID: number;
@@ -121,7 +113,6 @@ const participationRules = ref<ParticipationRule[]>([]);
 const rewardRules = ref<RewardRule[]>([]);
 const eligibleGameSelection = ref<number[]>([]);
 const eligibleGameOptions = ref<Array<{ value: number; label: string }>>([]);
-const benefits = ref<BenefitRule[]>([]);
 const voucherRewardTiers = ref<VoucherRewardTier[]>([]);
 const reasonVisible = ref(false);
 const reasonLoading = ref(false);
@@ -364,6 +355,10 @@ function detailMenuCode(tab: string) {
 function detailEntries(tab: string) {
   const value = detail.value[tab];
   if (!isObject(value)) return [];
+  if (moduleKey.value === "vip" && tab === "overview") {
+    const visible = new Set(config.value.form.map(field => field.key));
+    return businessEntries(value).filter(([key])=>visible.has(key));
+  }
   return businessEntries(value).filter(
     ([key]) => !(moduleKey.value === "h5-navigation" && key === "menuCode"),
   );
@@ -613,6 +608,10 @@ async function openDetail(row: OperationRecord, tab = "") {
 }
 
 function defaultValue(field: OperationField): unknown {
+  if (moduleKey.value === "vip") {
+    if (field.key === "level") return 1;
+    if (field.type !== "number" && field.type !== "switch") return "0.00";
+  }
   if (field.multiple) return field.key === "channel" ? ["FCM"] : [];
   if (field.type === "switch")
     return field.key === "enabled" || field.key === "loop";
@@ -684,7 +683,6 @@ function resetForm() {
   });
   participationRules.value = [];
   rewardRules.value = [];
-  benefits.value = [];
   voucherRewardTiers.value = [];
   eligibleGameSelection.value = [];
   notificationAudienceSelection.value = [];
@@ -718,6 +716,7 @@ async function openCreate() {
   resetForm();
   editVisible.value = true;
   if (moduleKey.value === "push-messages") form.channel = ["FCM"];
+  if (moduleKey.value === "vip") form.level = Math.max(0, ...rows.value.map(row => Number(row.level || 0))) + 1;
   if (moduleKey.value === "activities") {
     await loadEligibleGameOptions();
     form.type = "FIRST_DEPOSIT_BONUS";
@@ -774,13 +773,10 @@ async function openEdit(row: OperationRecord) {
     rewardRules.value = Array.isArray(data.rewardRules)
       ? data.rewardRules.map((item) => normalizeReward(item))
       : [];
-    benefits.value = Array.isArray(data.benefits)
-      ? data.benefits.map((item) => normalizeBenefit(item))
-      : [];
     voucherRewardTiers.value = Array.isArray(data.rewardTiers)
       ? data.rewardTiers.map((item) => normalizeVoucherTier(item))
       : [];
-    await loadEligibleGameOptions();
+    if (moduleKey.value === "activities") await loadEligibleGameOptions();
     eligibleGameSelection.value = Array.isArray(data.eligibleGames)
       ? data.eligibleGames
           .map((item) => Number(isObject(item) ? item.id : 0))
@@ -824,18 +820,6 @@ function normalizeReward(value: unknown): RewardRule {
     sortOrder: Number(item.sortOrder || 0),
   };
 }
-function normalizeBenefit(value: unknown): BenefitRule {
-  const item = isObject(value) ? value : {};
-  return {
-    benefitCode: String(item.benefitCode || ""),
-    nameZh: String(item.nameZh || ""),
-    nameEn: String(item.nameEn || ""),
-    benefitValue: String(item.benefitValue || "0"),
-    valueUnit: String(item.valueUnit || "AMOUNT"),
-    enabled: item.enabled !== false,
-    sortOrder: Number(item.sortOrder || 0),
-  };
-}
 function normalizeVoucherTier(value: unknown): VoucherRewardTier {
   const item = isObject(value) ? value : {};
   return {
@@ -855,9 +839,7 @@ function addParticipationRule() {
 function addRewardRule() {
   rewardRules.value.push(normalizeReward({}));
 }
-function addBenefit() {
-  benefits.value.push(normalizeBenefit({}));
-}
+
 function addVoucherTier() {
   voucherRewardTiers.value.push(normalizeVoucherTier({}));
 }
@@ -894,7 +876,6 @@ function formPayload(): OperationPayload {
     payload.rewardRules = rewardRules.value;
     payload.eligibleGameIDs = eligibleGameSelection.value;
   }
-  if (moduleKey.value === "vip") payload.benefits = benefits.value;
   if (moduleKey.value === "vouchers") {
     payload.titleEn = String(payload.titleEn || payload.titleZh || "").trim();
     payload.descriptionEn = String(payload.descriptionEn || payload.descriptionZh || "").trim();
@@ -1157,8 +1138,6 @@ async function setOperationEnabled(row: OperationRecord, enabled: boolean) {
         source[field.key] ?? source[aliases[field.key]] ?? defaultValue(field);
     });
     payload.enabled = enabled;
-    if (moduleKey.value === "vip")
-      payload.benefits = Array.isArray(data.benefits) ? data.benefits : [];
     await updateOperation(config.value.resource, row.id, payload);
     row.enabled = enabled;
     ElMessage.success(t("operations.messages.operationSucceeded"));
@@ -1867,7 +1846,8 @@ onMounted(async () => {
       destroy-on-close
     >
       <div v-loading="editLoading">
-        <el-form
+        <VipLevelForm v-if="moduleKey === 'vip'" :form="form" :editing="editingID > 0" />
+        <el-form v-else
           class="operations-form"
           label-position="left"
           label-width="132px"
@@ -2106,41 +2086,6 @@ onMounted(async () => {
           <el-form-item :label="t('operations.fields.eligibleGames')"
             ><el-select v-model="eligibleGameSelection" multiple filterable collapse-tags><el-option v-for="item in eligibleGameOptions" :key="item.value" :label="item.label" :value="item.value" /></el-select></el-form-item>
         </section>
-        <section v-if="moduleKey === 'vip'" class="operations-rules">
-          <div class="operations-rules__head">
-            <strong>{{ t("operations.tabs.benefits") }}</strong
-            ><el-button @click="addBenefit">{{
-              t("operations.actions.addBenefit")
-            }}</el-button>
-          </div>
-          <div
-            v-for="(benefit, index) in benefits"
-            :key="index"
-            class="operations-rule-row"
-          >
-            <el-input
-              v-model="benefit.benefitCode"
-              :placeholder="t('operations.fields.benefitCode')"
-            /><el-input
-              v-model="benefit.nameZh"
-              :placeholder="t('operations.fields.nameZh')"
-            /><el-input
-              v-model="benefit.nameEn"
-              :placeholder="t('operations.fields.nameEn')"
-            /><el-input
-              v-model="benefit.benefitValue"
-              :placeholder="t('operations.fields.benefitValue')"
-            /><el-select v-model="benefit.valueUnit"
-              ><el-option
-                v-for="item in ['AMOUNT', 'PERCENT', 'COUNT']"
-                :key="item"
-                :label="translatedValue(item)"
-                :value="item" /></el-select
-            ><el-button type="danger" link @click="removeAt(benefits, index)">{{
-              t("operations.actions.remove")
-            }}</el-button>
-          </div>
-        </section>
         <section v-if="moduleKey === 'vouchers'" class="operations-rules">
           <div class="operations-rules__head">
             <strong>{{ t("operations.tabs.rewardTiers") }}</strong>
@@ -2191,7 +2136,7 @@ onMounted(async () => {
           t("common.cancel")
         }}</el-button
         ><el-button type="primary" :loading="editLoading" @click="submitForm">{{
-          t("common.confirm")
+          t(moduleKey === "vip" ? "common.save" : "common.confirm")
         }}</el-button></template
       >
     </el-dialog>

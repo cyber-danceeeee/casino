@@ -1,5 +1,6 @@
 export const messages = {
   "zh-CN": {
+    vipEditor: { linked:"与 H5 VIP 页面共用配置",help:"金额使用当前站点币种，保存后刷新 H5 VIP 页面即可看到变化。等级图标和页面样式随 H5 版本更新。",rewards:"等级与奖励",upgrade:"升级条件",retention:"保级条件",retainEnabled:"启用保级要求",retainDisabled:"该等级不要求保级。" },
  liveConfig:{saved:"保存成功，已立即生效",immediate:"保存即生效；启停、排序和删除直接应用到 H5。",fixedMedia:"固定图片和音乐随 H5 代码部署，业务参数在后台维护。",changeCountry:"切换国家配置",version:"配置版本",updatedAt:"最后更新"},
     singleSite: { providers: "供应商配置", console: "H5 运营后台", settings: "H5 配置", h5Address: "H5 访问地址", viewH5: "查看 H5" },
     app: {
@@ -2861,8 +2862,8 @@ export const messages = {
         monthlyReward: "月度奖励",
         levelUpReward: "升级奖励",
         weeklyReward: "每周奖励",
-        dailyWithdrawCount: "每日提现次数",
-        retainPeriodDays: "保级周期（天，0 为关闭）",
+        dailyWithdrawCount: "每日额外免费提现次数",
+        retainPeriodDays: "保级周期（天）",
         retainDeposit: "保级充值要求",
         retainValidBet: "保级有效投注要求",
         userCount: "用户数",
@@ -5008,6 +5009,7 @@ export const messages = {
     },
   },
   "en-US": {
+    vipEditor: { linked:"Connected to the H5 VIP page",help:"Amounts use the deployment currency. Save, then refresh H5 VIP to see changes. Icons and styling ship with H5 releases.",rewards:"Level and rewards",upgrade:"Upgrade requirements",retention:"Retention requirements",retainEnabled:"Require level retention",retainDisabled:"This level has no retention requirement." },
  liveConfig:{saved:"Saved and effective immediately",immediate:"Saves, status changes, sorting and deletions apply to H5 immediately.",fixedMedia:"Fixed images and music ship with H5 code. Business settings stay in this console.",changeCountry:"Change Country",version:"Configuration Version",updatedAt:"Last Updated"},
     singleSite: { providers: "Supplier Connections", console: "H5 Administration", settings: "H5 Configuration", h5Address: "H5 Address", viewH5: "View H5" },
     app: {
@@ -7366,8 +7368,8 @@ export const messages = {
         monthlyReward: "Monthly Reward",
         levelUpReward: "Level Up Reward",
         weeklyReward: "Weekly Reward",
-        dailyWithdrawCount: "Daily Withdrawal Count",
-        retainPeriodDays: "Retention Period (days, 0 to disable)",
+        dailyWithdrawCount: "Additional Daily Fee-Free Withdrawals",
+        retainPeriodDays: "Retention Period (days)",
         retainDeposit: "Retention Deposit",
         retainValidBet: "Retention Valid Bets",
         userCount: "User Count",

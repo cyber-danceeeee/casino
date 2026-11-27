@@ -6,6 +6,7 @@ import (
 	"casino/internal/content"
 	"casino/internal/model"
 
+	"github.com/gin-gonic/gin/binding"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -38,7 +39,7 @@ func TestVIPAdminSaveKeepsRewardsAndH5RequirementsTogether(t *testing.T) {
 	require.Equal(t, "2.25", saved.LevelUpReward.StringFixed(2))
 	require.Equal(t, "3.50", saved.WeeklyReward.StringFixed(2))
 	require.Equal(t, uint(3), saved.DailyWithdrawCount)
-	require.NoError(t, loadVIPRetention(db, &saved))
+	require.NoError(t, loadVIPRequirements(db, &saved))
 	require.Equal(t, uint(7), saved.RetainPeriodDays)
 	require.Equal(t, "50.00", saved.RetainDeposit)
 	var rules []model.GameVipRequirements
@@ -56,7 +57,7 @@ func TestVIPAdminSaveKeepsRewardsAndH5RequirementsTogether(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, db.First(&saved, id).Error)
 	require.Equal(t, "2.25", saved.LevelUpReward.StringFixed(2))
-	require.NoError(t, loadVIPRetention(db, &saved))
+	require.NoError(t, loadVIPRequirements(db, &saved))
 	require.Equal(t, uint(7), saved.RetainPeriodDays)
 	rules = nil
 	require.NoError(t, db.Order("requirement_type").Find(&rules).Error)
@@ -81,6 +82,43 @@ func TestVIPAdminSaveKeepsRewardsAndH5RequirementsTogether(t *testing.T) {
 	require.NoError(t, db.Find(&rules).Error)
 	require.Len(t, rules, 1)
 	require.Equal(t, "level_up", rules[0].RequirementType)
-	require.NoError(t, loadVIPRetention(db, &saved))
+	require.NoError(t, loadVIPRequirements(db, &saved))
 	require.Zero(t, saved.RetainPeriodDays)
+	// Imported H5 rules remain authoritative even when legacy admin columns are zero.
+	require.NoError(t, db.Model(&vipRecord{}).Where("id=?", id).Updates(map[string]any{"required_deposit": 0, "required_valid_bet": 0, "birthday_reward": 23, "cashback_rate": 5, "required_experience": 99, "sort_order": 20}).Error)
+	require.NoError(t, db.First(&saved, id).Error)
+	require.NoError(t, loadVIPRequirements(db, &saved))
+	require.Equal(t, "200.00", saved.RequiredDeposit.StringFixed(2))
+	require.Equal(t, "1000.00", saved.RequiredValidBet.StringFixed(2))
+	benefitAmount := saved.MonthlyReward
+	require.NoError(t, db.Create(&model.GameVIPBenefit{SiteID: 1, VIPLevelID: id, BenefitCode: "legacy", NameEn: "Existing benefit", BenefitValue: benefitAmount, Enabled: true}).Error)
+	// The simplified editor omits internal codes, legacy money fields and custom benefits.
+	simple := VIPLevelInput{Level: 3, RequiredDeposit: "250.00", RequiredValidBet: "2500.00", MonthlyReward: "12.50", Enabled: true}
+	require.NoError(t, binding.Validator.ValidateStruct(&simple))
+	_, err = s.SaveVIPLevel(id, simple, actor)
+	require.NoError(t, err)
+	require.NoError(t, db.First(&saved, id).Error)
+	require.Equal(t, "250.00", saved.RequiredDeposit.StringFixed(2))
+	require.Equal(t, "1000.00", saved.WithdrawalLimit.StringFixed(2))
+	require.Equal(t, "23.00", saved.BirthdayReward.StringFixed(2))
+	require.Equal(t, "5.00", saved.CashbackRate.StringFixed(2))
+	require.Equal(t, uint64(99), saved.RequiredExperience)
+	require.Equal(t, 20, saved.SortOrder)
+	require.Equal(t, "vip1", saved.Code)
+	require.Equal(t, "12.50", saved.MonthlyReward.StringFixed(2))
+	var benefitCount int64
+	require.NoError(t, db.Model(&model.GameVIPBenefit{}).Where("vip_level_id=?", id).Count(&benefitCount).Error)
+	require.Equal(t, int64(1), benefitCount)
+	rules = nil
+	require.NoError(t, db.Where("vip_level_id=? AND requirement_type='level_up'", id).Find(&rules).Error)
+	require.Equal(t, "250.00", rules[0].DepositAmount.StringFixed(2))
+	require.Equal(t, "2500.00", rules[0].ValidBetAmount.StringFixed(2))
+	simple.Level = 4
+	newID, err := s.SaveVIPLevel(0, simple, actor)
+	require.NoError(t, err)
+	var created vipRecord
+	require.NoError(t, db.First(&created, newID).Error)
+	require.Equal(t, "vip-4", created.Code)
+	require.True(t, created.WithdrawalLimit.IsZero())
+
 }
