@@ -489,7 +489,9 @@ const applyHomeCatalog = (catalog: HomeCatalogSnapshot) => {
 
 const loadHomeData = async () => {
   try {
-    applyHomeCatalog(await loadHomeCatalog())
+    // Show the cached catalog immediately, then revalidate on every page entry.
+    // Syncing games does not change the runtime resource version.
+    applyHomeCatalog(await loadHomeCatalog(true))
     await nextTick(requestActiveCategoryUpdate)
   } catch (error) {
     console.warn('[api] failed to load home game catalog.', error)
