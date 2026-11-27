@@ -192,7 +192,7 @@ func (r *Repository) UpsertGame(ctx context.Context, provider *model.GameGamePro
 		"raw_metadata":        rawMetadata,
 		"metadata_hash":       rawMetadataHash,
 		"last_synced_at":      now,
-		"status":              effectiveGameStatus(game.IsEnabled, existing.PlatformEnabled),
+		"status":              gorm.Expr("CASE WHEN status=2 THEN 2 ELSE ? END", effectiveGameStatus(game.IsEnabled, existing.PlatformEnabled)),
 	}
 	if game.LocalThumbnailURL != "" {
 		updates["local_thumbnail_url"] = game.LocalThumbnailURL
@@ -235,7 +235,7 @@ func (r *Repository) MarkMissingProviderGames(ctx context.Context, providerID ui
 	if len(providerGameIDs) > 0 {
 		db = db.Where("provider_game_code NOT IN ?", providerGameIDs)
 	}
-	result := db.Updates(map[string]any{"provider_enabled": false, "status": 3})
+	result := db.Updates(map[string]any{"provider_enabled": false, "status": gorm.Expr("CASE WHEN status=2 THEN 2 ELSE 3 END")})
 	return int(result.RowsAffected), result.Error
 }
 

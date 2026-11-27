@@ -61,6 +61,7 @@ func TestPublicCategoryUsesOnlyCuratedMembershipAndDisplayOrder(t *testing.T) {
 	} {
 		require.NoError(t, db.Exec(query).Error)
 	}
+	require.NoError(t, db.Exec("UPDATE game_games SET status=2 WHERE id=2").Error)
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Request = httptest.NewRequest("GET", "/games?category=slots", nil)
 	scope := content.Scope{SiteID: 1}

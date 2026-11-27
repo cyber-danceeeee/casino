@@ -818,8 +818,7 @@ const normalizeGameSection = (payload: RemoteGameListPayload, category: GameCate
   const providerById = new Map<number, RemoteProvider>()
   const enabledGames = games.filter(
     (game) =>
-      game.effectiveEnabled !== false &&
-      game.isEnabled !== false &&
+      (game.status === 2 || (game.effectiveEnabled !== false && game.isEnabled !== false)) &&
       (!shouldRestrictProviders || supportedProviderCodes.has(normalizeProviderCode(game.providerCode))),
   )
 
@@ -851,8 +850,7 @@ const normalizeGameList = (payload: RemoteGameListPayload, category: CategoryKey
   const providerById = new Map<number, RemoteProvider>()
   const enabledGames = (payload.list || []).filter(
     (game) =>
-      game.effectiveEnabled !== false &&
-      game.isEnabled !== false &&
+      (game.status === 2 || (game.effectiveEnabled !== false && game.isEnabled !== false)) &&
       (!shouldRestrictProviders || supportedProviderCodes.has(normalizeProviderCode(game.providerCode))),
   )
 

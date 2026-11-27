@@ -28,7 +28,7 @@ const selected = ref<GameCenterRecord[]>([]);
 const categories = ref<GameCenterRecord[]>([]);
 const providerOptions = ref<AdminOption[]>([]);
 const providerCategoryOptions = ref<ProviderGameTypeOption[]>([]);
-const filters = reactive({ keyword: "", providerCode: "", providerCategory: "", enabled: "" });
+const filters = reactive({ keyword: "", providerCode: "", providerCategory: "", maintenance: "" });
 const categoryDialogVisible = ref(false);
 const categorySaving = ref(false);
 const categoryForm = reactive({ ids: [] as number[], reason: "" });
@@ -63,7 +63,7 @@ async function load() {
       gameName: filters.keyword || undefined,
       providerCode: filters.providerCode || undefined,
       providerCategory: filters.providerCategory || undefined,
-      enabled: filters.enabled || undefined,
+      maintenance: filters.maintenance || undefined,
     });
     rows.value = result.list || [];
     total.value = result.total || 0;
@@ -98,7 +98,7 @@ async function loadCategories() {
   }
 }
 async function batch(
-  field: "platformEnabled" | "isHot" | "isFeatured" | "isNew",
+  field: "maintenance" | "isHot" | "isFeatured" | "isNew",
   value: boolean,
 ) {
   if (!selected.value.length) return;
@@ -137,6 +137,16 @@ async function batch(
       );
   }
 }
+async function changeMaintenance(row: GameCenterRecord, enabled: boolean) {
+  try {
+    await batchUpdateGames({ids:[row.id], maintenance:enabled, reason:"toggle_game_maintenance"});
+    ElMessage.success(t("gameCenter.messages.savedImmediate"));
+    window.dispatchEvent(new Event("brand-config-refresh"));
+    await load();
+  } catch(error) {
+    ElMessage.error(error instanceof Error ? error.message : t("siteExperience.common.actionFailed"));
+  }
+}
 async function assignCategory() {
   if (!selected.value.length) return;
   categoryForm.ids = [];
@@ -163,7 +173,7 @@ async function saveCategories() {
   }
 }
 function reset() {
-  Object.assign(filters, { keyword: "", providerCode: "", providerCategory: "", enabled: "" });
+  Object.assign(filters, { keyword: "", providerCode: "", providerCategory: "", maintenance: "" });
   providerCategoryOptions.value = [];
   page.value = 1;
   void load();
@@ -218,13 +228,13 @@ onMounted(async () => {
         :placeholder="t('gameCenter.fields.providerCategory')"
       ><el-option v-for="item in providerCategoryOptions" :key="item.code" :label="`${item.code} (${item.gameCount})`" :value="item.code" /></el-select
       ><el-select
-        v-model="filters.enabled"
+        v-model="filters.maintenance"
         clearable
-        :placeholder="t('siteExperience.fields.status')"
+        :placeholder="t('gameCenter.fields.maintenance')"
         ><el-option
-          :label="t('siteExperience.status.ENABLED')"
+          :label="t('gameCenter.fields.maintenanceOn')"
           value="true" /><el-option
-          :label="t('siteExperience.status.DISABLED')"
+          :label="t('gameCenter.fields.maintenanceOff')"
           value="false" /></el-select
       ><el-button
         type="primary"
@@ -242,16 +252,16 @@ onMounted(async () => {
       }}</strong
       ><el-button-group
         ><el-button
-          v-if="can('game:status:update')"
-          @click="batch('platformEnabled', true)"
+          v-if="can('game:update')"
+          @click="batch('maintenance', true)"
           >{{
-            t("siteExperience.gameOps.actions.platformEnabled.on")
+            t("siteExperience.gameOps.actions.maintenance.on")
           }}</el-button
         ><el-button
-          v-if="can('game:status:update')"
-          @click="batch('platformEnabled', false)"
+          v-if="can('game:update')"
+          @click="batch('maintenance', false)"
           >{{
-            t("siteExperience.gameOps.actions.platformEnabled.off")
+            t("siteExperience.gameOps.actions.maintenance.off")
           }}</el-button
         ><el-button v-if="can('game:update')" @click="batch('isHot', true)">{{
           t("siteExperience.gameOps.actions.isHot.on")
@@ -311,12 +321,13 @@ onMounted(async () => {
             categoryNames(row)
           }}</template></el-table-column
         ><el-table-column
-          :label="t('siteExperience.fields.enabled')"
+          :label="t('gameCenter.fields.maintenance')"
           width="95"
           ><template #default="{ row }"
             ><el-switch
-              :model-value="Boolean(configurationValue(row, 'platformEnabled'))"
-              disabled /></template></el-table-column
+              :model-value="Number(row.status) === 2"
+              :disabled="!can('game:update')"
+              @change="changeMaintenance(row, Boolean($event))" /></template></el-table-column
         ><el-table-column
           :label="t('siteExperience.fields.popular')"
           width="90"

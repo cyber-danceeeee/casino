@@ -127,3 +127,15 @@ func TestLaunchDefaultsToPublishedDeploymentMarket(t *testing.T) {
 	require.Equal(t, "PKR", p.last.Currency)
 	require.Equal(t, 1, p.calls)
 }
+
+func TestManualGameMaintenanceBlocksDemoAndRealLaunchBeforeSupplierCalls(t *testing.T) {
+	for _, demo := range []bool{false, true} {
+		db, service, supplier := launchMarketDB(t)
+		require.NoError(t, db.Exec("UPDATE game_games SET status=2 WHERE id=101").Error)
+		_, err := service.Launch(context.Background(), LaunchRequest{ProviderCode: supplier.Code(), GameID: "upstream-game", UserID: 1, Demo: demo})
+		var walletError *domain.WalletError
+		require.ErrorAs(t, err, &walletError)
+		require.Equal(t, domain.WalletErrorGameMaintenance, walletError.Code)
+		require.Zero(t, supplier.calls)
+	}
+}

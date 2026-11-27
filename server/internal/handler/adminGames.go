@@ -578,10 +578,9 @@ func gameError(c *gin.Context, err error) {
 }
 
 var providerQueryKeys = []string{"providerCode", "providerName", "status", "environment", "lastSyncFrom", "lastSyncTo"}
-var gameQueryKeys = []string{"gameID", "gameName", "providerCode", "providerGameID", "providerCategory", "platformCategory", "gameType", "enabled", "supportsDemo", "supportsFreeSpins", "isHot", "isFeatured", "isNew", "country", "currency", "lastSyncedFrom", "lastSyncedTo"}
+var gameQueryKeys = []string{"gameID", "gameName", "providerCode", "providerGameID", "providerCategory", "platformCategory", "gameType", "enabled", "maintenance", "supportsDemo", "supportsFreeSpins", "isHot", "isFeatured", "isNew", "country", "currency", "lastSyncedFrom", "lastSyncedTo"}
 var categoryGameCandidateQueryKeys = []string{"providerCode", "source", "categoryCode", "keyword"}
 var taxonomyQueryKeys = []string{"code", "nameZh", "nameEn", "enabled"}
 var collectionQueryKeys = []string{"code", "nameZh", "nameEn", "enabled", "startFrom", "startTo"}
-var lobbySectionQueryKeys = []string{"sectionCode", "sectionType", "enabled"}
 var syncQueryKeys = []string{"providerCode", "status", "triggeredBy", "startedFrom", "startedTo", "completedFrom", "completedTo"}
 var launchQueryKeys = []string{"userID", "username", "providerCode", "gameID", "providerGameID", "launchType", "status", "currency", "language", "country", "device", "createdFrom", "createdTo"}

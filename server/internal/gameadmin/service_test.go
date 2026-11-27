@@ -498,3 +498,29 @@ func TestSingleSiteAdminCanEditCatalogCategory(t *testing.T) {
 	require.Equal(t, "Selected Slots", category.NameEn)
 	require.Equal(t, uint64(0), category.SiteID)
 }
+
+func TestCategoryAdditionEnablesDisplayAndMaintenanceRemainsIndependent(t *testing.T) {
+	db := newGameUpdateWorkflowTestDB(t)
+	service := &Service{db: db}
+	actor := Actor{ID: 1, Scope: content.Scope{SiteID: 1}}
+	require.NoError(t, service.AddCategoryGames(100, CategoryGamesAddInput{IDs: []uint64{1}}, actor))
+	var game gameRecord
+	require.NoError(t, db.Table("game_games").Where("id=1").Take(&game).Error)
+	require.True(t, game.PlatformEnabled)
+	require.Equal(t, 1, game.Status)
+	enabled := true
+	_, err := service.BatchUpdateGames(GameBatchInput{IDs: []uint64{1}, Maintenance: &enabled}, actor)
+	require.NoError(t, err)
+	require.NoError(t, service.UpdateGame(1, GameInput{Name: "Updated name", PlatformEnabled: true}, actor))
+	require.NoError(t, service.RemoveCategoryGame(100, 1, "remove", actor))
+	require.NoError(t, service.AddCategoryGames(100, CategoryGamesAddInput{IDs: []uint64{1}}, actor))
+	require.NoError(t, db.Table("game_games").Where("id=1").Take(&game).Error)
+	require.Equal(t, 2, game.Status)
+	require.True(t, game.PlatformEnabled)
+	disabled := false
+	_, err = service.BatchUpdateGames(GameBatchInput{IDs: []uint64{1}, Maintenance: &disabled}, actor)
+	require.NoError(t, err)
+	require.NoError(t, db.Table("game_games").Where("id=1").Take(&game).Error)
+	require.Equal(t, 1, game.Status)
+	require.True(t, game.PlatformEnabled)
+}

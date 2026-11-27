@@ -116,9 +116,6 @@ func (h *gameGamesHandler) PublicList(c *gin.Context) {
 	if categoryKey != "" && h5CategoryConfigured(db, queryScope, categoryKey) {
 		orderExpr = "display_relation.sort ASC,game_games.sort ASC,game_games.id ASC"
 	}
-	if categoryKey == "hot" {
-		page, pageSize = 1, 12
-	}
 	switch filters.SortMode {
 	case "name-asc":
 		orderExpr = "game_games.name ASC, game_games.id ASC"
@@ -147,7 +144,7 @@ func (h *gameGamesHandler) PublicList(c *gin.Context) {
 func h5BuildPublicGameQuery(c *gin.Context, db *gorm.DB, scope content.Scope, filters h5GameListFilters) (*gorm.DB, string) {
 	q := db.Model(&model.GameGames{}).
 		Joins("JOIN game_game_providers gp ON gp.id = game_games.provider_id AND gp.deleted_at IS NULL").
-		Where("game_games.status = ? AND game_games.provider_enabled = ? AND game_games.platform_enabled = ? AND gp.status = ?", 1, true, true, 1)
+		Where("game_games.status IN (1,2) AND game_games.provider_enabled = ? AND game_games.platform_enabled = ? AND gp.status = ?", true, true, 1)
 	q = h5ApplyReadableScope(q, "game_games", scope)
 	q = h5ApplyReadableScope(q, "gp", scope)
 	deployment, marketErr := market.Load(db.WithContext(c.Request.Context()))
@@ -212,7 +209,10 @@ func h5FindPublicGameByID(db *gorm.DB, scope content.Scope, id uint64, onlineOnl
 		if err != nil {
 			return game, err
 		}
-		q := h5ApplyReadableScope(db.Model(&model.GameGames{}), "game_games", current).Joins("JOIN game_game_providers gp ON gp.id=game_games.provider_id AND gp.deleted_at IS NULL").Where("game_games.id=? AND game_games.status=1 AND game_games.provider_enabled=1 AND game_games.platform_enabled=1 AND gp.status=1", id)
+		q := h5ApplyReadableScope(db.Model(&model.GameGames{}), "game_games", current).Joins("JOIN game_game_providers gp ON gp.id=game_games.provider_id AND gp.deleted_at IS NULL").Where("game_games.id=? AND game_games.status IN (1,2) AND game_games.provider_enabled=1 AND game_games.platform_enabled=1 AND gp.status=1", id)
+		if onlineOnly {
+			q = q.Where("game_games.status=1")
+		}
 		q = market.ApplyGames(q, "game_games", m).Where("gp.provider_code IN ?", connections.New(db).PublicCodes(context.Background()))
 		return game, q.First(&game).Error
 	}
@@ -467,8 +467,8 @@ func h5GameDTOs(ctx context.Context, games []model.GameGames, providers map[uint
 
 func h5GameDTOFromModel(ctx context.Context, game model.GameGames, provider model.GameGameProviders) h5GameDTO {
 	providerEnabled := game.ProviderEnabled && (provider.ID == 0 || provider.Status == 1)
-	platformEnabled := game.PlatformEnabled && game.Status == 1
-	effectiveEnabled := providerEnabled && platformEnabled
+	platformEnabled := game.PlatformEnabled
+	effectiveEnabled := providerEnabled && platformEnabled && game.Status == 1
 	badge := strings.ToLower(strings.TrimSpace(game.Badge))
 	gameType := h5GameTypeCode(game.GameType)
 	platformCategoryCode := h5FirstNonEmpty(game.PlatformCategoryCode, h5GameCategoryCode(game.GameType))

@@ -44,12 +44,27 @@ func TestResyncPreservesOperatorCategoryIncludingRemovedMembership(t *testing.T)
 	require.NoError(t, db.Create(&row).Error)
 	upstream := domain.Game{ProviderGameID: "v/game", ProviderCode: "allintop", Name: "Updated", Slug: "updated", Category: "fishing", GameType: "fish", IsEnabled: true, RawMetadata: []byte(`{}`)}
 	for _, categoryID := range []uint64{99, 0} {
-		require.NoError(t, db.Model(&row).Updates(map[string]any{"platform_category_id": categoryID}).Error)
+		require.NoError(t, db.Model(&row).Updates(map[string]any{"platform_category_id": categoryID, "status": 2}).Error)
 		_, _, err = New(db).UpsertGame(context.Background(), &provider, upstream)
 		require.NoError(t, err)
 		var saved model.GameGames
 		require.NoError(t, db.Take(&saved, row.ID).Error)
 		require.Equal(t, categoryID, saved.PlatformCategoryID)
+		require.Equal(t, 2, saved.Status)
 		require.Equal(t, "curated", saved.PlatformCategoryCode)
 	}
+	require.NoError(t, db.Exec("CREATE TABLE game_game_providers(id INTEGER PRIMARY KEY,site_id INTEGER)").Error)
+	require.NoError(t, db.Exec("INSERT INTO game_game_providers VALUES(1,0)").Error)
+	_, err = New(db).MarkMissingProviderGames(context.Background(), 1, nil)
+	require.NoError(t, err)
+	var missing model.GameGames
+	require.NoError(t, db.Take(&missing, row.ID).Error)
+	require.False(t, missing.ProviderEnabled)
+	require.Equal(t, 2, missing.Status)
+	_, _, err = New(db).UpsertGame(context.Background(), &provider, upstream)
+	require.NoError(t, err)
+	require.NoError(t, db.Take(&missing, row.ID).Error)
+	require.True(t, missing.ProviderEnabled)
+	require.Equal(t, 2, missing.Status)
+
 }

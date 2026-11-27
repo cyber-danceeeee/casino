@@ -99,7 +99,7 @@ const visibleColumns = computed(() => {
 if(moduleKey.value!=="game-list")return columns;
   const hidden = new Set<string>();
   const directLabels: Record<string, string> = {
-    platformEnabled: "gameCenter.fields.platformEnabled",
+    maintenance: "gameCenter.fields.maintenance",
     isHot: "gameCenter.fields.hot",
     isFeatured: "gameCenter.fields.featured",
     isNew: "gameCenter.fields.new",
@@ -171,6 +171,7 @@ const mappingForm = reactive({
   categoryIDs: [] as number[],
 });
 const addCategoryGamesVisible = ref(false);
+const categoryAddTargetID = ref(0);
 const addCategoryGamesLoading = ref(false);
 const candidateProvidersLoading = ref(false);
 const candidateTypesLoading = ref(false);
@@ -220,7 +221,8 @@ const expandedCategoryGames = reactive<Record<string, CategoryGamesState>>({});
 const gameForm = reactive<GameInput>({
   name: "",
   localThumbnailUrl: "",
-  platformEnabled: false,
+  platformEnabled: true,
+  maintenance: false,
   isHot: false,
   isFeatured: false,
   isNew: false,
@@ -333,6 +335,7 @@ function gameBoolean(row: GameCenterRecord, key: string) {
 function gameNumber(row:GameCenterRecord,key:string){return Number(gameValue(row,key)||0);}
 
 function gameBooleanCellValue(row: GameCenterRecord, key: string) {
+  if (key === "maintenance") return Number(row.status) === 2;
   if (
     moduleKey.value === "game-list" &&
     ["platformEnabled", "isHot", "isFeatured", "isNew"].includes(key)
@@ -416,7 +419,7 @@ function hasDetailValue(value: unknown) {
 }
 function shouldShowDetailField(key: string, value: unknown) {
   if (moduleKey.value !== "game-list") return true;
-  if (["providerID", "gameType", "supportsDemo"].includes(key)) return false;
+  if (["providerID", "gameType", "supportsDemo", "platformEnabled"].includes(key)) return false;
   if (key === "providerCategoryCode" && !hasDetailValue(value)) return false;
   return true;
 }
@@ -427,6 +430,7 @@ function detailEntries(value: unknown) {
     .map(([key, item]) => ({ key, value: item }));
 }
 function detailCellValue(row: RecordValue, key: string) {
+  if (key === "maintenance") return Number(row.status) === 2;
   if (key === "thumbnailPreview")
     return row.localThumbnailUrl || row.thumbnailUrl || "";
   return row[key];
@@ -493,7 +497,7 @@ function arrayColumns(value: unknown, tabKey = "") {
       "name",
       "slug",
       "providerCode",
-      "platformEnabled",
+      "maintenance",
     ];
   }
   return businessColumns([first], 50)
@@ -629,7 +633,7 @@ function editableCategoryGamePayload(row: GameCenterRecord): GameInput {
   return {
     ...gamePayload(row, "save_category_game_inline"),
     name: String(row.name || "").trim(),
-    platformEnabled: Boolean(row.platformEnabled),
+    platformEnabled: true,
     sortOrder: Number(row.sortOrder || 0),
   };
 }
@@ -956,23 +960,20 @@ function toggleProvider(row: GameCenterRecord) {
     ),
   );
 }
-function toggleGame(row: GameCenterRecord) {
-  updateGame(row.id, {
-    ...gamePayload(row, isPlatform.value ? "toggle_display_status" : "toggle_display_status"),
-    platformEnabled: !gameBoolean(row, "platformEnabled"),
-  })
-    .then(async () => {
-      ElMessage.success(t(isPlatform.value ? "gameCenter.messages.savedImmediate" : "gameCenter.messages.savedImmediate"));
-      notifyConfigurationChanged();
-      await load();
-    })
-    .catch((error) => {
-      ElMessage.error(
-        error instanceof Error
-          ? error.message
-          : t("gameCenter.messages.saveFailed"),
-      );
-    });
+async function setGameMaintenance(row: GameCenterRecord, enabled: boolean, category?: GameCenterRecord) {
+  const state = category ? categoryGamesState(category) : undefined;
+  if (state) state.saving[row.id] = true;
+  try {
+    await batchUpdateGames({ ids: [row.id], maintenance: enabled, reason: "toggle_game_maintenance" });
+    ElMessage.success(t("gameCenter.messages.savedImmediate"));
+    notifyConfigurationChanged();
+    await load();
+    if (category) await loadExpandedCategoryGames(category);
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : t("gameCenter.messages.saveFailed"));
+  } finally {
+    if (state) state.saving[row.id] = false;
+  }
 }
 function gamePayload(row: GameCenterRecord, reasonValue: string): GameInput {
   return {
@@ -985,7 +986,8 @@ function gamePayload(row: GameCenterRecord, reasonValue: string): GameInput {
     volatility: String(row.volatility || ""),
     supportsDemo: Boolean(row.supportsDemo),
     supportsFreeSpins: Boolean(row.supportsFreeSpins),
-    platformEnabled: gameBoolean(row, "platformEnabled"),
+    platformEnabled: true,
+    maintenance: Number(row.status) === 2,
     isHot: gameBoolean(row, "isHot"),
     isFeatured: gameBoolean(row, "isFeatured"),
     isNew: gameBoolean(row, "isNew"),
@@ -1016,7 +1018,7 @@ function changeBoolean(row: GameCenterRecord, key: string) {
     return;
   }
   if (moduleKey.value === "game-list") {
-    if (key === "platformEnabled" && can("game:status:update")) toggleGame(row);
+    if (key === "maintenance" && can("game:update")) void setGameMaintenance(row, !gameBooleanCellValue(row, key));
     else if (
       (key === "isHot" || key === "isFeatured" || key === "isNew") &&
       can("game:update")
@@ -1028,18 +1030,14 @@ function changeBoolean(row: GameCenterRecord, key: string) {
     toggleManaged(row);
 }
 async function runBatchGameUpdate(
-  field: "platformEnabled" | "isHot" | "isFeatured" | "isNew",
+  field: "maintenance" | "isHot" | "isFeatured" | "isNew",
   value: boolean,
 ) {
   if (!selectedGameIDs.value.length) {
     ElMessage.warning(t("gameCenter.messages.selectGamesFirst"));
     return;
   }
-  if (
-    (field === "platformEnabled" && !can("game:status:update")) ||
-    (field !== "platformEnabled" && !can("game:update"))
-  )
-    return;
+  if (!can("game:update")) return;
   try {
     await ElMessageBox.confirm(
       t("gameCenter.dialogs.batchMessage", {
@@ -1306,11 +1304,8 @@ async function openEdit(row?: GameCenterRecord) {
             row.localThumbnailUrl ||
             "",
         ),
-        platformEnabled: Boolean(
-          hasExplicitValue(editable.platformEnabled)
-            ? editable.platformEnabled
-            : gameValue(row, "platformEnabled"),
-        ),
+        platformEnabled: true,
+        maintenance: Number(editable.statusValue ?? row.status) === 2,
         isHot: Boolean(
           hasExplicitValue(editable.isHot) ? editable.isHot : gameValue(row, "isHot"),
         ),
@@ -1608,8 +1603,9 @@ function mergeCandidateTypeOptions(
     return left.code.localeCompare(right.code);
   });
 }
-async function openAddCategoryGames() {
-  if (!detailTargetID.value) return;
+async function openAddCategoryGames(category?: GameCenterRecord) {
+  categoryAddTargetID.value = Number(category?.id || detailTargetID.value);
+  if (!categoryAddTargetID.value) return;
   addCategoryGamesVisible.value = true;
   candidateForm.providerCode = "";
   candidateForm.typeKey = "";
@@ -1682,7 +1678,7 @@ async function changeCandidateProvider() {
 }
 async function loadCandidateGames() {
   const type = selectedCandidateType();
-  if (!detailTargetID.value || !candidateForm.providerCode || !type) {
+  if (!categoryAddTargetID.value || !candidateForm.providerCode || !type) {
     candidateGames.value = [];
     candidateTotal.value = 0;
     return;
@@ -1690,7 +1686,7 @@ async function loadCandidateGames() {
   candidateGamesLoading.value = true;
   try {
     const result = await fetchCategoryGameCandidates(
-      Number(detailTargetID.value),
+      Number(categoryAddTargetID.value),
       {
         page: candidatePage.value,
         pageSize: candidatePageSize.value,
@@ -1726,21 +1722,23 @@ function changeCandidateSelection(selection: GameCenterRecord[]) {
   selectedCandidateGames.value = selection;
 }
 async function saveAddedCategoryGames() {
-  if (!detailTargetID.value || selectedCandidateGames.value.length === 0) {
+  if (!categoryAddTargetID.value || selectedCandidateGames.value.length === 0) {
     ElMessage.warning(t("gameCenter.validation.selectGames"));
     return;
   }
   addCategoryGamesLoading.value = true;
   try {
     await addCategoryGames(
-      Number(detailTargetID.value),
+      Number(categoryAddTargetID.value),
       selectedCandidateGames.value.map((game) => Number(game.id)),
     );
     addCategoryGamesVisible.value = false;
     ElMessage.success(t(isPlatform.value ? "gameCenter.messages.savedImmediate" : "gameCenter.messages.savedImmediate"));
     notifyConfigurationChanged();
-    await loadDetailTab("games");
+    if (detailVisible.value && detailTargetID.value === categoryAddTargetID.value) await loadDetailTab("games");
     await load();
+    const category = rows.value.find((item) => item.id === categoryAddTargetID.value);
+    if (category) await loadExpandedCategoryGames(category);
   } catch (error) {
     ElMessage.error(
       error instanceof Error
@@ -2140,14 +2138,14 @@ onMounted(async () => {
               <template #dropdown>
                 <el-dropdown-menu>
                   <el-dropdown-item
-                    :disabled="!can('game:status:update')"
-                    @click="runBatchGameUpdate('platformEnabled', true)"
-                    >{{ t("gameCenter.actions.batch.platformEnabled.on") }}</el-dropdown-item
+                    :disabled="!can('game:update')"
+                    @click="runBatchGameUpdate('maintenance', true)"
+                    >{{ t("gameCenter.actions.batch.maintenance.on") }}</el-dropdown-item
                   >
                   <el-dropdown-item
-                    :disabled="!can('game:status:update')"
-                    @click="runBatchGameUpdate('platformEnabled', false)"
-                    >{{ t("gameCenter.actions.batch.platformEnabled.off") }}</el-dropdown-item
+                    :disabled="!can('game:update')"
+                    @click="runBatchGameUpdate('maintenance', false)"
+                    >{{ t("gameCenter.actions.batch.maintenance.off") }}</el-dropdown-item
                   >
                   <el-dropdown-item divided
                     :disabled="!can('game:update')"
@@ -2260,12 +2258,12 @@ onMounted(async () => {
                     <span v-else>-</span>
                   </template>
                 </el-table-column>
-                <el-table-column :label="t('gameCenter.fields.platformEnabled')" width="110" align="center">
+                <el-table-column :label="t('gameCenter.fields.maintenance')" width="110" align="center">
                   <template #default="{ row: game }">
                     <el-switch
-                      v-model="game.platformEnabled"
-                      :disabled="categoryGamesState(row).saving[game.id]"
-                      @change="saveExpandedCategoryGame(row, game)"
+                      :model-value="Number(game.status) === 2"
+                      :disabled="categoryGamesState(row).saving[game.id] || !can('game:update')"
+                      @change="setGameMaintenance(game, Boolean($event), row)"
                     />
                   </template>
                 </el-table-column>
@@ -2367,8 +2365,8 @@ onMounted(async () => {
               :disabled="
                 (isGameListPage &&
                   (column.key === 'providerEnabled' ||
-                    (column.key === 'platformEnabled' &&
-                      !can('game:status:update')) ||
+                    (column.key === 'maintenance' &&
+                      !can('game:update')) ||
                     (['isHot', 'isFeatured', 'isNew'].includes(column.key) &&
                       !can('game:update')))) ||
                 (createModule &&
@@ -2481,6 +2479,7 @@ onMounted(async () => {
                 ></el-dropdown
               ></template
             ><template v-else-if="createModule && managedPermissions"
+              ><el-button v-if="isGameCategoriesPage && can('game:category:assign')" link type="primary" @click="openAddCategoryGames(row)">{{ t("gameCenter.actions.addCategoryGames") }}</el-button
               ><el-button
                 v-if="can(managedPermissions.update)"
                 link
@@ -2534,7 +2533,7 @@ onMounted(async () => {
               "
               class="detail-tab-actions"
             >
-              <el-button type="primary" @click="openAddCategoryGames">
+              <el-button type="primary" @click="openAddCategoryGames()">
                 {{ t(isPlatform ? "gameCenter.actions.addGame" : "gameCenter.actions.addGame") }}
               </el-button>
             </div
@@ -2870,8 +2869,8 @@ onMounted(async () => {
                 v-model="gameForm.sortOrder" /></el-form-item></el-col
           ><el-col :span="16"
             ><el-form-item :label="t('gameCenter.fields.flags')"
-              ><el-checkbox v-model="gameForm.platformEnabled">{{
-                t("gameCenter.fields.platformEnabled")
+              ><el-checkbox v-model="gameForm.maintenance">{{
+                t("gameCenter.fields.maintenance")
               }}</el-checkbox
               ><el-checkbox v-model="gameForm.isHot">{{
                 t("gameCenter.fields.hot")

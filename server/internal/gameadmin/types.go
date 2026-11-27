@@ -41,6 +41,7 @@ type ProviderMaintenanceCommand struct {
 }
 
 type GameInput struct {
+	Maintenance         *bool          `json:"maintenance"`
 	Name                string         `json:"name" binding:"required,max=128"`
 	NameI18n            map[string]any `json:"nameI18n"`
 	LocalThumbnailURL   string         `json:"localThumbnailUrl" binding:"max=500"`

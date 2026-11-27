@@ -108,6 +108,9 @@ func (s *LaunchService) Launch(ctx context.Context, req LaunchRequest) (*domain.
 	if !deployment.ProviderAllowed(providerRow.SupportedCountries, providerRow.SupportedCurrencies) || !deployment.GameAllowed(game.SupportedCountries, game.SupportedCurrencies) {
 		return nil, domain.NewWalletError(domain.WalletErrorMarketUnavailable, "game supplier is not available in this deployment market", nil)
 	}
+	if game.Status == 2 {
+		return nil, domain.NewWalletError(domain.WalletErrorGameMaintenance, "game is under maintenance", nil)
+	}
 	if !game.ProviderEnabled || !game.PlatformEnabled {
 		return nil, domain.NewWalletError(domain.WalletErrorGameNotFound, "game is not published", nil)
 	}

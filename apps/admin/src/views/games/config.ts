@@ -276,8 +276,8 @@ export const gameConfigs: Record<string, GamePageConfig> = {
         width: 125,
       },
       {
-        key: "platformEnabled",
-        labelKey: "gameCenter.fields.platformEnabled",
+        key: "maintenance",
+        labelKey: "gameCenter.fields.maintenance",
         boolean: true,
         width: 135,
       },

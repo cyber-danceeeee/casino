@@ -205,6 +205,9 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
+      <div v-if="isHotSection(section) && (section.total ?? section.games.length) > 12" class="game-section__pager">
+        <span /><button class="game-section__view-all" type="button" @click="emit('viewAll', section)">View All {{ section.total }} Games</button><span />
+      </div>
       <div
         v-if="!isHotSection(section) && (section.total ?? section.games.length) > 9"
         class="game-section__pager"

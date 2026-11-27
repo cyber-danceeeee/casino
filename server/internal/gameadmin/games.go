@@ -50,6 +50,7 @@ func applyGameListFilters(db *gorm.DB, q ListQuery) *gorm.DB {
 	db = equal(db, "g.category", q.Values["providerCategory"])
 	db = equal(db, "g.game_type", q.Values["gameType"])
 	db = boolFilter(db, "g.platform_enabled", q.Values["enabled"])
+	db = boolFilter(db, "(g.status = 2)", q.Values["maintenance"])
 	db = boolFilter(db, "g.supports_demo", q.Values["supportsDemo"])
 	db = boolFilter(db, "g.supports_free_spins", q.Values["supportsFreeSpins"])
 	db = boolFilter(db, "g.is_hot", q.Values["isHot"])
@@ -487,7 +488,15 @@ func (s *Service) UpdateGame(id uint64, in GameInput, actor Actor) error {
 		updates["is_featured"] = in.IsFeatured
 		updates["is_new"] = in.IsNew
 		updates["sort"] = in.SortOrder
-		updates["status"] = effectiveStatus(row.ProviderEnabled, in.PlatformEnabled)
+		maintenance := row.Status == 2
+		if in.Maintenance != nil {
+			maintenance = *in.Maintenance
+		}
+		if maintenance {
+			updates["status"] = 2
+		} else {
+			updates["status"] = effectiveStatus(row.ProviderEnabled, in.PlatformEnabled)
+		}
 		updates["maintenance_message"] = strings.TrimSpace(in.MaintenanceMessage)
 		updates = gameConfigurationUpdate(actor, updates)
 		if err := tx.Table("game_games").Where("id=? AND deleted_at IS NULL", id).Updates(updates).Error; err != nil {
@@ -539,7 +548,7 @@ func (s *Service) BatchUpdateGames(in GameBatchInput, actor Actor) (map[string]a
 	if in.PlatformEnabled != nil {
 
 		updates["platform_enabled"] = *in.PlatformEnabled
-		updates["status"] = gorm.Expr("CASE WHEN provider_enabled = 1 AND ? THEN 1 ELSE 3 END", *in.PlatformEnabled)
+		updates["status"] = gorm.Expr("CASE WHEN status = 2 THEN 2 WHEN provider_enabled = 1 AND ? THEN 1 ELSE 3 END", *in.PlatformEnabled)
 
 		auditUpdates["platformEnabled"] = *in.PlatformEnabled
 	}
@@ -804,11 +813,12 @@ func (s *Service) batchReplaceRelations(tx *gorm.DB, actor Actor, gameIDs []uint
 		primaryID = category.ID
 		primaryCode = category.Code
 	}
-	return content.ApplySite(tx.Table("game_games"), "", actor.Scope).Where("id IN ? AND deleted_at IS NULL", gameIDs).Updates(map[string]any{
-		"platform_category_id":   primaryID,
-		"platform_category_code": primaryCode,
-		"updated_at":             now,
-	}).Error
+	updates := map[string]any{"platform_category_id": primaryID, "platform_category_code": primaryCode, "updated_at": now}
+	if len(targetIDs) > 0 {
+		updates["platform_enabled"] = true
+		updates["status"] = gorm.Expr("CASE WHEN status=2 THEN 2 WHEN provider_enabled=1 THEN 1 ELSE 3 END")
+	}
+	return content.ApplySite(tx.Table("game_games"), "", actor.Scope).Where("id IN ? AND deleted_at IS NULL", gameIDs).Updates(updates).Error
 }
 
 func effectiveStatus(providerEnabled bool, platformEnabled bool) int {

@@ -6,6 +6,7 @@ export type GameCenterRecord = Record<string, unknown> & { id: number }
 export type GameCenterDetail = Record<string, unknown>
 
 export type GameInput = {
+  maintenance?: boolean
   backgroundUrl?: string
   launchImageUrl?: string
   maintenanceMessage?: string
@@ -27,6 +28,7 @@ export type GameInput = {
 }
 
 export type GameBatchInput = {
+  maintenance?: boolean
   ids: number[]
   platformEnabled?: boolean
   isHot?: boolean
