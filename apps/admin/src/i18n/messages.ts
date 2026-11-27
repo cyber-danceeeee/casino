@@ -4954,7 +4954,7 @@ export const messages = {
       ranges: { today: "今天", yesterday: "昨天", last7: "最近 7 天", last30: "最近 30 天", custom: "自定义" },
       fields: {
         provider: "Provider", enabledGames: "已启用游戏", status: "状态", brandCode: "品牌编码", site: "站点", market: "市场",
-        timezone: "时区", h5Domain: "H5 域名", publishVersion: "发布版本", lastPublished: "最近发布时间", username: "用户名",
+        timezone: "时区", h5Domain: "H5 域名", publishVersion: "配置版本", lastPublished: "最近发布时间", username: "用户名",
         mobile: "手机号码", country: "国家", currency: "币种", availableBalance: "可用余额", bonusBalance: "Bonus 余额",
         vipLevel: "VIP 等级", riskStatus: "风险状态", lastLogin: "最近登录", event: "事件", amount: "金额", time: "时间",
         type: "类型", createdTime: "创建时间", title: "标题", priority: "优先级", assignee: "处理人", updatedTime: "更新时间",
@@ -8172,7 +8172,7 @@ export const messages = {
       ranges: { today: "Today", yesterday: "Yesterday", last7: "Last 7 days", last30: "Last 30 days", custom: "Custom" },
       fields: {
         provider: "Provider", enabledGames: "Enabled Games", status: "Status", brandCode: "Brand Code", site: "Site", market: "Market",
-        timezone: "Timezone", h5Domain: "H5 Domain", publishVersion: "Published Version", lastPublished: "Last Published", username: "Username",
+        timezone: "Timezone", h5Domain: "H5 Domain", publishVersion: "Configuration Version", lastPublished: "Last Published", username: "Username",
         mobile: "Mobile Number", country: "Country", currency: "Currency", availableBalance: "Available Balance", bonusBalance: "Bonus Balance",
         vipLevel: "VIP Level", riskStatus: "Risk Status", lastLogin: "Last Login", event: "Event", amount: "Amount", time: "Time",
         type: "Type", createdTime: "Created Time", title: "Title", priority: "Priority", assignee: "Assignee", updatedTime: "Updated Time",
@@ -8202,7 +8202,7 @@ export const messages = {
         financialTrend: "Financial & Gaming Trend", playerTrend: "Player Trend", playerTrendDescription: "Registration, activity, first deposit, and paying player trends.",
         providerHealth: "Provider Health", providerDescription: "Recent game launch and callback health.",
         pendingWork: "Pending Work", pendingDescription: "Items that need an operator's attention.", quickActions: "Quick Actions",
-        operations: { paymentHealth: "Payment Health", providerHealth: "Provider Health", maintenance: "Maintenance", site: "Site Status", configVersion: "Published Version", criticalAlerts: "Critical Alerts", failedJobs: "Failed Jobs", openCases: "Open Cases" },
+        operations: { paymentHealth: "Payment Health", providerHealth: "Provider Health", maintenance: "Maintenance", site: "Site Status", configVersion: "Configuration Version", criticalAlerts: "Critical Alerts", failedJobs: "Failed Jobs", openCases: "Open Cases" },
         pending: { withdrawals: "Withdrawals for Review", supportCases: "Cases Awaiting Response", configuration: "Unpublished Configuration", alerts: "Operational Alerts", failedJobs: "Jobs Awaiting Retry" },
         quick: { searchPlayer: "Search Player", searchOrder: "Search Order", banner: "Create Banner", popup: "Create Popup Campaign", games: "Manage Games", maintenance: "Configure Maintenance", preview: "Preview H5", publish: "Publish Changes" },
       },
