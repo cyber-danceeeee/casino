@@ -57,7 +57,7 @@ func Init(configFile string, fs ...func()) error {
 }
 
 func Show(hiddenFields ...string) string {
-	hiddenFields = append(hiddenFields, `"mfaEncryptionKey"`, `"apiPassword"`, `"saltKey"`, `"secretKey"`, `"apiLogin"`, `"merchantCode"`, `"subMerchantCode"`)
+	hiddenFields = append(hiddenFields, `"mfaEncryptionKey"`, `"clientId"`, `"clientSecret"`, `"apiPassword"`, `"saltKey"`, `"secretKey"`, `"apiLogin"`, `"merchantCode"`, `"subMerchantCode"`)
 	return conf.Show(config, hiddenFields...)
 }
 
@@ -366,6 +366,7 @@ type Redis struct {
 }
 
 type Game struct {
+	AllInTop       AllInTop       `yaml:"allInTop" json:"allInTop"`
 	SoftAggregator SoftAggregator `yaml:"softAggregator" json:"softAggregator"`
 	AG             AG             `yaml:"ag" json:"ag"`
 }
@@ -433,4 +434,16 @@ type HTTP struct {
 	Port    int `yaml:"port" json:"port"`
 	Timeout int `yaml:"timeout" json:"timeout"`
 	TLS     TLS `yaml:"tls" json:"tls"`
+}
+
+// AllInTop is an ID / IDR single-wallet supplier account; IDRK is not IDR.
+type AllInTop struct {
+	Enabled                   bool     `yaml:"enabled" json:"enabled"`
+	APIBaseURL                string   `yaml:"apiBaseURL" json:"apiBaseURL"`
+	ClientID                  string   `yaml:"clientId" json:"clientId"`
+	ClientSecret              string   `yaml:"clientSecret" json:"clientSecret"`
+	CallbackIPAllowlist       []string `yaml:"callbackIPAllowlist" json:"callbackIPAllowlist"`
+	RequestTimeoutSeconds     int      `yaml:"requestTimeoutSeconds" json:"requestTimeoutSeconds"`
+	ConnectTimeoutSeconds     int      `yaml:"connectTimeoutSeconds" json:"connectTimeoutSeconds"`
+	MaxTransactionAmountMinor int64    `yaml:"maxTransactionAmountMinor" json:"maxTransactionAmountMinor"`
 }

@@ -16,7 +16,7 @@ const selectedCountries=ref<string[]>([]),selectedCurrencies=ref<string[]>([]),i
 const configured=ref<Record<string,boolean>>({})
 const adapter=computed(()=>data.value.adapters.find(a=>a.type===form.adapterType))
 const currencyOptions=computed(()=>[...new Set(data.value.countries.map(c=>c.currencyCode))].sort())
-const labels:Record<string,[string,string]>={merchantCode:['商户号','Merchant Code'],secretKey:['商户密钥','Secret Key'],subMerchantCode:['子商户号','Submerchant Code'],apiLogin:['API 账号','API Login'],apiPassword:['API 密码','API Password'],saltKey:['回调签名密钥','Callback Signing Key']}
+const labels:Record<string,[string,string]>={clientId:['客户端 ID','Client ID'],clientSecret:['客户端密钥','Client Secret'],merchantCode:['商户号','Merchant Code'],secretKey:['商户密钥','Secret Key'],subMerchantCode:['子商户号','Submerchant Code'],apiLogin:['API 账号','API Login'],apiPassword:['API 密码','API Password'],saltKey:['回调签名密钥','Callback Signing Key']}
 async function load(){loading.value=true;try{data.value=await fetchProviderConnections()}catch{ElMessage.error(tr('供应商配置加载失败','Could not load supplier configuration'))}finally{loading.value=false}}
 function edit(row?:ProviderConnection){
  editing.value=Boolean(row);configured.value=row?.credentialFields||{}
@@ -34,13 +34,13 @@ async function save(){
 }
 function callbackURL(row:ProviderConnection){try{return new URL(row.callbackPath,data.value.callbackBaseUrl||window.location.origin).href}catch{return row.callbackPath}}
 async function test(row:ProviderConnection){busy.value=row.providerCode;try{await testProvider(row.providerCode);ElMessage.success(tr('连接测试通过','Connection test passed'))}catch{ElMessage.error(tr('连接测试失败，请检查接口地址和账号配置','Connection test failed; check API URL and credentials'))}finally{busy.value=''}}
-async function sync(row:ProviderConnection){try{const answer=await ElMessageBox.prompt(tr('请输入同步原因；同步后请到游戏列表选择并发布游戏','Enter a sync reason; select and publish games from the game list afterwards'),tr('同步游戏目录','Synchronize Games'),{inputValidator:v=>Boolean(v?.trim())||tr('需要同步原因','Reason required')});busy.value=row.providerCode;await syncProvider(row.providerCode,answer.value);ElMessage.success(tr('同步任务已提交','Synchronization queued'))}catch(e){if(e!=='cancel'&&e!=='close')ElMessage.error(tr('同步未提交，请检查供应商状态','Could not queue synchronization; check supplier status'))}finally{busy.value=''}}
+async function sync(row:ProviderConnection){try{const answer=await ElMessageBox.prompt(tr('请输入同步原因；同步后请到游戏列表选择并启用游戏','Enter a sync reason; select and enable games from the game list afterwards'),tr('同步游戏目录','Synchronize Games'),{inputValidator:v=>Boolean(v?.trim())||tr('需要同步原因','Reason required')});busy.value=row.providerCode;await syncProvider(row.providerCode,answer.value);ElMessage.success(tr('同步任务已提交','Synchronization queued'))}catch(e){if(e!=='cancel'&&e!=='close')ElMessage.error(tr('同步未提交，请检查供应商状态','Could not queue synchronization; check supplier status'))}finally{busy.value=''}}
 onMounted(async()=>{await loadPermissions();await load()})
 </script>
 <template>
  <div class="connections-page" v-loading="loading">
   <div class="page-heading"><div><h1>{{tr('供应商配置','Supplier Connections')}}</h1><p>{{tr('当前部署地区','Deployment market')}}：<strong>{{data.market.countryCode}} / {{data.market.currencyCode}}</strong></p></div><div><el-button :icon="Refresh" @click="load">{{tr('刷新','Refresh')}}</el-button><el-button v-if="can('game:provider:update')" type="primary" :icon="Plus" @click="edit()">{{tr('新增供应商','Add Supplier')}}</el-button></div></div>
-  <el-alert type="info" :closable="false" show-icon :title="tr('大厅和启动按已发布的国家、币种统一校验。修改站点地区后请发布 H5 配置；供应商满足地区规则且游戏已发布，才会在 H5 展示。','Lobby and launch use the published country and currency. Publish H5 settings after changing the market. Suppliers must match the market and their games must be published.')" />
+  <el-alert type="info" :closable="false" show-icon :title="tr('大厅和启动按当前启用国家、币种统一校验。配置保存即生效；供应商满足地区规则且游戏已启用，才会在 H5 展示。','Lobby and launch use the active country and currency. Saved settings take effect immediately. Suppliers must match the market and their games must be enabled.')" />
   <el-table :data="data.list" row-key="providerCode" class="supplier-table">
    <el-table-column :label="tr('供应商','Supplier')" min-width="180"><template #default="{row}"><strong>{{row.name}}</strong><div class="muted">{{row.providerCode}}</div></template></el-table-column>
    <el-table-column prop="adapterType" :label="tr('接口类型','API Protocol')" min-width="140" />

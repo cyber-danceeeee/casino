@@ -17,8 +17,8 @@ import (
 func (s *WalletCallbackService) BeginCallbackLog(ctx context.Context, request domain.ProviderCallbackRequest, correlationID string) uint64 {
 	providerCode := strings.ToLower(strings.TrimSpace(request.ProviderCode))
 	bodyValues := callbackBodyValues(request.Body)
-	providerPlayerID := callbackRequestValue(request, bodyValues, "username", "playerId", "player_id", "uid", "userId", "user_id")
-	providerTransactionID := callbackRequestValue(request, bodyValues, "call_id", "transactionId", "transaction_id", "betId", "bet_id", "reqTraceId", "req_trace_id", "merchantBetId", "merchant_bet_id")
+	providerPlayerID := callbackRequestValue(request, bodyValues, "userCode", "username", "playerId", "player_id", "uid", "userId", "user_id")
+	providerTransactionID := callbackRequestValue(request, bodyValues, "transactionCode", "call_id", "transactionId", "transaction_id", "betId", "bet_id", "reqTraceId", "req_trace_id", "merchantBetId", "merchant_bet_id")
 	if strings.EqualFold(callbackOperationName(request), string(domain.WalletOperationBalance)) && providerTransactionID == "" {
 		providerTransactionID = "balance:" + callbackRequestValue(request, bodyValues, "timestamp", "time")
 	}

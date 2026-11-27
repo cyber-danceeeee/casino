@@ -246,6 +246,33 @@ func (h *gameProviderAggregatorHandler) Callback(c *gin.Context) {
 		writeProviderCallbackResponse(c, providerResponse)
 		return
 	}
+	if request.Operation == "batch-transactions" {
+		batch, ok := adapter.(domain.ProviderBatchCallbackAdapter)
+		var commands []domain.WalletCommand
+		var result *domain.WalletResult
+		if !ok {
+			err = domain.ErrNotSupported
+		} else {
+			commands, err = batch.ParseBatchCommands(ctx, request)
+		}
+		if err == nil {
+			result, err = h.runtime.WalletService.ExecuteBatch(ctx, commands)
+		}
+		var providerResponse *domain.ProviderCallbackResponse
+		var command *domain.WalletCommand
+		if len(commands) > 0 {
+			command = &commands[len(commands)-1]
+		}
+		if err == nil {
+			providerResponse, err = adapter.BuildSuccessResponse(ctx, *command, *result)
+		}
+		if err != nil {
+			providerResponse = adapter.BuildErrorResponse(ctx, request, err)
+		}
+		h.runtime.WalletService.FinishCallbackLog(ctx, callbackLogID, command, result, providerResponse, err, startedAt)
+		writeProviderCallbackResponse(c, providerResponse)
+		return
+	}
 	command, err := adapter.ParseCommand(ctx, request)
 	if err != nil {
 		providerResponse := adapter.BuildErrorResponse(ctx, request, err)

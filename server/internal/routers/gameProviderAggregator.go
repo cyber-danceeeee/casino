@@ -22,6 +22,7 @@ func gameProviderAggregatorRouter(group *gin.RouterGroup, h handler.GameProvider
 	group.GET("/game/providers/:providerCode/callback", h.Callback)
 	group.GET("/game/providers/:providerCode/callbacks/:operation", h.Callback)
 	group.POST("/game/providers/:providerCode/callback", h.Callback)
+	group.POST("/game/providers/:providerCode/callback/api/:operation", h.Callback)
 	group.POST("/game/providers/:providerCode/callbacks/:operation", h.Callback)
 	group.POST("/game/providers/:providerCode/callbacks/wallet/:operation", h.Callback)
 	group.POST("/game/providers/:providerCode/callbacks/player/info", h.Callback)

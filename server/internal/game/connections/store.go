@@ -66,6 +66,15 @@ func legacy(code string) (Config, map[string]string, bool) {
 	c := Config{ProviderCode: code, AdapterType: code, Environment: "sandbox", CallbackIPAllowlist: []string{}}
 	secrets := map[string]string{}
 	switch code {
+	case "allintop":
+		source := config.Get().Game.AllInTop
+		c.Name, c.APIBaseURL, c.Enabled = "AllInTop", source.APIBaseURL, source.Enabled
+		c.SupportedCountries, c.SupportedCurrencies = "ID", "IDR"
+		c.CallbackIPAllowlist = source.CallbackIPAllowlist
+		secrets = map[string]string{"clientId": source.ClientID, "clientSecret": source.ClientSecret}
+		if c.APIBaseURL == "" {
+			c.APIBaseURL = "https://dcyqv8f2id.com/api/v2"
+		}
 	case "ag":
 		s := config.Get().Game.AG
 		c.Name = "AG"
@@ -155,7 +164,7 @@ func (s *Store) configs() ([]Config, error) {
 		out = append(out, r.Config)
 		seen[r.ProviderCode] = true
 	}
-	for _, code := range []string{"ag", "softaggregator"} {
+	for _, code := range []string{"ag", "softaggregator", "allintop"} {
 		if !seen[code] {
 			c, _, _ := legacy(code)
 			out = append(out, c)
@@ -172,6 +181,9 @@ func (s *Store) view(c Config, values map[string]string, m market.Market) View {
 	source := "database"
 	if c.Version == 0 {
 		source = "environment"
+		if config.Source() == "nacos" {
+			source = "nacos"
+		}
 	}
 	return View{Config: c, Source: source, CredentialsConfigured: ready(c, values), CredentialFields: fields, MarketAllowed: m.ProviderAllowed(c.SupportedCountries, c.SupportedCurrencies), CallbackPath: "/api/v1/game/providers/" + c.ProviderCode + "/callback"}
 }
@@ -193,7 +205,7 @@ func (s *Store) List() (map[string]any, error) {
 		rows = append(rows, s.view(effective, values, m))
 	}
 	adapters := []map[string]any{}
-	for _, key := range []string{"ag", "softaggregator"} {
+	for _, key := range []string{"ag", "softaggregator", "allintop"} {
 		f := factories[key]
 		adapters = append(adapters, map[string]any{"type": key, "credentialFields": f.Fields, "requiredFields": f.Required})
 	}
@@ -461,7 +473,7 @@ func (s *Store) SanitizeError(code string, err error) string {
 	}
 	return message
 }
-func AdapterTypes() []string { return []string{"ag", "softaggregator"} }
+func AdapterTypes() []string { return []string{"ag", "softaggregator", "allintop"} }
 func (s *Store) Description(code string) (string, string) {
 	c, _, _, err := s.load(code)
 	if err != nil {

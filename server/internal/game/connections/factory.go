@@ -9,6 +9,7 @@ import (
 
 	"casino/internal/game/domain"
 	"casino/internal/game/provider/ag"
+	"casino/internal/game/provider/allintop"
 	"casino/internal/game/provider/softaggregator"
 )
 
@@ -20,6 +21,11 @@ type AdapterFactory struct {
 
 // New protocols implement GameProvider/ProviderCallbackAdapter and add one factory.
 var factories = map[string]AdapterFactory{
+	"allintop": {Fields: []string{"clientId", "clientSecret"}, Required: []string{"clientId", "clientSecret"}, Build: func(c Config, secrets map[string]string) (domain.GameProvider, domain.ProviderCallbackAdapter) {
+		source := config.Get().Game.AllInTop
+		cfg := allintop.Config{Enabled: true, APIBaseURL: c.APIBaseURL, ClientID: secrets["clientId"], ClientSecret: secrets["clientSecret"], CallbackPath: "/api/v1/game/providers/" + c.ProviderCode + "/callback", CallbackIPAllowlist: c.CallbackIPAllowlist, RequestTimeout: seconds(source.RequestTimeoutSeconds, 15), ConnectTimeout: seconds(source.ConnectTimeoutSeconds, 3), MaxTransactionAmountMinor: amountLimit(source.MaxTransactionAmountMinor)}
+		return allintop.NewProvider(cfg, nil), allintop.NewCallbackAdapter(cfg)
+	}},
 	"ag": {Fields: []string{"merchantCode", "secretKey", "subMerchantCode"}, Required: []string{"merchantCode", "secretKey"}, Build: func(c Config, secrets map[string]string) (domain.GameProvider, domain.ProviderCallbackAdapter) {
 		source := config.Get().Game.AG
 		cfg := ag.Config{Enabled: true, APIBaseURL: c.APIBaseURL, MerchantCode: secrets["merchantCode"], SecretKey: secrets["secretKey"], SubMerchantCode: secrets["subMerchantCode"], DefaultCurrency: c.MarketCurrency, CallbackIPAllowlist: c.CallbackIPAllowlist, RequestTimeout: seconds(source.RequestTimeoutSeconds, 10), ConnectTimeout: seconds(source.ConnectTimeoutSeconds, 3), MaxTimestampDrift: seconds(source.MaxTimestampDriftSeconds, 30), MaxTransactionAmountMinor: amountLimit(source.MaxTransactionAmountMinor)}
@@ -124,4 +130,16 @@ func amountLimit(value int64) int64 {
 		return 100000000
 	}
 	return value
+}
+
+func (c *namedCallback) ParseBatchCommands(ctx context.Context, r domain.ProviderCallbackRequest) ([]domain.WalletCommand, error) {
+	adapter, ok := c.ProviderCallbackAdapter.(domain.ProviderBatchCallbackAdapter)
+	if !ok {
+		return nil, domain.ErrNotSupported
+	}
+	commands, err := adapter.ParseBatchCommands(ctx, r)
+	for i := range commands {
+		commands[i].ProviderCode = c.code
+	}
+	return commands, err
 }

@@ -167,3 +167,37 @@ func TestReservedLegacyCodeCannotChangeProtocol(t *testing.T) {
 	_, err := store.Save(input)
 	require.Error(t, err)
 }
+
+func TestAllInTopNacosAccountAndBatchWrapper(t *testing.T) {
+	db := connectionTestDB(t)
+	cfg := *config.Get()
+	cfg.Game.AllInTop = config.AllInTop{Enabled: true, APIBaseURL: "https://api.example.com/api/v2", ClientID: "client", ClientSecret: "secret"}
+	config.Set(&cfg)
+	store := New(db)
+	list, err := store.List()
+	require.NoError(t, err)
+	rows := list["list"].([]View)
+	var found *View
+	for i := range rows {
+		if rows[i].ProviderCode == "allintop" {
+			found = &rows[i]
+		}
+	}
+	require.NotNil(t, found)
+	require.Equal(t, "ID", found.SupportedCountries)
+	require.Equal(t, "IDR", found.SupportedCurrencies)
+	require.True(t, found.CredentialsConfigured)
+	require.False(t, found.MarketAllowed)
+	cb, ok, err := store.Callback("allintop")
+	require.NoError(t, err)
+	require.True(t, ok)
+	batch, ok := cb.(domain.ProviderBatchCallbackAdapter)
+	require.True(t, ok)
+	commands, err := batch.ParseBatchCommands(context.Background(), domain.ProviderCallbackRequest{Operation: "batch-transactions", Body: []byte(`{"userCode":"u","transactions":[{"vendorCode":"v","gameCode":"g","historyId":1,"roundId":"r","transactionCode":"t","isFinished":true,"isCanceled":false,"amount":-10}]}`)})
+	require.NoError(t, err)
+	require.Len(t, commands, 1)
+	require.Equal(t, "allintop", commands[0].ProviderCode)
+	encoded, err := json.Marshal(list)
+	require.NoError(t, err)
+	require.NotContains(t, string(encoded), "\"clientSecret\":\"secret\"")
+}

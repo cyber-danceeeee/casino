@@ -9,6 +9,7 @@ import (
 type WalletOperation string
 
 const (
+	WalletOperationCancel   WalletOperation = "CANCEL"
 	WalletOperationBalance  WalletOperation = "BALANCE"
 	WalletOperationDebit    WalletOperation = "DEBIT"
 	WalletOperationCredit   WalletOperation = "CREDIT"
@@ -48,6 +49,9 @@ type WalletCommand struct {
 	ProviderTransactionID string
 	ProviderRoundID       string
 	ProviderGameID        string
+	ProviderHistoryID     string
+	TrackHistory          bool
+	RoundFinished         bool
 	ProviderCurrencyCode  string
 	AmountMinor           int64
 	Currency              string
@@ -92,4 +96,9 @@ type ProviderCallbackRegistry interface {
 	Register(adapter ProviderCallbackAdapter) error
 	Get(providerCode string) (ProviderCallbackAdapter, error)
 	List() []ProviderCallbackAdapter
+}
+
+// ProviderBatchCallbackAdapter parses atomic, same-player wallet batches.
+type ProviderBatchCallbackAdapter interface {
+	ParseBatchCommands(context.Context, ProviderCallbackRequest) ([]WalletCommand, error)
 }

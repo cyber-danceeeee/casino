@@ -149,6 +149,15 @@ notification:
 
 # game provider settings
 game:
+  allInTop:
+    enabled: false
+    apiBaseURL: "https://dcyqv8f2id.com/api/v2"
+    clientId: ""
+    clientSecret: ""
+    callbackIPAllowlist: []
+    requestTimeoutSeconds: 15
+    connectTimeoutSeconds: 3
+    maxTransactionAmountMinor: 100000000
   softAggregator:
     enabled: false
     apiBaseURL: "https://api.softaggregator.com"

@@ -537,6 +537,10 @@ func (s *Service) ensureRegisteredProvider(ctx context.Context, code string) err
 		return nil
 	}
 	name, endpoint := connections.New(s.db).Description(code)
-	_, err := s.runtime.Repository.EnsureProvider(ctx, code, name, endpoint, true)
+	row, err := s.runtime.Repository.EnsureProvider(ctx, code, name, endpoint, true)
+	if err == nil && code == "allintop" && row.SupportedCountries == "" && row.SupportedCurrencies == "" {
+		// The Nacos account is IDR-only; never infer its market from the deployed site.
+		err = s.db.WithContext(ctx).Model(row).Updates(map[string]any{"supported_countries": "ID", "supported_currencies": "IDR", "environment": "sandbox"}).Error
+	}
 	return err
 }

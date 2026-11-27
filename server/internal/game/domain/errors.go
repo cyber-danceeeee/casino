@@ -18,6 +18,7 @@ var (
 type WalletErrorCode string
 
 const (
+	WalletErrorRoundClosed          WalletErrorCode = "ROUND_CLOSED"
 	WalletErrorInvalidSignature     WalletErrorCode = "INVALID_SIGNATURE"
 	WalletErrorInvalidTimestamp     WalletErrorCode = "INVALID_TIMESTAMP"
 	WalletErrorInvalidRequest       WalletErrorCode = "INVALID_REQUEST"

@@ -9,6 +9,7 @@ type GameProviderTransactions struct {
 	SiteID                uint64 `gorm:"column:site_id" json:"siteID"`
 	ProviderCode          string `gorm:"column:provider_code;type:varchar(64);not null" json:"providerCode"`
 	ProviderTransactionID string `gorm:"column:provider_transaction_id;type:varchar(128);not null" json:"providerTransactionID"`
+	ProviderHistoryID     string `gorm:"column:provider_history_id;type:varchar(32);not null;default:''" json:"providerHistoryID"`
 	ProviderRoundID       string `gorm:"column:provider_round_id;type:varchar(128);not null" json:"providerRoundID"`
 	ProviderGameID        string `gorm:"column:provider_game_id;type:varchar(128);not null" json:"providerGameID"`
 	UserID                uint64 `gorm:"column:user_id;type:bigint(20) unsigned;not null" json:"userID"`

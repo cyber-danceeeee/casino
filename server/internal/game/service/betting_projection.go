@@ -17,6 +17,9 @@ import (
 )
 
 func syncBettingProjection(tx *gorm.DB, command domain.WalletCommand, userID uint64, walletID uint64, walletTransactionID uint64, providerStatus string, now time.Time) error {
+	if command.TrackHistory {
+		return nil
+	} // History-aware projection is updated once the history state is saved.
 	if providerStatus != model.GameProviderTransactionSuccess && providerStatus != model.GameProviderTransactionRolledBack {
 		return nil
 	}

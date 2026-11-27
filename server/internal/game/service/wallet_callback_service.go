@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -31,6 +32,10 @@ func NewWalletCallbackService(repo *repository.Repository) *WalletCallbackServic
 }
 
 func (s *WalletCallbackService) Execute(ctx context.Context, command domain.WalletCommand) (*domain.WalletResult, error) {
+	return s.execute(ctx, command, false)
+}
+
+func (s *WalletCallbackService) execute(ctx context.Context, command domain.WalletCommand, historyLocked bool) (*domain.WalletResult, error) {
 	command.ProviderCode = strings.ToLower(strings.TrimSpace(command.ProviderCode))
 	command.Currency = strings.ToUpper(strings.TrimSpace(command.Currency))
 	if command.ProviderCode == "" || command.ProviderPlayerID == "" {
@@ -72,6 +77,10 @@ func (s *WalletCallbackService) Execute(ctx context.Context, command domain.Wall
 	}
 	if command.RequestHash == "" {
 		command.RequestHash = commandHash(command)
+	}
+
+	if command.TrackHistory && !historyLocked {
+		return s.executeHistory(ctx, command, player.UserID)
 	}
 
 	var result *domain.WalletResult
@@ -149,10 +158,16 @@ func (s *WalletCallbackService) Execute(ctx context.Context, command domain.Wall
 		case domain.WalletOperationCredit:
 			direction = "credit"
 			category = "payout"
+			if amount > math.MaxInt64-before || before < 0 {
+				return domain.NewWalletError(domain.WalletErrorInvalidRequest, "wallet balance overflow", nil)
+			}
 			after = before + amount
 		case domain.WalletOperationRefund:
 			direction = "credit"
 			category = "refund"
+			if amount > math.MaxInt64-before || before < 0 {
+				return domain.NewWalletError(domain.WalletErrorInvalidRequest, "wallet balance overflow", nil)
+			}
 			after = before + amount
 		case domain.WalletOperationRollback:
 			var original model.GameProviderTransactions
@@ -166,6 +181,9 @@ func (s *WalletCallbackService) Execute(ctx context.Context, command domain.Wall
 			category = "rollback"
 			if original.Operation == string(domain.WalletOperationDebit) {
 				direction = "credit"
+				if amount > math.MaxInt64-before || before < 0 {
+					return domain.NewWalletError(domain.WalletErrorInvalidRequest, "wallet balance overflow", nil)
+				}
 				after = before + amount
 			} else {
 				direction = "debit"
@@ -263,6 +281,7 @@ func (s *WalletCallbackService) createProviderTransaction(tx *gorm.DB, command d
 		ProviderCode:          command.ProviderCode,
 		ProviderTransactionID: command.ProviderTransactionID,
 		ProviderRoundID:       command.ProviderRoundID,
+		ProviderHistoryID:     command.ProviderHistoryID,
 		ProviderGameID:        command.ProviderGameID,
 		UserID:                userID,
 		WalletTransactionID:   ledgerID,
@@ -314,6 +333,10 @@ func commandHash(command domain.WalletCommand) string {
 		"amount_minor":            command.AmountMinor,
 		"currency":                command.Currency,
 		"related_transaction_id":  command.RelatedTransactionID,
+	}
+	if command.TrackHistory {
+		semantic["provider_history_id"] = command.ProviderHistoryID
+		semantic["round_finished"] = command.RoundFinished
 	}
 	body, _ := json.Marshal(semantic)
 	sum := sha256.Sum256(body)
