@@ -5,6 +5,7 @@ import {
   type H5PendingRewardItem,
   type H5RegisterRewardPayload,
   type H5UserPayload,
+  type HomeBalance,
 } from '../services/h5Api'
 import { normalizePhoneInput, phoneCountryCode, phoneLength } from '../services/runtimeConfig'
 import { h5SessionFlagKey, h5SessionTokenKey, h5SessionUserKey } from '../utils/authStorage'
@@ -14,6 +15,7 @@ export interface MockUser {
   phone: string
   userId: string
   cash: string
+  total: string
   bonus: string
   withdrawable: string
   vipLevel: number
@@ -24,6 +26,7 @@ const defaultUser: MockUser = {
   phone: '3088888889',
   userId: 'LFG21809',
   cash: '1.80',
+  total: '1.80',
   bonus: '0.00',
   withdrawable: '0.00',
   vipLevel: 0,
@@ -36,6 +39,7 @@ const toMockUser = (user: H5UserPayload): MockUser => ({
   phone: user.phone || defaultUser.phone,
   userId: user.userNo || defaultUser.userId,
   cash: user.wallet?.cashBalance || '0.00',
+  total: user.wallet?.totalBalance || user.wallet?.cashBalance || '0.00',
   bonus: user.wallet?.bonusBalance || '0.00',
   withdrawable: user.wallet?.withdrawableBalance || '0.00',
   vipLevel: user.vipLevel || 0,
@@ -164,6 +168,19 @@ export const claimPendingRegisterReward = async () => {
     }
   }
   return payload.registerReward
+}
+
+export const applyHomeBalance = (balance: HomeBalance | null | undefined, requestToken: string) => {
+  if (!balance || !mockLoggedIn.value || !requestToken || window.localStorage.getItem(h5SessionTokenKey) !== requestToken) return
+  if (mockUser.value.id && mockUser.value.id !== balance.userID) return
+  mockUser.value = { ...mockUser.value, id: balance.userID, cash: balance.cashBalance, total: balance.totalBalance || balance.cashBalance, bonus: balance.bonusBalance, withdrawable: balance.withdrawableBalance }
+  try {
+    const user = JSON.parse(window.localStorage.getItem(h5SessionUserKey) || 'null') as H5UserPayload | null
+    if (user?.id === balance.userID) {
+      const { userID: _userID, ...wallet } = balance
+      window.localStorage.setItem(h5SessionUserKey, JSON.stringify({ ...user, wallet }))
+    }
+  } catch { /* Current session state remains usable when storage is unavailable. */ }
 }
 
 export const refreshMockUser = async () => {

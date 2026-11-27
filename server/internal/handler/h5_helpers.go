@@ -366,6 +366,7 @@ func h5PlayerPayload(user model.GameUsers, wallet model.GameUserWallets) gin.H {
 
 func h5WalletPayload(wallet model.GameUserWallets) gin.H {
 	return gin.H{
+		"totalBalance":        h5DecimalValue(wallet.CashBalance).Add(h5DecimalValue(wallet.BonusBalance)).Add(h5DecimalValue(wallet.FrozenBalance)).StringFixed(2),
 		"currency":            h5FirstNonEmpty(wallet.Currency, "PKR"),
 		"cashBalance":         h5DecimalString(wallet.CashBalance),
 		"bonusBalance":        h5DecimalString(wallet.BonusBalance),

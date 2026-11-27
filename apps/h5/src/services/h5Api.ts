@@ -115,6 +115,7 @@ interface RemoteSocialLink {
 }
 
 export interface H5Wallet {
+  totalBalance?: string
   currency: string
   cashBalance: string
   bonusBalance: string
@@ -277,7 +278,10 @@ export interface H5AuthRequest {
 
 export interface HomeProvider { providerCode: string; name: string; logoUrl?: string }
 
+export interface HomeBalance extends H5Wallet { userID: number }
+
 export interface HomePayload {
+  balance?: HomeBalance | null
   providers: HomeProvider[]
   banners: BannerItem[]
   categories: GameCategory[]
@@ -286,6 +290,7 @@ export interface HomePayload {
 }
 
 interface RemoteHomePayload {
+  balance?: HomeBalance | null
   providers?: HomeProvider[]
   banners: RemoteBanner[]
   categories: RemoteCategory[]
@@ -797,7 +802,9 @@ const normalizeHome = (payload: RemoteHomePayload): HomePayload => {
     }))
 
 
+  const { balance, ...catalogPayload } = payload
   return {
+    balance: balance || null,
     providers: payload.providers || [],
     banners: (payload.banners || []).map((banner) => ({
       id: banner.bannerCode || String(banner.id),
@@ -809,7 +816,7 @@ const normalizeHome = (payload: RemoteHomePayload): HomePayload => {
       .filter((link) => link.label)
       .map(toSocialLink)
       .filter((link) => Boolean(link.image)),
-    raw: payload as unknown as Record<string, unknown>,
+    raw: catalogPayload as unknown as Record<string, unknown>,
   }
 }
 
@@ -937,7 +944,7 @@ export const h5Api = {
     return request<H5BonusCenterPayload>(`/bonus-center/records${suffix ? `?${suffix}` : ''}`)
   },
   async getHome() {
-    return normalizeHome(await request<RemoteHomePayload>('/home'))
+    return normalizeHome(await request<RemoteHomePayload>('/home', { cache: 'no-store' }))
   },
   getNavigation: (position: H5NavigationItem['displayPosition']) => {
     const query = new URLSearchParams({ position })

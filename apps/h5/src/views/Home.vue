@@ -41,10 +41,11 @@ import {
   claimPendingActivityReward,
   clearRegisterReward,
   isLoggedIn,
+  mockUser,
   loadPendingRegisterReward,
   pendingRegisterReward,
   pendingActivityRewards,
-  refreshMockUser,
+  applyHomeBalance,
   showLoginInviteChest,
 } from '../mock/session'
 import { h5Api, type H5OfferEventPayload } from '../services/h5Api'
@@ -56,6 +57,7 @@ import {
   publishActivityUnreadState,
 } from '../services/activityReadState'
 import { prefetchAssetURLs } from '../services/assetCache'
+import { h5SessionTokenKey } from '../utils/authStorage'
 import { getCachedHomeCatalog, loadHomeCatalog, type HomeCatalogSnapshot } from '../services/homeCatalogCache'
 import { loadMusicSessionWithin } from '../services/musicSession'
 import { shouldShowNotificationPrompt } from '../services/notificationPermission'
@@ -90,6 +92,7 @@ let categoryScrollTimer = 0
 let initialFlowTimer = 0
 let requestedCategory: CategoryKey | null = null
 let componentActive = true
+let homeLoadVersion = 0
 let pendingRewardPromise: Promise<void> | null = null
 let stopActivityReadListener: () => void = () => undefined
 const homePageRequests = new Map<string, Promise<GameSection>>()
@@ -323,7 +326,6 @@ const closeLoginInviteChest = () => {
 const completeRegisterReward = () => {
   homeBootState.initialGuideCompleted = true
   clearRegisterReward()
-  void refreshMockUser().catch((error) => console.warn('[api] wallet refresh after reward claim failed.', error))
   window.setTimeout(resumeInitialHomeFlow, 120)
 }
 
@@ -486,35 +488,39 @@ const applyHomeCatalog = (catalog: HomeCatalogSnapshot) => {
 }
 
 const loadHomeData = async () => {
+  const version = ++homeLoadVersion
   try {
-    // Show the cached catalog immediately, then revalidate on every page entry.
-    // Syncing games does not change the runtime resource version.
-    applyHomeCatalog(await loadHomeCatalog(true))
+    // A fresh home response supplies the wallet before the game lists finish.
+    const requestToken = window.localStorage.getItem(h5SessionTokenKey) || ''
+    const requestUser = mockUser.value
+    const catalog = await loadHomeCatalog(true, (home) => {
+      if (componentActive && version === homeLoadVersion && mockUser.value === requestUser) applyHomeBalance(home.balance, requestToken)
+    })
+    if (!componentActive || version !== homeLoadVersion) return
+    applyHomeCatalog(catalog)
     await nextTick(requestActiveCategoryUpdate)
   } catch (error) {
+    if (!componentActive || version !== homeLoadVersion) return
     console.warn('[api] failed to load home game catalog.', error)
     homeCategories.value = []
     homeGameSections.value = []
   } finally {
-    homeBootState.catalogDone = true
-    updateSplashReady()
+    if (componentActive && version === homeLoadVersion) {
+      homeBootState.catalogDone = true
+      updateSplashReady()
+    }
   }
 }
 
-const refreshHomeAfterResume = () => {
-  void loadHomeCatalog(true).then(applyHomeCatalog).catch((error) => {
-    console.warn('[api] failed to refresh the resumed home catalog.', error)
-  })
-  void refreshMockUser().catch((error) => {
-    console.warn('[api] failed to refresh the resumed wallet summary.', error)
-  })
-}
+const refreshHomeAfterResume = () => { void loadHomeData() }
+const refreshHomeAfterVisibility = () => { if (document.visibilityState === 'visible') refreshHomeAfterResume() }
 
 onMounted(async () => {
   componentActive = true
   window.addEventListener('scroll', requestActiveCategoryUpdate, { passive: true })
   window.addEventListener('resize', requestActiveCategoryUpdate, { passive: true })
   window.addEventListener('casino-app-resumed', refreshHomeAfterResume)
+  document.addEventListener('visibilitychange', refreshHomeAfterVisibility)
   void nextTick(requestActiveCategoryUpdate)
   void loadHomeData()
   stopActivityReadListener = onActivityReadChange(refreshHomeActivityUnread)
@@ -571,10 +577,12 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   componentActive = false
+  ++homeLoadVersion
   stopActivityReadListener()
   window.removeEventListener('scroll', requestActiveCategoryUpdate)
   window.removeEventListener('resize', requestActiveCategoryUpdate)
   window.removeEventListener('casino-app-resumed', refreshHomeAfterResume)
+  document.removeEventListener('visibilitychange', refreshHomeAfterVisibility)
   if (scrollFrame) window.cancelAnimationFrame(scrollFrame)
   if (categoryScrollTimer) window.clearTimeout(categoryScrollTimer)
   if (initialFlowTimer) window.clearTimeout(initialFlowTimer)

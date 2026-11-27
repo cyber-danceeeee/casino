@@ -1,6 +1,7 @@
 import type { GameSection } from '../mock/games'
 import { h5Api, type HomePayload } from './h5Api'
 import { runtimeConfig } from './runtimeConfig'
+import { h5SessionTokenKey } from '../utils/authStorage'
 
 export interface HomeCatalogSnapshot {
   home: HomePayload
@@ -10,8 +11,10 @@ export interface HomeCatalogSnapshot {
 let cachedHomeCatalog: HomeCatalogSnapshot | null = null
 let pendingHomeCatalog: Promise<HomeCatalogSnapshot> | null = null
 let cachedAt = 0
+let pendingSession = ''
+let requestVersion = 0
 
-const storagePrefix = 'casino-h5-home-catalog-v4'
+const storagePrefix = 'casino-h5-home-catalog-v5'
 const cacheTtlMs = 5 * 60 * 1000
 
 interface StoredHomeCatalog {
@@ -20,6 +23,11 @@ interface StoredHomeCatalog {
 }
 
 const storageKey = () => `${storagePrefix}:${runtimeConfig.value.resourceVersion || 'default'}`
+
+const catalogOnly = (snapshot: HomeCatalogSnapshot): HomeCatalogSnapshot => {
+  const { balance: _balance, ...raw } = snapshot.home.raw || {}
+  return { ...snapshot, home: { ...snapshot.home, balance: null, raw } }
+}
 
 const readStoredCatalog = () => {
   if (cachedHomeCatalog || typeof window === 'undefined') return
@@ -30,7 +38,7 @@ const readStoredCatalog = () => {
       window.localStorage.removeItem(storageKey())
       return
     }
-    cachedHomeCatalog = stored.snapshot
+    cachedHomeCatalog = catalogOnly(stored.snapshot)
     cachedAt = Number(stored.savedAt) || 0
   } catch {
     // Missing or outdated cache falls through to the API.
@@ -38,6 +46,7 @@ const readStoredCatalog = () => {
 }
 
 const storeCatalog = (snapshot: HomeCatalogSnapshot) => {
+  snapshot = catalogOnly(snapshot)
   cachedHomeCatalog = snapshot
   cachedAt = Date.now()
   if (typeof window === 'undefined') return
@@ -53,21 +62,25 @@ export const getCachedHomeCatalog = () => {
   return cachedHomeCatalog
 }
 
-export const loadHomeCatalog = async (force = false) => {
+export const loadHomeCatalog = async (force = false, onHome?: (home: HomePayload) => void) => {
   readStoredCatalog()
   if (!force && cachedHomeCatalog && Date.now() - cachedAt < cacheTtlMs) return cachedHomeCatalog
-  if (pendingHomeCatalog) return pendingHomeCatalog
+  const session = typeof window === 'undefined' ? '' : window.localStorage.getItem(h5SessionTokenKey) || ''
+  if (!force && pendingHomeCatalog && pendingSession === session) return pendingHomeCatalog
+  pendingSession = session
+  const version = ++requestVersion
 
-  pendingHomeCatalog = (async () => {
+  const request: Promise<HomeCatalogSnapshot> = (async () => {
     try {
       const home = await h5Api.getHome()
+      onHome?.(home)
       const gameSections = await h5Api.getGameSections(home.categories)
 
       const snapshot: HomeCatalogSnapshot = {
-        home,
+        home: { ...home, balance: null },
         gameSections,
       }
-      storeCatalog(snapshot)
+      if (version === requestVersion) storeCatalog(snapshot)
 
       return snapshot
     } catch (error) {
@@ -75,8 +88,8 @@ export const loadHomeCatalog = async (force = false) => {
       throw error
     }
   })().finally(() => {
-    pendingHomeCatalog = null
+    if (pendingHomeCatalog === request) pendingHomeCatalog = null
   })
-
-  return pendingHomeCatalog
+  pendingHomeCatalog = request
+  return request
 }

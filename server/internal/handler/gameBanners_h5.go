@@ -21,7 +21,15 @@ func (h *gameBannersHandler) Home(c *gin.Context) {
 	now := time.Now()
 	scope := h5ContentScope(c)
 
-	banners := h5HomeSiteBanners(c, db, scope, now)
+	c.Header("Cache-Control", "private, no-store")
+	c.Header("Vary", "Authorization")
+	user, wallet, loggedIn := h5AuthenticatedUser(db, c)
+	var balance gin.H
+	if loggedIn {
+		balance = h5WalletPayload(wallet)
+		balance["userID"] = user.ID
+	}
+	banners := h5HomeSiteBanners(c, db, scope, now, loggedIn)
 
 	var categories []model.GameGameCategories
 	_ = h5FindWithPlatformFallback(db.Model(&model.GameGameCategories{}), "game_game_categories", scope, &categories, func(query *gorm.DB) *gorm.DB {
@@ -60,6 +68,7 @@ func (h *gameBannersHandler) Home(c *gin.Context) {
 		First(&jackpot).Error
 
 	response.Success(c, gin.H{
+		"balance":       balance,
 		"banners":       banners,
 		"categories":    categories,
 		"featureCards":  featureCards,
@@ -69,11 +78,10 @@ func (h *gameBannersHandler) Home(c *gin.Context) {
 	})
 }
 
-func h5HomeSiteBanners(c *gin.Context, db *gorm.DB, scope content.Scope, now time.Time) []gin.H {
+func h5HomeSiteBanners(c *gin.Context, db *gorm.DB, scope content.Scope, now time.Time, loggedIn bool) []gin.H {
 	if scope.SiteID == 0 {
 		return []gin.H{}
 	}
-	_, _, loggedIn := h5AuthenticatedUser(db, c)
 	language := strings.TrimSpace(c.Query("language"))
 	if language == "" {
 		language = strings.TrimSpace(c.GetHeader("Accept-Language"))

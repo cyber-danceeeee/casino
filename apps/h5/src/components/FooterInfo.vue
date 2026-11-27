@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import BrandMarquee from './BrandMarquee.vue'
 import { runtimeConfig } from '../services/runtimeConfig'
 import { useRouter } from 'vue-router'
 import type { SocialLink } from '../mock/games'
@@ -44,6 +45,8 @@ const openSocial = async (social: SocialLink) => {
     <button class="quick-register" type="button" aria-label="Quick Registration" v-if="!isLoggedIn" @click="router.push('/auth/register')">
       <img :src="quickRegister" alt="Quick Registration" loading="lazy" />
     </button>
+
+    <BrandMarquee />
 
     <div v-if="visibleSocials.length" class="social-links" aria-label="Social links">
       <button v-for="social in visibleSocials" :key="social.id" type="button" :aria-label="social.label" @click="openSocial(social)">

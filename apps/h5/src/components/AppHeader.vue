@@ -10,7 +10,7 @@ import { brandLogo } from '../config/branding'
 const gift = localDialogImage('mini-gift.webp')
 const router = useRouter()
 const appName = computed(() => runtimeConfig.value.branding.appName || runtimeConfig.value.branding.siteName || 'Casino')
-const cashLabel = computed(() => formatCurrency(String(mockUser.value.cash || '0').replace(/[^\d.]/g, '') || 0))
+const balanceLabel = computed(() => formatCurrency(mockUser.value.total || '0'))
 const unreadNotifications = ref(0)
 const hasUnreadNotifications = computed(() => isLoggedIn.value && unreadNotifications.value > 0)
 
@@ -66,8 +66,8 @@ watch(isLoggedIn, () => {
 
     <template v-if="isLoggedIn">
       <button class="cash-pill" type="button" @click="openCash">
-        <span>Cash</span>
-        <div class="ml-auto font-bold text-3.5">{{ cashLabel }}</div>
+        <span>Balance</span>
+        <div class="ml-auto font-bold text-3.5">{{ balanceLabel }}</div>
       </button>
       <button class="deposit-button" type="button" @click="openDeposit">
         <span>Deposit</span>
@@ -139,12 +139,12 @@ watch(isLoggedIn, () => {
 
   span {
     display: grid;
-    width: 37px;
+    width: 44px;
     height: 30px;
     place-items: center;
     border-radius: 6px;
     background: #397fe5;
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 700;
   }
 
@@ -392,5 +392,10 @@ watch(isLoggedIn, () => {
   .notify-button {
     margin-left: 5px;
   }
+}
+@media (max-width: 374px) {
+  .cash-pill { display:grid; align-content:center; justify-content:center; justify-items:center; gap:1px; }
+  .cash-pill span { width:auto; height:11px; background:none; font-size:8px; }
+  .cash-pill > div { margin-left:0; font-size:12px; line-height:14px; white-space:nowrap; }
 }
 </style>
