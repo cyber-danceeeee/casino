@@ -204,13 +204,16 @@ func (s *Service) UpdateCountry(id uint64, input CountryInput, actor Actor) erro
 	if err != nil {
 		return err
 	}
+	if input.Enabled == nil {
+		input.Enabled = &before.Enabled
+	}
 	updates := countryUpdates(input, false)
 	if input.CountryCode != before.CountryCode {
 		return NewError("COUNTRY_CODE_IMMUTABLE", "create a different country instead of renaming an existing code")
 	}
 	updates["updated_at"] = now()
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		if input.CurrencyCode != before.CurrencyCode {
+		if input.CurrencyCode != before.CurrencyCode || (before.Enabled && !boolDefault(input.Enabled, true)) {
 			if err := countryNotInUse(tx, before.CountryCode); err != nil {
 				return err
 			}

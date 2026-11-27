@@ -59,6 +59,10 @@ func TestSimplifiedCountrySavePreservesBrandingAndProtectsSelectedMarket(t *test
 	require.NoError(t, db.Exec("INSERT INTO game_site_config VALUES (1,'ID','ID',NULL)").Error)
 	require.Error(t, s.CountryStatus(id, false, "test", Actor{}))
 	require.Error(t, s.DeleteCountry(id, "test", Actor{}))
+	disabled := false
+	input.Enabled = &disabled
+	require.Error(t, s.UpdateCountry(id, input, Actor{}))
+	input.Enabled = nil
 	input.CurrencyCode = "INR"
 	require.Error(t, s.UpdateCountry(id, input, Actor{}))
 	row, err = s.countryByID(id)
