@@ -98,15 +98,15 @@ const configs: Record<string, PageConfig> = {
   "deposit-amount-options": {
     resource: "deposit-amount-options",
     permissionPrefix: "fund:deposit-option",
-    filters: [{ key: "optionCode" }, { key: "status", type: "select", options: ["1", "2"] }],
+    filters: [{ key: "optionCode" }, { key: "currencyCode", type: "select", source: "currencies" }, { key: "status", type: "select", options: ["1", "2"] }],
     columns: [
-      { key: "optionCode", width: 170 }, { key: "amount", width: 145 },
+      { key: "optionCode", width: 170 }, { key: "currencyCode", width: 110 }, { key: "amount", width: 145 },
       { key: "defaultBonusReward", width: 165 }, { key: "defaultCashReward", width: 160 },
       { key: "defaultRewardAmount", width: 165 }, { key: "sort", width: 90 },
       { key: "status", type: "switch", width: 92 }, { key: "updatedAt", width: 178, time: true },
     ],
     form: [
-      { key: "optionCode", required: true }, { key: "amount", type: "money", required: true },
+      { key: "optionCode", required: true }, { key: "currencyCode", type: "select", source: "currencies", required: true }, { key: "amount", type: "money", required: true },
       { key: "defaultBonusReward", type: "money", required: true },
       { key: "defaultCashReward", type: "money", required: true },
       { key: "defaultRewardAmount", type: "money", required: true },
@@ -171,6 +171,9 @@ function defaultValue(field: Field) {
 function resetForm() {
   Object.keys(form).forEach((key) => delete form[key]);
   config.value.form.forEach((field) => { form[field.key] = defaultValue(field); });
+  if (moduleKey.value === "deposit-amount-options") {
+    form.currencyCode = optionList(adminOptions.value, "countries")[0]?.currencyCode || optionList(adminOptions.value, "currencies")[0]?.value || "";
+  }
   if (moduleKey.value === "deposit-channels") {
     const country = optionList(adminOptions.value, "countries")[0];
     if (country) {

@@ -9,6 +9,7 @@ import type {
   H5DepositVoucherRewardPayload,
 } from '../services/h5Api'
 import { h5Api } from '../services/h5Api'
+import { depositVoucherMatchesMethod, depositVoucherHasReward } from '../services/depositVoucher'
 import { localDepositImage } from '../utils/localAssets'
 import LottiePlayer from './LottiePlayer.vue'
 import { currencySymbol, formatCurrency } from '../services/runtimeConfig'
@@ -74,7 +75,6 @@ const progressVisible = ref(false)
 const progressOrderNo = ref('')
 const voucherStripRef = ref<HTMLElement | null>(null)
 const voucherSheetVisible = ref(false)
-const loaded = ref(false)
 
 const close = () => {
   emit('update:modelValue', false)
@@ -101,11 +101,13 @@ const formatInputAmount = (value: number) => {
 const amountValue = computed(() => parseMoney(amount.value))
 const selectedVoucher = computed(() => vouchers.value[selectedVoucherIndex.value])
 
-const isVoucherAvailableForAmount = (voucher: DepositVoucherItem | undefined, targetAmount: number) => {
-  if (!voucher || !voucher.available || targetAmount <= 0) return false
-  return targetAmount >= voucher.minAmountValue && targetAmount <= voucher.maxAmountValue
-}
-
+const isVoucherSelectable = (voucher: DepositVoucherItem) => depositVoucherMatchesMethod(voucher, selectedMethodCode.value)
+const isVoucherAvailableForAmount = (voucher: DepositVoucherItem | undefined, targetAmount: number) =>
+  depositVoucherHasReward(voucher, selectedMethodCode.value, targetAmount)
+const configLoading = ref(false)
+const configError = ref('')
+const canSubmit = computed(() => !configLoading.value && !configError.value && amountValue.value > 0 &&
+  channels.value.some(channel => channel.channelCode === selectedChannelCode.value && channel.methodCode === selectedMethodCode.value))
 const getVoucherRewardDetail = (voucher: DepositVoucherItem | undefined, targetAmount: number) => {
   const empty = { bonusRewardValue: 0, cashRewardValue: 0, rewardAmountValue: 0 }
   if (!isVoucherAvailableForAmount(voucher, targetAmount)) return empty
@@ -158,14 +160,16 @@ const scrollSelectedVoucherIntoView = (behavior: ScrollBehavior = 'smooth') => {
 }
 
 const selectVoucher = (index: number) => {
-  if (!vouchers.value[index]) return
+  const voucher = vouchers.value[index]
+  if (!voucher || !isVoucherSelectable(voucher)) return
   selectedVoucherIndex.value = index
   void nextTick().then(() => scrollSelectedVoucherIntoView())
 }
 
 const selectVoucherFromSheet = (index: number) => {
   selectVoucher(index)
-  if (vouchers.value[index]?.available) voucherSheetVisible.value = false
+  const voucher = vouchers.value[index]
+  if (voucher && isVoucherSelectable(voucher)) voucherSheetVisible.value = false
 }
 
 const applyConfig = (payload: Awaited<ReturnType<typeof h5Api.getDepositConfig>>) => {
@@ -214,26 +218,33 @@ const applyConfig = (payload: Awaited<ReturnType<typeof h5Api.getDepositConfig>>
   if (!selectedMethodCode.value && methods.value[0]) selectMethod(methods.value[0].methodCode)
   if (!selectedChannelCode.value && selectedChannels.value[0]) selectedChannelCode.value = selectedChannels.value[0].channelCode
   if (!amount.value && amountOptions.value[0]) amount.value = formatInputAmount(amountOptions.value[0].amountValue)
-  const availableVoucher = vouchers.value.findIndex((voucher) => voucher.available)
+  const availableVoucher = vouchers.value.findIndex((voucher) => isVoucherSelectable(voucher))
   selectedVoucherIndex.value = availableVoucher >= 0 ? availableVoucher : 0
   void nextTick().then(() => scrollSelectedVoucherIntoView('auto'))
 }
 
 const loadConfig = async () => {
-  if (loaded.value) return
-  applyConfig(await h5Api.getDepositConfig())
-  loaded.value = true
+  if (configLoading.value) return
+  configLoading.value = true
+  configError.value = ''
+  try {
+    applyConfig(await h5Api.getDepositConfig())
+  } catch {
+    configError.value = 'Unable to load deposit options. Please refresh and try again.'
+  } finally {
+    configLoading.value = false
+  }
 }
 
 const submitDeposit = async () => {
-  if (submitting.value || amountValue.value <= 0) return
+  if (submitting.value || !canSubmit.value) return
   submitting.value = true
   try {
     const payload = await h5Api.createDeposit({
       amount: amount.value,
       methodCode: selectedMethodCode.value,
       channelCode: selectedChannelCode.value,
-      voucherCode: selectedVoucher.value?.voucherCode,
+      voucherCode: isVoucherAvailableForAmount(selectedVoucher.value, amountValue.value) ? selectedVoucher.value?.voucherCode : undefined,
     })
     progressOrderNo.value = payload.order?.orderNo || ''
     progressVisible.value = true
@@ -280,7 +291,7 @@ watch(
               <div class="game-deposit-title">
                 <img :src="paymentMethodIcon" alt="" aria-hidden="true" />
                 <h2>Payment Method</h2>
-                <button type="button" aria-label="Refresh payment methods" @click="loaded = false; loadConfig()">
+                <button type="button" aria-label="Refresh payment methods" @click="loadConfig">
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M20.24 12.24a1 1 0 0 0-1.22.72 7 7 0 0 1-11.4 3.45h1.64a1 1 0 1 0 0-2H5.1a1 1 0 0 0-1 1v4.16a1 1 0 1 0 2 0v-1.7a9 9 0 0 0 14.86-4.41 1 1 0 0 0-.72-1.22ZM4.98 11.04a7 7 0 0 1 11.4-3.45h-1.64a1 1 0 1 0 0 2h4.16a1 1 0 0 0 1-1V4.43a1 1 0 1 0-2 0v1.7A9 9 0 0 0 3.04 10.54a1 1 0 1 0 1.94.5Z" />
                   </svg>
@@ -300,6 +311,9 @@ watch(
                 </button>
               </div>
 
+              <p v-if="configLoading" class="game-deposit-info" role="status">Loading deposit options…</p>
+              <p v-else-if="configError" class="game-deposit-info" role="alert">{{ configError }}</p>
+              <p v-else-if="!methods.length" class="game-deposit-info" role="status">Payment channels are currently unavailable. Please contact support or try again later.</p>
               <div class="game-deposit-channels">
                 <button
                   v-for="channel in selectedChannels"
@@ -337,6 +351,8 @@ watch(
                 <button type="button" @click="voucherSheetVisible = true">More <i aria-hidden="true" /></button>
               </div>
 
+              <p v-if="!configLoading && !configError && !vouchers.length" class="game-deposit-info">No deposit vouchers are available for your account.</p>
+              <p v-if="selectedVoucher?.unavailableReason" class="game-deposit-info">{{ selectedVoucher.unavailableReason }}</p>
               <div ref="voucherStripRef" class="game-voucher-strip" aria-label="Deposit vouchers">
                 <button
                   v-for="(voucher, index) in vouchers"
@@ -346,7 +362,7 @@ watch(
                   :class="{
                     'is-active': selectedVoucherIndex === index,
                     'is-muted': selectedVoucherIndex !== index,
-                    'is-disabled': !voucher.available,
+                    'is-disabled': !isVoucherSelectable(voucher),
                   }"
                   @click="selectVoucher(index)"
                 >
@@ -370,7 +386,7 @@ watch(
                   <span class="game-voucher-ticket__check" aria-hidden="true">
                     <svg viewBox="0 0 22 22" fill="none">
                       <path d="M10.8 18.8C13.009 18.8 15.009 17.905 16.457 16.458C17.904 15.01 18.8 13.01 18.8 10.8C18.8 8.592 17.904 6.592 16.457 5.144C15.009 3.696 13.009 2.8 10.8 2.8C8.591 2.8 6.591 3.696 5.143 5.144C3.695 6.592 2.8 8.592 2.8 10.8C2.8 13.01 3.695 15.01 5.143 16.458C6.591 17.905 8.591 18.8 10.8 18.8Z" />
-                      <path v-if="voucher.available" d="M7.55 10.8L9.8 13.05L14.3 8.55" />
+                      <path v-if="isVoucherSelectable(voucher)" d="M7.55 10.8L9.8 13.05L14.3 8.55" />
                     </svg>
                   </span>
                   <img :src="voucher.displayIcon" alt="" loading="lazy" />
@@ -403,7 +419,7 @@ watch(
                   </div>
                 </div>
               </div>
-              <button class="game-deposit-submit" type="button" :disabled="submitting || amountValue <= 0" @click="submitDeposit">
+              <button class="game-deposit-submit" type="button" :disabled="submitting || !canSubmit" @click="submitDeposit">
                 Deposit
               </button>
             </div>
@@ -438,7 +454,7 @@ watch(
                   :class="{
                     'is-active': selectedVoucherIndex === index,
                     'is-muted': selectedVoucherIndex !== index,
-                    'is-disabled': !voucher.available,
+                    'is-disabled': !isVoucherSelectable(voucher),
                   }"
                   @click="selectVoucherFromSheet(index)"
                 >
@@ -462,7 +478,7 @@ watch(
                   <span class="game-voucher-ticket__check" aria-hidden="true">
                     <svg viewBox="0 0 22 22" fill="none">
                       <path d="M10.8 18.8C13.009 18.8 15.009 17.905 16.457 16.458C17.904 15.01 18.8 13.01 18.8 10.8C18.8 8.592 17.904 6.592 16.457 5.144C15.009 3.696 13.009 2.8 10.8 2.8C8.591 2.8 6.591 3.696 5.143 5.144C3.695 6.592 2.8 8.592 2.8 10.8C2.8 13.01 3.695 15.01 5.143 16.458C6.591 17.905 8.591 18.8 10.8 18.8Z" />
-                      <path v-if="voucher.available" d="M7.55 10.8L9.8 13.05L14.3 8.55" />
+                      <path v-if="isVoucherSelectable(voucher)" d="M7.55 10.8L9.8 13.05L14.3 8.55" />
                     </svg>
                   </span>
                   <img :src="voucher.displayIcon" alt="" loading="lazy" />
@@ -481,6 +497,7 @@ watch(
 </template>
 
 <style scoped lang="scss">
+.game-deposit-info { color: #b4c7de; font-size: 12px; line-height: 1.6; margin: 10px 0; }
 .game-deposit-overlay {
   position: fixed;
   inset: 0;

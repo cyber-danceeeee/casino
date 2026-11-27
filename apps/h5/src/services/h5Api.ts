@@ -506,6 +506,8 @@ export interface H5DepositVoucherRewardPayload {
 }
 
 export interface H5DepositVoucherPayload {
+  methodCodes?: string
+  unavailableReason?: string
   id: number
   voucherCode: string
   title: string

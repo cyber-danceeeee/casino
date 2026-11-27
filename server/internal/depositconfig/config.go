@@ -33,7 +33,7 @@ func depositPlatformScope() content.Scope {
 
 func depositApplyReadableScope(db *gorm.DB, alias string, scope content.Scope) *gorm.DB {
 	if scope.Platform {
-		return db.Where(depositColumn(alias, "")+" = ? AND "+depositColumn(alias, "site_id")+" = ?", 0, 0)
+		return db.Where(depositColumn(alias, "site_id")+" = ?", 0)
 	}
 	return content.ApplySite(db, alias, scope)
 }
@@ -112,15 +112,15 @@ func (s *Service) GetConfig(q ConfigQuery) (map[string]any, error) {
 	methodRows = filteredMethodRows
 
 	var options []model.GameDepositAmountOptions
-	optionDB := depositApplyReadableScope(s.db.Model(&model.GameDepositAmountOptions{}), "", catalogScope).
-		Where("deleted_at IS NULL AND status = 1")
+	optionDB := content.ApplySite(s.db.Model(&model.GameDepositAmountOptions{}), "", q.Scope).
+		Where("deleted_at IS NULL AND status = 1 AND currency_code = ?", q.Currency)
 	if err := optionDB.Order("sort ASC, id ASC").Find(&options).Error; err != nil {
 		return nil, err
 	}
 	optionRows := make([]map[string]any, 0, len(options))
 	for _, option := range options {
 		optionRows = append(optionRows, map[string]any{
-			"id": option.ID, "optionCode": option.OptionCode, "amount": decimalString(option.Amount),
+			"id": option.ID, "optionCode": option.OptionCode, "currencyCode": option.CurrencyCode, "amount": decimalString(option.Amount),
 			"bonusReward": decimalString(option.BonusReward), "cashReward": decimalString(option.CashReward),
 			"rewardAmount": rewardTotal(option.BonusReward, option.CashReward).StringFixed(2),
 			"sort":         option.Sort, "status": option.Status,
@@ -183,8 +183,9 @@ func (s *Service) GetConfig(q ConfigQuery) (map[string]any, error) {
 			"maxAmount":   decimalString(voucher.MaxAmount),
 			"amountRange": fmt.Sprintf("%s-%s", decimalString(voucher.MinAmount), decimalString(voucher.MaxAmount)),
 			"maxReward":   decimalString(voucher.MaxReward), "rewards": rewardRows,
-			"available": true, "unavailableReason": "",
-			"startTime": voucher.StartAt, "endTime": voucher.EndAt,
+			"available": len(rewardRows) > 0, "unavailableReason": voucherRewardReason(len(rewardRows)),
+			"methodCodes": voucher.MethodCodes,
+			"startTime":   voucher.StartAt, "endTime": voucher.EndAt,
 			"sort": voucher.Sort, "status": voucher.Status,
 		})
 	}
@@ -192,6 +193,13 @@ func (s *Service) GetConfig(q ConfigQuery) (map[string]any, error) {
 	return map[string]any{
 		"methods": methodRows, "channels": channelRows, "amountOptions": optionRows, "vouchers": voucherRows,
 	}, nil
+}
+
+func voucherRewardReason(tierCount int) string {
+	if tierCount == 0 {
+		return "Reward amounts have not been configured."
+	}
+	return ""
 }
 
 func (s *Service) ResolveSelection(q ConfigQuery, channelCode string, voucherCode string) (Selection, error) {
@@ -232,8 +240,8 @@ func (s *Service) ResolveSelection(q ConfigQuery, channelCode string, voucherCod
 	selection := Selection{Method: method, Channel: channel}
 	if strings.TrimSpace(voucherCode) == "" {
 		var option model.GameDepositAmountOptions
-		optionDB := depositApplyReadableScope(s.db.Model(&model.GameDepositAmountOptions{}), "", catalogScope).
-			Where("deleted_at IS NULL AND status = 1 AND amount = ?", amount)
+		optionDB := content.ApplySite(s.db.Model(&model.GameDepositAmountOptions{}), "", q.Scope).
+			Where("deleted_at IS NULL AND status = 1 AND amount = ? AND currency_code = ?", amount, strings.ToUpper(strings.TrimSpace(q.Currency)))
 		if err := optionDB.First(&option).Error; err == nil {
 			selection.BonusReward = valueOrZero(option.BonusReward)
 			selection.CashReward = valueOrZero(option.CashReward)

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { depositVoucherMatchesMethod, depositVoucherHasReward } from '../services/depositVoucher'
 import depositTipAnimation from '../assets/lottie/lottie-deposit-tip.json'
 import ContactMeBadge from '../components/ContactMeBadge.vue'
 import LottiePlayer from '../components/LottiePlayer.vue'
@@ -522,12 +523,15 @@ const depositAmountValue = computed(() => {
   const value = Number(String(depositAmount.value).replace(/,/g, ''))
   return Number.isFinite(value) ? value : 0
 })
-const isDepositVoucherAvailableForAmount = (voucher: DepositVoucherItem | undefined, amount: number) => {
-  if (!voucher || amount <= 0) return false
-  const min = voucher.minAmountValue || 0
-  const max = voucher.maxAmountValue || Number.POSITIVE_INFINITY
-  return amount >= min && amount <= max
-}
+const isDepositVoucherSelectable = (voucher: DepositVoucherItem) =>
+  depositVoucherMatchesMethod(voucher, selectedDepositMethodCode.value)
+const isDepositVoucherAvailableForAmount = (voucher: DepositVoucherItem | undefined, amount: number) =>
+  depositVoucherHasReward(voucher, selectedDepositMethodCode.value, amount)
+const depositConfigLoading = ref(false)
+const depositConfigError = ref('')
+const depositCanSubmit = computed(() => !depositConfigLoading.value && !depositConfigError.value && depositAmountValue.value > 0 &&
+  depositChannels.value.some(channel => channel.channelCode === selectedDepositChannelCode.value && channel.methodCode === selectedDepositMethodCode.value))
+const selectedDepositChannels = computed(() => depositChannels.value.filter(channel => channel.methodCode === selectedDepositMethodCode.value))
 const getDepositVoucherRewardAmount = (voucher: DepositVoucherItem | undefined, amount: number) => {
   if (!isDepositVoucherAvailableForAmount(voucher, amount)) return 0
   return getDepositVoucherRewardDetail(voucher, amount).rewardAmountValue
@@ -599,7 +603,8 @@ const selectDepositAmount = (option: DepositAmountOptionItem) => {
 }
 
 const selectDepositVoucher = (index: number) => {
-  if (!depositVoucherOptions.value[index]?.available) return
+  const voucher = depositVoucherOptions.value[index]
+  if (!voucher || !isDepositVoucherSelectable(voucher)) return
   selectedDepositVoucherIndex.value = index
   void nextTick().then(() => scrollSelectedDepositVoucherIntoView())
 }
@@ -614,7 +619,8 @@ const closeDepositVoucherSheet = () => {
 
 const selectDepositVoucherFromSheet = (index: number) => {
   selectDepositVoucher(index)
-  if (depositVoucherOptions.value[index]?.available) closeDepositVoucherSheet()
+  const voucher = depositVoucherOptions.value[index]
+  if (voucher && isDepositVoucherSelectable(voucher)) closeDepositVoucherSheet()
 }
 
 const scrollSelectedDepositVoucherIntoView = (behavior: ScrollBehavior = 'smooth') => {
@@ -644,7 +650,7 @@ const viewDepositOrder = () => {
 }
 
 const submitDeposit = async () => {
-  if (depositSubmitting.value || depositAmountValue.value <= 0) return
+  if (depositSubmitting.value || !depositCanSubmit.value) return
 
   depositSubmitting.value = true
   try {
@@ -652,7 +658,7 @@ const submitDeposit = async () => {
       amount: String(depositAmountValue.value),
       methodCode: selectedDepositMethodCode.value,
       channelCode: selectedDepositChannelCode.value,
-      voucherCode: selectedDepositVoucher.value?.voucherCode,
+      voucherCode: isDepositVoucherAvailableForAmount(selectedDepositVoucher.value, depositAmountValue.value) ? selectedDepositVoucher.value?.voucherCode : undefined,
     })
     depositProgressOrderNo.value = payload.order?.orderNo || ''
     showDepositProgressDialog.value = true
@@ -964,10 +970,10 @@ const applyDepositConfig = (payload: H5DepositConfigPayload) => {
       }
     })
 
-  if (!selectedDepositMethodCode.value && depositMethods.value[0]) {
-    selectedDepositMethodCode.value = depositMethods.value[0].methodCode
+  if (!depositMethods.value.some(method => method.methodCode === selectedDepositMethodCode.value)) {
+    selectedDepositMethodCode.value = depositMethods.value[0]?.methodCode || ''
   }
-  if (!selectedDepositChannelCode.value) {
+  if (!depositChannels.value.some(channel => channel.channelCode === selectedDepositChannelCode.value && channel.methodCode === selectedDepositMethodCode.value)) {
     const firstChannel =
       depositChannels.value.find((channel) => channel.methodCode === selectedDepositMethodCode.value) ||
       depositChannels.value[0]
@@ -976,19 +982,25 @@ const applyDepositConfig = (payload: H5DepositConfigPayload) => {
   if (!depositAmount.value && amountOptions.value[0]) {
     depositAmount.value = formatDepositInputAmount(amountOptions.value[0].amountValue)
   }
-  const firstAvailableVoucherIndex = depositVoucherOptions.value.findIndex((voucher) => voucher.available)
+  const firstAvailableVoucherIndex = depositVoucherOptions.value.findIndex((voucher) => isDepositVoucherSelectable(voucher))
   selectedDepositVoucherIndex.value = firstAvailableVoucherIndex >= 0 ? firstAvailableVoucherIndex : 0
 }
 
 const loadDepositConfig = async () => {
+  if (depositConfigLoading.value) return
+  depositConfigLoading.value = true
+  depositConfigError.value = ''
   try {
     applyDepositConfig(await h5Api.getDepositConfig())
   } catch (error) {
     console.warn('[api] failed to load deposit config.', error)
+    depositConfigError.value = 'Unable to load deposit options. Please refresh and try again.'
     depositMethods.value = []
     depositChannels.value = []
     amountOptions.value = []
     depositVoucherOptions.value = []
+  } finally {
+    depositConfigLoading.value = false
   }
 }
 
@@ -1388,13 +1400,16 @@ watch(depositReturnExpanded, async (expanded) => {
           <div class="deposit-title-row">
             <img class="deposit-title-row__icon" :src="depositPaymentMethodIcon" alt="" aria-hidden="true" />
             <h2>Payment Method</h2>
-            <button type="button" class="deposit-refresh" aria-label="Refresh payment methods">
+            <button type="button" class="deposit-refresh" aria-label="Refresh payment methods" :disabled="depositConfigLoading" @click="loadDepositConfig">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M20.24 12.24a1 1 0 0 0-1.22.72 7 7 0 0 1-11.4 3.45h1.64a1 1 0 1 0 0-2H5.1a1 1 0 0 0-1 1v4.16a1 1 0 1 0 2 0v-1.7a9 9 0 0 0 14.86-4.41 1 1 0 0 0-.72-1.22ZM4.98 11.04a7 7 0 0 1 11.4-3.45h-1.64a1 1 0 1 0 0 2h4.16a1 1 0 0 0 1-1V4.43a1 1 0 1 0-2 0v1.7A9 9 0 0 0 3.04 10.54a1 1 0 1 0 1.94.5Z" />
               </svg>
             </button>
           </div>
 
+          <p v-if="depositConfigLoading" class="deposit-info" role="status">Loading deposit options…</p>
+          <p v-else-if="depositConfigError" class="deposit-info" role="alert">{{ depositConfigError }}</p>
+          <p v-else-if="!depositMethods.length" class="deposit-info" role="status">Payment channels are currently unavailable. Please contact support or try again later.</p>
           <div class="deposit-method-grid">
             <button
               v-for="method in depositMethods"
@@ -1410,7 +1425,7 @@ watch(depositReturnExpanded, async (expanded) => {
 
           <div class="channel-list">
             <button
-              v-for="channel in depositChannels"
+              v-for="channel in selectedDepositChannels"
               :key="channel.channelCode"
               type="button"
               :class="{ 'is-active': selectedDepositChannelCode === channel.channelCode }"
@@ -1445,6 +1460,8 @@ watch(depositReturnExpanded, async (expanded) => {
             <button type="button" @click="openDepositVoucherSheet">More <i aria-hidden="true" /></button>
           </div>
 
+          <p v-if="!depositConfigLoading && !depositConfigError && !depositVoucherOptions.length" class="deposit-info">No deposit vouchers are available for your account.</p>
+          <p v-if="selectedDepositVoucher?.unavailableReason" class="deposit-info">{{ selectedDepositVoucher.unavailableReason }}</p>
           <div ref="depositVoucherStripRef" class="voucher-strip" aria-label="Deposit vouchers">
             <button
               v-for="(voucher, index) in depositVoucherOptions"
@@ -1454,7 +1471,7 @@ watch(depositReturnExpanded, async (expanded) => {
               :class="{
                 'is-active': selectedDepositVoucherIndex === index,
                 'is-muted': selectedDepositVoucherIndex !== index,
-                'is-disabled': !voucher.available,
+                'is-disabled': !isDepositVoucherSelectable(voucher),
               }"
               @click="selectDepositVoucher(index)"
             >
@@ -1478,7 +1495,7 @@ watch(depositReturnExpanded, async (expanded) => {
               <span class="voucher-ticket__check" aria-hidden="true">
                 <svg viewBox="0 0 22 22" fill="none">
                   <path d="M10.8 18.8C13.009 18.8 15.009 17.905 16.457 16.458C17.904 15.01 18.8 13.01 18.8 10.8C18.8 8.592 17.904 6.592 16.457 5.144C15.009 3.696 13.009 2.8 10.8 2.8C8.591 2.8 6.591 3.696 5.143 5.144C3.695 6.592 2.8 8.592 2.8 10.8C2.8 13.01 3.695 15.01 5.143 16.458C6.591 17.905 8.591 18.8 10.8 18.8Z" />
-                  <path v-if="voucher.available" d="M7.55 10.8L9.8 13.05L14.3 8.55" />
+                  <path v-if="isDepositVoucherSelectable(voucher)" d="M7.55 10.8L9.8 13.05L14.3 8.55" />
                 </svg>
               </span>
               <img :src="voucher.displayIcon" alt="" loading="lazy" />
@@ -1514,7 +1531,7 @@ watch(depositReturnExpanded, async (expanded) => {
           <button
             type="button"
             class="primary-action"
-            :disabled="depositSubmitting || depositAmountValue <= 0"
+            :disabled="depositSubmitting || !depositCanSubmit"
             @click="submitDeposit"
           >
             Deposit
@@ -1565,7 +1582,7 @@ watch(depositReturnExpanded, async (expanded) => {
                 :class="{
                   'is-active': selectedDepositVoucherIndex === index,
                   'is-muted': selectedDepositVoucherIndex !== index,
-                  'is-disabled': !voucher.available,
+                  'is-disabled': !isDepositVoucherSelectable(voucher),
                 }"
                 @click="selectDepositVoucherFromSheet(index)"
               >
@@ -1589,7 +1606,7 @@ watch(depositReturnExpanded, async (expanded) => {
                 <span class="voucher-ticket__check" aria-hidden="true">
                   <svg viewBox="0 0 22 22" fill="none">
                     <path d="M10.8 18.8C13.009 18.8 15.009 17.905 16.457 16.458C17.904 15.01 18.8 13.01 18.8 10.8C18.8 8.592 17.904 6.592 16.457 5.144C15.009 3.696 13.009 2.8 10.8 2.8C8.591 2.8 6.591 3.696 5.143 5.144C3.695 6.592 2.8 8.592 2.8 10.8C2.8 13.01 3.695 15.01 5.143 16.458C6.591 17.905 8.591 18.8 10.8 18.8Z" />
-                    <path v-if="voucher.available" d="M7.55 10.8L9.8 13.05L14.3 8.55" />
+                    <path v-if="isDepositVoucherSelectable(voucher)" d="M7.55 10.8L9.8 13.05L14.3 8.55" />
                   </svg>
                 </span>
                 <img :src="voucher.displayIcon" alt="" loading="lazy" />
@@ -2493,6 +2510,7 @@ watch(depositReturnExpanded, async (expanded) => {
 </template>
 
 <style scoped lang="scss">
+.deposit-info { color: #b4c7de; font-size: 12px; line-height: 1.6; margin: 10px 0; }
 .profile-subpage {
   min-height: 100vh;
   min-height: 100dvh;

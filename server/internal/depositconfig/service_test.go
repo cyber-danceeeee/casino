@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"casino/internal/content"
+	"casino/internal/model"
 
 	"github.com/shopspring/decimal"
 	"gorm.io/driver/sqlite"
@@ -131,7 +132,7 @@ func newRegionService(t *testing.T) (*Service, uint64) {
 
 		`CREATE TABLE game_payment_channels (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME, site_id INTEGER NOT NULL, method_id INTEGER NOT NULL, channel_code TEXT NOT NULL, name TEXT NOT NULL, country_code TEXT NOT NULL, currency_code TEXT NOT NULL, fee_rate REAL NOT NULL, min_amount REAL NOT NULL, max_amount REAL NOT NULL, sort INTEGER NOT NULL, status INTEGER NOT NULL)`,
 
-		`CREATE TABLE game_deposit_amount_options (id INTEGER PRIMARY KEY AUTOINCREMENT, deleted_at DATETIME, site_id INTEGER NOT NULL, amount REAL NOT NULL, sort INTEGER NOT NULL, status INTEGER NOT NULL)`,
+		`CREATE TABLE game_deposit_amount_options (id INTEGER PRIMARY KEY AUTOINCREMENT, deleted_at DATETIME, site_id INTEGER NOT NULL, currency_code TEXT NOT NULL DEFAULT 'PKR', amount REAL NOT NULL, sort INTEGER NOT NULL, status INTEGER NOT NULL)`,
 
 		`CREATE TABLE game_deposit_vouchers (id INTEGER PRIMARY KEY AUTOINCREMENT, deleted_at DATETIME, site_id INTEGER NOT NULL, start_at DATETIME, end_at DATETIME, sort INTEGER NOT NULL, status INTEGER NOT NULL)`,
 	}
@@ -171,4 +172,95 @@ func newRegionService(t *testing.T) (*Service, uint64) {
 		t.Fatalf("create channels: %v", err)
 	}
 	return New(db), methodID
+}
+
+func TestEmptyPaymentCatalogStillReturnsCurrencyPresetsAndVouchers(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(fmt.Sprintf("file:deposit-empty-%p?mode=memory&cache=shared", t)), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	statements := []string{
+		`CREATE TABLE game_payment_methods (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME, site_id INTEGER, method_code TEXT, name TEXT, method_type TEXT, icon_url TEXT, min_amount NUMERIC, max_amount NUMERIC, sort INTEGER, status INTEGER)`,
+		`CREATE TABLE game_payment_channels (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME, site_id INTEGER, method_id INTEGER, channel_code TEXT, name TEXT, country_code TEXT, currency_code TEXT, fee_rate NUMERIC, min_amount NUMERIC, max_amount NUMERIC, sort INTEGER, status INTEGER)`,
+		`CREATE TABLE game_deposit_amount_options (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME, site_id INTEGER, option_code TEXT, currency_code TEXT, amount NUMERIC, bonus_reward NUMERIC, cash_reward NUMERIC, sort INTEGER, status INTEGER)`,
+		`CREATE TABLE game_deposit_vouchers (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME, site_id INTEGER, voucher_code TEXT, title TEXT, title_zh TEXT, title_en TEXT, description_zh TEXT, description_en TEXT, voucher_type TEXT, icon_url TEXT, min_amount NUMERIC, max_amount NUMERIC, max_reward NUMERIC, bonus_reward NUMERIC, cash_reward NUMERIC, sort INTEGER, status INTEGER, start_at DATETIME, end_at DATETIME, new_users_only INTEGER, first_deposit_only INTEGER, daily_limit INTEGER, weekly_limit INTEGER, per_user_limit INTEGER, countries TEXT, currencies TEXT, method_codes TEXT)`,
+		`CREATE TABLE game_deposit_voucher_rewards (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME, site_id INTEGER, voucher_id INTEGER, amount_option_id INTEGER, amount NUMERIC, bonus_reward NUMERIC, cash_reward NUMERIC, reward_amount NUMERIC, sort INTEGER, status INTEGER)`,
+	}
+	for _, statement := range statements {
+		if err := db.Exec(statement).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+	service := New(db)
+	amount, zero := decimal.NewFromInt(10000), decimal.Zero
+	for _, currency := range []string{"IDR", "PKR"} {
+		option := model.GameDepositAmountOptions{SiteID: 1, OptionCode: "preset-" + currency, CurrencyCode: currency, Amount: &amount, BonusReward: &zero, CashReward: &zero, Status: 1}
+		if err := db.Create(&option).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+	voucher := model.GameDepositVouchers{SiteID: 1, VoucherCode: "operator-voucher", TitleEn: "Deposit Offer", Currencies: "IDR", MinAmount: &zero, MaxAmount: &amount, MaxReward: &zero, BonusReward: &zero, CashReward: &zero, Status: 1}
+	if err := db.Create(&voucher).Error; err != nil {
+		t.Fatal(err)
+	}
+	wrongCurrency := voucher
+	wrongCurrency.ID = 0
+	wrongCurrency.VoucherCode = "pkr-voucher"
+	wrongCurrency.Currencies = "PKR"
+	if err := db.Create(&wrongCurrency).Error; err != nil {
+		t.Fatal(err)
+	}
+	q := ConfigQuery{Scope: content.Scope{SiteID: 1}, Country: "ID", Currency: "idr"}
+	config, err := service.GetConfig(q)
+	if err != nil {
+		t.Fatalf("empty methods must not break deposit config: %v", err)
+	}
+	for _, key := range []string{"methods", "channels"} {
+		if len(config[key].([]map[string]any)) != 0 {
+			t.Fatalf("unexpected %s", key)
+		}
+	}
+	options := config["amountOptions"].([]map[string]any)
+	if len(options) != 1 || options[0]["currencyCode"] != "IDR" {
+		t.Fatalf("currency leakage: %#v", options)
+	}
+	vouchers := config["vouchers"].([]map[string]any)
+	if len(vouchers) != 1 || vouchers[0]["voucherCode"] != "operator-voucher" || vouchers[0]["available"] != false || vouchers[0]["unavailableReason"] == "" {
+		t.Fatalf("incomplete voucher must remain visible with explanation: %#v", vouchers)
+	}
+	tier := model.GameDepositVoucherRewards{VoucherID: voucher.ID, Amount: &amount, BonusReward: &zero, CashReward: &zero, RewardAmount: &zero, Status: 1}
+	if err := db.Create(&tier).Error; err != nil {
+		t.Fatal(err)
+	}
+	config, err = service.GetConfig(q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	vouchers = config["vouchers"].([]map[string]any)
+	if len(vouchers) != 1 || vouchers[0]["available"] != true || len(vouchers[0]["rewards"].([]map[string]any)) != 1 {
+		t.Fatalf("configured voucher must become available: %#v", vouchers)
+	}
+	// The same nominal PKR amount must never grant a reward to an IDR order.
+	if err := db.Model(&model.GameDepositAmountOptions{}).Where("currency_code = ?", "PKR").Update("bonus_reward", 900).Error; err != nil {
+		t.Fatal(err)
+	}
+	method := model.GamePaymentMethods{SiteID: 1, MethodCode: "qris", Name: "QRIS", MethodType: "deposit", Status: 1, MinAmount: &zero, MaxAmount: &amount}
+	if err := db.Create(&method).Error; err != nil {
+		t.Fatal(err)
+	}
+	channel := model.GamePaymentChannels{SiteID: 1, MethodID: method.ID, ChannelCode: "fixture-idr", Name: "Fixture", CountryCode: "ID", CurrencyCode: "IDR", FeeRate: &zero, MinAmount: &zero, MaxAmount: &amount, Status: 1}
+	if err := db.Create(&channel).Error; err != nil {
+		t.Fatal(err)
+	}
+	q.Currency = "IDR"
+	q.MethodCode = "qris"
+	q.Amount = "10000"
+	selection, err := service.ResolveSelection(q, "fixture-idr", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !selection.RewardAmount.IsZero() {
+		t.Fatalf("foreign currency reward leaked: %s", selection.RewardAmount)
+	}
+
 }

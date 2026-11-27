@@ -42,7 +42,8 @@ User lookup during development accepts `userId` query, `X-User-ID`, `phone` quer
 | --- | --- | --- |
 | `GET` | `/wallet/summary` | Wallet summary. |
 | `GET` | `/wallet/payment-methods?type=deposit` | Deposit/withdraw payment methods and channels. |
-| `POST` | `/wallet/deposit` | Create deposit order. Body: `amount`, `methodCode`, `channelCode`. |
+| `GET` | `/wallet/deposit/config` | Active-country deposit channels, currency-specific amount presets, eligible vouchers and their exact reward tiers. Empty payment setup returns an empty methods/channels catalog without hiding presets or vouchers. `available=false` and `unavailableReason` describe incomplete voucher setup. |
+| `POST` | `/wallet/deposit` | Create deposit order. Body: `amount`, `methodCode`, `channelCode`, optional `voucherCode`. Reward tiers and currency are revalidated on the server. |
 | `POST` | `/wallet/withdraw` | Create withdraw order. Body: `amount`, `withdrawAccountId`. |
 | `GET` | `/wallet/records?tab=deposit|withdraw|statement` | Wallet records by tab. |
 | `GET` | `/security/bank-account` | Withdrawal accounts. |

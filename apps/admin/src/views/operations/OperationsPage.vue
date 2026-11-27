@@ -607,6 +607,7 @@ async function openDetail(row: OperationRecord, tab = "") {
   }
 }
 
+const activeCurrency = computed(() => optionList(adminOptions.value, "countries")[0]?.currencyCode || optionList(adminOptions.value, "currencies")[0]?.value || "");
 function defaultValue(field: OperationField): unknown {
   if (moduleKey.value === "vip") {
     if (field.key === "level") return 1;
@@ -624,8 +625,8 @@ function defaultValue(field: OperationField): unknown {
     platform: "ALL",
     platforms: "ALL",
     languages: "zh-CN,en-US",
-    currencies: "PKR",
-    currency: "PKR",
+    currencies: activeCurrency.value,
+    currency: activeCurrency.value,
     targetType: "NONE",
     status: moduleKey.value === "push-messages" ? "READY" : "PAUSED",
     voucherType: "DEPOSIT_BONUS",
@@ -722,7 +723,7 @@ async function openCreate() {
     form.type = "FIRST_DEPOSIT_BONUS";
     form.triggerType = "DEPOSIT_SUCCEEDED";
     form.claimMode = "AUTO";
-    form.currencies = ["PKR"];
+    form.currencies = [activeCurrency.value].filter(Boolean);
     form.languages = ["zh-CN", "en-US"];
     participationRules.value = [normalizeParticipation({ ruleType: "FIRST_DEPOSIT" })];
     rewardRules.value = [normalizeReward({ rewardType: "BONUS", calculationType: "FIXED" })];
