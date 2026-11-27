@@ -28,6 +28,7 @@ type Config struct {
 	Enabled                                          bool
 	APIBaseURL, ClientID, ClientSecret, CallbackPath string
 	CallbackIPAllowlist                              []string
+	ExcludedVendorCodes                              []string
 	RequestTimeout, ConnectTimeout                   time.Duration
 	MaxTransactionAmountMinor                        int64
 }
@@ -107,6 +108,13 @@ func (p *Provider) request(ctx context.Context, path string, input any, token st
 	}
 	resp, err := p.client.Do(req)
 	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return errors.New("AllInTop API request deadline exceeded")
+		}
+		var timeout net.Error
+		if errors.As(err, &timeout) && timeout.Timeout() {
+			return errors.New("AllInTop API request timed out")
+		}
 		return errors.New("AllInTop API connection failed")
 	}
 	defer resp.Body.Close()
@@ -197,17 +205,24 @@ func (p *Provider) GetGames(ctx context.Context, r domain.GetGamesRequest) ([]do
 	}
 	language := r.Language
 	if language == "" {
-		language = "id"
+		language = "en"
 	}
 	games := []domain.Game{}
 	seen := map[string]bool{}
+	excluded := map[string]bool{}
+	for _, code := range p.cfg.ExcludedVendorCodes {
+		excluded[code] = true
+	}
 	for _, v := range vendors {
+		if excluded[v.VendorCode] {
+			continue
+		}
 		if v.VendorCode == "" || strings.Contains(v.VendorCode, "/") {
 			return nil, errors.New("invalid AllInTop vendor code")
 		}
 		var rows []json.RawMessage
-		if err := p.call(ctx, "/games/list", map[string]string{"vendorCode": v.VendorCode, "language": language}, &rows); err != nil {
-			return nil, fmt.Errorf("AllInTop game catalog incomplete: %w", err)
+		if err := p.call(ctx, "/games/list", map[string]string{"vendorCode": v.VendorCode, "language": providerLanguage(v.VendorCode, language)}, &rows); err != nil {
+			return nil, fmt.Errorf("AllInTop game catalog incomplete for %s: %w", v.VendorCode, err)
 		}
 		for _, raw := range rows {
 			var g upstreamGame
@@ -261,9 +276,9 @@ func (p *Provider) LaunchGame(ctx context.Context, r domain.LaunchGameRequest) (
 	}
 	language := r.Language
 	if language == "" {
-		language = "id"
+		language = "en"
 	}
-	req := map[string]string{"vendorCode": parts[0], "gameCode": parts[1], "userCode": r.ProviderPlayerID, "language": language}
+	req := map[string]string{"vendorCode": parts[0], "gameCode": parts[1], "userCode": r.ProviderPlayerID, "language": providerLanguage(parts[0], language)}
 	if r.ReturnURL != "" {
 		req["lobbyUrl"] = r.ReturnURL
 	}
@@ -315,4 +330,22 @@ func catalogSlug(id, value string) string {
 	}
 	sum := sha256.Sum256([]byte(id))
 	return slug + "-" + hex.EncodeToString(sum[:6])
+}
+
+// Catalog names default to English, supported by all documented vendors.
+// Indonesian is not available for every brand; avoid passing it blindly.
+func providerLanguage(vendor, requested string) string {
+	language := strings.ToLower(strings.TrimSpace(requested))
+	if language == "" {
+		return "en"
+	}
+	if language != "id" {
+		return language
+	}
+	switch vendor {
+	case "slot-pragmatic", "slot-pgsoft", "slot-habanero", "slot-booongo", "slot-hacksaw", "slot-wg", "slot-tada", "slot-fachai", "slot-jdb", "slot-3oaks", "slot-jili", "slot-playson", "slot-nolimitcity", "slot-playace", "mini-inout", "casino-dream", "casino-sa", "casino-mg":
+		return "id"
+	default:
+		return "en"
+	}
 }

@@ -183,3 +183,23 @@ func TestFinishedRoundRejectsAnotherHistory(t *testing.T) {
 	require.Equal(t, domain.WalletErrorRoundClosed, we.Code)
 	require.EqualValues(t, 99000, historyBalance(t, db))
 }
+
+func TestCancellationInsufficientFundsRollsBackEveryReversal(t *testing.T) {
+	db, s := historyTestDB(t)
+	ctx := context.Background()
+	for _, c := range []domain.WalletCommand{historyCommand("bet", "1", domain.WalletOperationDebit, 10000, false), historyCommand("win", "1", domain.WalletOperationCredit, 30000, true), historyCommand("spent", "2", domain.WalletOperationDebit, 119000, true)} {
+		_, err := s.Execute(ctx, c)
+		require.NoError(t, err)
+	}
+	require.EqualValues(t, 1000, historyBalance(t, db))
+	_, err := s.Execute(ctx, historyCommand("cancel", "1", domain.WalletOperationCancel, 0, true))
+	var we *domain.WalletError
+	require.ErrorAs(t, err, &we)
+	require.Equal(t, domain.WalletErrorInsufficientBalance, we.Code)
+	require.EqualValues(t, 1000, historyBalance(t, db))
+	var count int64
+	require.NoError(t, db.Model(&model.GameProviderTransactions{}).Where("status=?", model.GameProviderTransactionRolledBack).Count(&count).Error)
+	require.Zero(t, count)
+	require.NoError(t, db.Model(&model.ProviderWalletReceipt{}).Where("transaction_code=?", "cancel").Count(&count).Error)
+	require.Zero(t, count)
+}

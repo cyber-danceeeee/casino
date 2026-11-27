@@ -9,6 +9,8 @@
 ```yaml
 game:
   allInTop:
+    # 当前测试账号这两个品牌的目录返回上游错误 500；恢复后可移除排除项。
+    excludedVendorCodes: ["board-poker", "mini-spribe"]
     enabled: true
     apiBaseURL: "https://dcyqv8f2id.com/api/v2"
     clientId: "填写供应商后台的 clientId"
@@ -44,7 +46,7 @@ Basic 认证用户名为 `clientId`、密码为 `clientSecret`。正式环境必
 ## 行为与验证
 
 - 缓存复用 token，并合并并发认证；失败后冷却 30 秒，不自动循环重试 401、403、429。供应商创建 token 限制为每 30 秒 5 次。
-- 从 `/vendors/list` 获取品牌，再逐个调用 `/games/list`。任一品牌请求失败或总目录为空则整次失败，避免部分目录导致已有游戏被误下架。
+- 从 `/vendors/list` 获取品牌，再逐个调用 `/games/list`（默认 en，印尼语只用于文档明确支持的品牌）。`excludedVendorCodes` 仅用于 Nacos 管理的默认 allintop 账号，用来显式排除供应商尚不可用的品牌；移除排除项并重启后即可再次获取。任一品牌请求失败或总目录为空则整次失败，避免部分目录导致已有游戏被误下架。
 - 目录内部标识为 `vendorCode/gameCode`，启动拆分调用 `/game/launch-url`。单一钱包用户由启动创建；不调用转账钱包的建用户或充值接口。未公布试玩接口，返回不支持。
 - 回调负数扣款、正数派奖、零金额允许结束回合；`transactionCode` 跨操作及玩家去重，重复返回错误 6，已结束回合的后续正常交易返回 7。
 - 取消忽略其 amount，只逐笔冲销该 historyId 下此前成功的账本记录；支持结算后取消、取消先于下注到达。取消与批量交易都是数据库原子事务。

@@ -24,6 +24,9 @@ var factories = map[string]AdapterFactory{
 	"allintop": {Fields: []string{"clientId", "clientSecret"}, Required: []string{"clientId", "clientSecret"}, Build: func(c Config, secrets map[string]string) (domain.GameProvider, domain.ProviderCallbackAdapter) {
 		source := config.Get().Game.AllInTop
 		cfg := allintop.Config{Enabled: true, APIBaseURL: c.APIBaseURL, ClientID: secrets["clientId"], ClientSecret: secrets["clientSecret"], CallbackPath: "/api/v1/game/providers/" + c.ProviderCode + "/callback", CallbackIPAllowlist: c.CallbackIPAllowlist, RequestTimeout: seconds(source.RequestTimeoutSeconds, 15), ConnectTimeout: seconds(source.ConnectTimeoutSeconds, 3), MaxTransactionAmountMinor: amountLimit(source.MaxTransactionAmountMinor)}
+		if c.ProviderCode == "allintop" && c.Version == 0 {
+			cfg.ExcludedVendorCodes = source.ExcludedVendorCodes
+		}
 		return allintop.NewProvider(cfg, nil), allintop.NewCallbackAdapter(cfg)
 	}},
 	"ag": {Fields: []string{"merchantCode", "secretKey", "subMerchantCode"}, Required: []string{"merchantCode", "secretKey"}, Build: func(c Config, secrets map[string]string) (domain.GameProvider, domain.ProviderCallbackAdapter) {

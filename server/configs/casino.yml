@@ -150,6 +150,7 @@ notification:
 # game provider settings
 game:
   allInTop:
+    excludedVendorCodes: []
     enabled: false
     apiBaseURL: "https://dcyqv8f2id.com/api/v2"
     clientId: ""

@@ -159,3 +159,33 @@ func TestCallbackAuthenticationPrecisionCancellationAndBatch(t *testing.T) {
 		require.NotContains(t, resp.Body.(map[string]any)["message"], "private")
 	}
 }
+
+func TestExcludedVendorsAndDocumentedLanguageFallback(t *testing.T) {
+	var bad atomic.Int32
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/auth/createtoken":
+			json.NewEncoder(w).Encode(map[string]any{"token": "t", "expiration": time.Now().Add(time.Hour).Unix()})
+		case "/vendors/list":
+			json.NewEncoder(w).Encode(map[string]any{"success": true, "errorCode": 0, "message": []Vendor{{VendorCode: "slot-pgsoft", Type: 2}, {VendorCode: "board-poker", Type: 6}}})
+		default:
+			var in map[string]string
+			json.NewDecoder(r.Body).Decode(&in)
+			if in["vendorCode"] == "board-poker" {
+				bad.Add(1)
+				w.WriteHeader(500)
+				return
+			}
+			require.Equal(t, "en", in["language"])
+			json.NewEncoder(w).Encode(map[string]any{"success": true, "errorCode": 0, "message": []map[string]any{{"gameCode": "1", "gameName": "Game"}}})
+		}
+	}))
+	defer s.Close()
+	p := NewProvider(Config{Enabled: true, APIBaseURL: s.URL, ClientID: "id", ClientSecret: "secret", ExcludedVendorCodes: []string{"board-poker"}}, s.Client())
+	games, err := p.GetGames(context.Background(), domain.GetGamesRequest{})
+	require.NoError(t, err)
+	require.Len(t, games, 1)
+	require.Zero(t, bad.Load())
+	require.Equal(t, "id", providerLanguage("slot-pgsoft", "id"))
+	require.Equal(t, "en", providerLanguage("casino-pragmatic", "id"))
+}

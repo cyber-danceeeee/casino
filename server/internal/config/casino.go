@@ -438,6 +438,7 @@ type HTTP struct {
 
 // AllInTop is an ID / IDR single-wallet supplier account; IDRK is not IDR.
 type AllInTop struct {
+	ExcludedVendorCodes       []string `yaml:"excludedVendorCodes" json:"excludedVendorCodes"`
 	Enabled                   bool     `yaml:"enabled" json:"enabled"`
 	APIBaseURL                string   `yaml:"apiBaseURL" json:"apiBaseURL"`
 	ClientID                  string   `yaml:"clientId" json:"clientId"`
