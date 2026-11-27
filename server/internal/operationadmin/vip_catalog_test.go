@@ -85,7 +85,7 @@ func TestVIPAdminSaveKeepsRewardsAndH5RequirementsTogether(t *testing.T) {
 	require.NoError(t, loadVIPRequirements(db, &saved))
 	require.Zero(t, saved.RetainPeriodDays)
 	// Imported H5 rules remain authoritative even when legacy admin columns are zero.
-	require.NoError(t, db.Model(&vipRecord{}).Where("id=?", id).Updates(map[string]any{"required_deposit": 0, "required_valid_bet": 0, "birthday_reward": 23, "cashback_rate": 5, "required_experience": 99, "sort_order": 20}).Error)
+	require.NoError(t, db.Model(&vipRecord{}).Where("id=?", id).Updates(map[string]any{"required_deposit": 0, "required_valid_bet": 0, "name": "VIP 3", "name_zh": "", "name_en": "", "birthday_reward": 23, "cashback_rate": 5, "required_experience": 99, "sort_order": 20}).Error)
 	require.NoError(t, db.First(&saved, id).Error)
 	require.NoError(t, loadVIPRequirements(db, &saved))
 	require.Equal(t, "200.00", saved.RequiredDeposit.StringFixed(2))
@@ -105,6 +105,7 @@ func TestVIPAdminSaveKeepsRewardsAndH5RequirementsTogether(t *testing.T) {
 	require.Equal(t, uint64(99), saved.RequiredExperience)
 	require.Equal(t, 20, saved.SortOrder)
 	require.Equal(t, "vip1", saved.Code)
+	require.Equal(t, "VIP 3", saved.Name)
 	require.Equal(t, "12.50", saved.MonthlyReward.StringFixed(2))
 	var benefitCount int64
 	require.NoError(t, db.Model(&model.GameVIPBenefit{}).Where("vip_level_id=?", id).Count(&benefitCount).Error)

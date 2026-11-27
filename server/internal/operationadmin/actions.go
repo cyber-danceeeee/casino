@@ -326,6 +326,18 @@ func (s *Service) SaveVIPLevel(id uint64, in VIPLevelInput, actor Actor) (uint64
 			}
 			icon = operationAssetRef(icon)
 		}
+		if nameZh == "" {
+			nameZh = strings.TrimSpace(before.Name)
+		}
+		if nameEn == "" {
+			nameEn = strings.TrimSpace(before.Name)
+		}
+		if nameZh == "" {
+			nameZh = fmt.Sprintf("VIP %d", in.Level)
+		}
+		if nameEn == "" {
+			nameEn = fmt.Sprintf("VIP %d", in.Level)
+		}
 		name := nameEn
 		if name == "" {
 			name = nameZh
