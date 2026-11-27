@@ -8,7 +8,7 @@ import {
   Monitor,
   Promotion,
   Search,
-  UploadFilled,
+
 } from "@element-plus/icons-vue";
 import { useI18n } from "vue-i18n";
 import {
@@ -273,16 +273,11 @@ const operationalCards = computed(() => [
     path: "/system/brand",
   },
   {
-    key: "publishedVersion",
-    value: overview.value?.publishedVersion
-      ? `v${overview.value.publishedVersion}`
+    key: "configVersion",
+    value: overview.value?.configMeta?.configVersion
+      ? `v${overview.value.configMeta?.configVersion}`
       : "-",
-    path: "/brand/publish",
-  },
-  {
-    key: "unpublished",
-    value: overview.value?.unpublishedChanges || 0,
-    path: "/brand/publish",
+    path: "/system/brand",
   },
   { key: "criticalAlerts", value: criticalAlerts.value, path: "/ops/alerts" },
   { key: "failedJobs", value: failedJobs.value, path: "/ops/jobs" },
@@ -300,11 +295,6 @@ const pendingWork = computed(() =>
       path: "/funds/withdrawals",
     },
     { key: "supportCases", count: openCases.value, path: "/support/cases" },
-    {
-      key: "configuration",
-      count: overview.value?.unpublishedChanges || 0,
-      path: "/brand/publish",
-    },
     { key: "alerts", count: criticalAlerts.value, path: "/ops/alerts" },
     { key: "failedJobs", count: failedJobs.value, path: "/ops/jobs" },
   ].filter((item) => item.count > 0),
@@ -349,15 +339,9 @@ const quickActions = [
   },
   {
     key: "preview",
-    path: "/brand/preview",
+    path: "/system/brand",
     navigation: "/system/brand",
     icon: Monitor,
-  },
-  {
-    key: "publish",
-    path: "/brand/publish",
-    navigation: "/system/brand",
-    icon: UploadFilled,
   },
 ].filter((item) => hasNavigation(item.navigation));
 

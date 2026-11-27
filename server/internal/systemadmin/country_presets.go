@@ -1,13 +1,15 @@
 package systemadmin
 
 import (
-	"gorm.io/gorm"
 	"strings"
+
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 func countryNotInUse(db *gorm.DB, code string) error {
 	var count int64
-	if err := db.Table("game_site_config").Where("deleted_at IS NULL AND (country_code=? OR country_code_draft=?)", code, code).Count(&count).Error; err != nil {
+	if err := db.Table("game_site_config").Where("deleted_at IS NULL AND country_code=?", code).Count(&count).Error; err != nil {
 		return err
 	}
 	if count > 0 {
@@ -84,4 +86,36 @@ func countryInputDefaults(input CountryInput) CountryInput {
 		input.SupportedLanguages = input.DefaultLanguage
 	}
 	return input
+}
+
+// Lock the singleton deployment before switching the active country. A currency
+// change never re-denominates existing wallets.
+func activateCountry(tx *gorm.DB, id uint64, actor Actor) error {
+	var site struct {
+		ID           uint64
+		CurrencyCode string
+	}
+	if err := tx.Table("game_site_config").Clauses(clause.Locking{Strength: "UPDATE"}).Select("id,currency_code").Where("id=1 AND deleted_at IS NULL").Take(&site).Error; err != nil {
+		return err
+	}
+	var row countryConfigRecord
+	if err := tx.Table("game_country_configs").Where("id=? AND deleted_at IS NULL", id).Take(&row).Error; err != nil {
+		return err
+	}
+	if row.CurrencyCode != site.CurrencyCode {
+		var count int64
+		if err := tx.Table("game_user_wallets").Where("site_id=1").Count(&count).Error; err != nil {
+			return err
+		}
+		if count > 0 {
+			return NewError("CURRENCY_CHANGE_REQUIRES_MIGRATION", "existing player wallets must be migrated before changing currency")
+		}
+	}
+	if err := tx.Table("game_country_configs").Where("id<>? AND deleted_at IS NULL", id).Updates(map[string]any{"status": 0, "is_default": 0, "updated_at": now()}).Error; err != nil {
+		return err
+	}
+	if err := tx.Table("game_country_configs").Where("id=?", id).Updates(map[string]any{"status": 1, "is_default": 1, "updated_at": now()}).Error; err != nil {
+		return err
+	}
+	return tx.Table("game_site_config").Where("id=1").Updates(map[string]any{"country_code": row.CountryCode, "currency_code": row.CurrencyCode, "default_language": row.DefaultLanguage, "timezone": row.Timezone, "config_version": gorm.Expr("config_version+1"), "updated_by": actor.ID, "updated_at": now()}).Error
 }

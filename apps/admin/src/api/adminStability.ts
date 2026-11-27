@@ -1,3 +1,4 @@
+import { requestID } from '@/utils/requestID'
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut, http } from '@/api/http'
 
 export type OpsQuery = Record<string, string | number | boolean | undefined>
@@ -52,14 +53,7 @@ export const operationsAPI = {
     games: (params: OpsQuery) => apiGet<OpsPage>(`${admin}/maintenance/games`, params),
     saveGame: (payload: unknown) => apiPut<{ id: number }>(`${admin}/maintenance/games`, payload),
   },
-  releases: {
-    list: (params: OpsQuery) => apiGet<OpsPage>(`${admin}/releases`, params),
-    detail: (id: number) => apiGet<Record<string, unknown>>(`${admin}/releases/${id}`),
-    compare: (fromID: number, toID: number) => apiGet<Record<string, unknown>>(`${admin}/releases/compare`, { fromID, toID }),
-    validate: (siteID: number) => apiPost<Record<string, unknown>>(`${admin}/releases/sites/${siteID}/validate`),
-    publish: (siteID: number, reason: string, idempotencyKey: string) => apiPost<Record<string, unknown>>(`${admin}/releases/sites/${siteID}/publish`, { reason }, { headers: { 'Idempotency-Key': idempotencyKey } }),
-    rollback: (id: number, reason: string, idempotencyKey: string) => apiPost<Record<string, unknown>>(`${admin}/releases/${id}/rollback`, { reason, idempotencyKey }),
-  },
+
   health: () => apiGet<Record<string, unknown>>(`${system}/health`),
   jobs: {
     overview: (params: OpsQuery) => apiGet<Record<string, unknown>>(`${system}/jobs`, params),
@@ -86,5 +80,5 @@ export const operationsAPI = {
 }
 
 export function operationIdempotencyKey(prefix: string) {
-  return `${prefix}:${Date.now()}:${crypto.randomUUID()}`
+  return `${prefix}:${Date.now()}:${requestID()}`
 }

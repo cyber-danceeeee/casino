@@ -63,7 +63,7 @@ func TestPromotionEngineValidationOnlyActivatesConnectedTrigger(t *testing.T) {
 
 	input.TriggerType = "REGISTRATION_COMPLETED"
 	require.Error(t, validatePromotionInput(input))
-	input.Status = "DRAFT"
+	input.Status = "PAUSED"
 	require.NoError(t, validatePromotionInput(input))
 	input.RewardRules[0].RewardType = "FREE_SPINS"
 	require.Error(t, validatePromotionInput(input))

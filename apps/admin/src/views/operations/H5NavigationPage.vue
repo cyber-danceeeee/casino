@@ -10,8 +10,7 @@ import {
   Plus,
   Rank,
   Refresh,
-  UploadFilled,
-} from "@element-plus/icons-vue";
+  } from "@element-plus/icons-vue";
 import { fetchGames, type GameCenterRecord } from "@/api/adminGames";
 import {
   copyH5Navigation,
@@ -36,7 +35,6 @@ import { formatBackendTime } from "@/utils/timezone";
 const { t } = useI18n();
 const loading = ref(false);
 const saving = ref(false);
-const publishing = ref(false);
 const sorting = ref(false);
 const rows = ref<H5NavigationRecord[]>([]);
 const imageAssets = ref<AssetLibraryRecord[]>([]);
@@ -49,7 +47,7 @@ const previewVisible = ref(false);
 const editingID = ref(0);
 const draggedID = ref(0);
 const activePosition = ref<H5NavigationPosition>("HOME_QUICK");
-const filters = reactive({ keyword: "", publishStatus: "" });
+const filters = reactive({ keyword: "", });
 
 const positions: H5NavigationPosition[] = ["HOME_QUICK", "BOTTOM_NAV", "PROFILE_MENU"];
 const actionTypes: H5NavigationAction[] = [
@@ -90,10 +88,10 @@ const form = reactive(emptyForm());
 
 const currentRows = computed(() =>
   rows.value
-    .filter((row) => draft(row).displayPosition === activePosition.value && !draft(row).deleted)
-    .sort((a, b) => draft(a).sortOrder - draft(b).sortOrder || a.id - b.id),
+    .filter((row) => configuration(row).displayPosition === activePosition.value && !configuration(row).deleted)
+    .sort((a, b) => configuration(a).sortOrder - configuration(b).sortOrder || a.id - b.id),
 );
-const previewRows = computed(() => currentRows.value.filter((row) => draft(row).enabled));
+const previewRows = computed(() => currentRows.value.filter((row) => configuration(row).enabled));
 const targetMode = computed<"none" | "internal" | "external" | "promotion" | "game">(() => {
   if (form.actionType === "OPEN_INTERNAL_PAGE") return "internal";
   if (["OPEN_EXTERNAL_URL", "OPEN_DOWNLOAD"].includes(form.actionType)) return "external";
@@ -102,10 +100,10 @@ const targetMode = computed<"none" | "internal" | "external" | "promotion" | "ga
   return "none";
 });
 
-function draft(row: H5NavigationRecord): H5NavigationConfiguration {
-  return row.draftConfiguration?.menuCode
-    ? row.draftConfiguration
-    : row.publishedConfiguration;
+function configuration(row: H5NavigationRecord): H5NavigationConfiguration {
+  return row.configuration?.menuCode
+    ? row.configuration
+    : row.configuration;
 }
 
 function assetURL(asset?: AssetLibraryRecord) {
@@ -113,7 +111,7 @@ function assetURL(asset?: AssetLibraryRecord) {
 }
 
 function iconFor(row: H5NavigationRecord) {
-  const config = draft(row);
+  const config = configuration(row);
   return assetURL(imageAssets.value.find((asset) => asset.id === config.iconAssetID)) || assetURL(row.iconAsset);
 }
 
@@ -140,7 +138,7 @@ async function load() {
   loading.value = true;
   try {
     const [entryResult, images, lotties, sounds, gameResult, brand] = await Promise.all([
-      listH5Navigation({ page: 1, pageSize: 500, keyword: filters.keyword, publishStatus: filters.publishStatus }),
+      listH5Navigation({ page: 1, pageSize: 500, keyword: filters.keyword, }),
       listAssets({ page: 1, pageSize: 300, assetType: "IMAGE", usageType: "BUTTON_ICON" }),
       listAssets({ page: 1, pageSize: 300, assetType: "LOTTIE", usageType: "BUTTON_ICON" }),
       listAssets({ page: 1, pageSize: 300, assetType: "AUDIO", usageType: "SOUND" }),
@@ -171,7 +169,7 @@ function openCreate() {
 
 function openEdit(row: H5NavigationRecord) {
 	if (row.isFallback) return;
-  const config = draft(row);
+  const config = configuration(row);
   editingID.value = row.id;
   Object.assign(form, emptyForm(), config, {
     labelZh: config.labels?.["zh-CN"] || "",
@@ -245,7 +243,7 @@ async function save() {
     if (editingID.value) await updateH5Navigation(editingID.value, payload());
     else await createH5Navigation(payload());
     editVisible.value = false;
-    ElMessage.success(t("h5EntryLibrary.messages.draftSaved"));
+    ElMessage.success(t("liveConfig.saved"));
     window.dispatchEvent(new Event("brand-config-refresh"));
     await load();
   } catch (error) {
@@ -256,7 +254,7 @@ async function save() {
 }
 
 async function toggle(row: H5NavigationRecord, enabled: boolean) {
-  const config = draft(row);
+  const config = configuration(row);
   try {
     await updateH5Navigation(row.id, {
       ...payload({
@@ -270,7 +268,7 @@ async function toggle(row: H5NavigationRecord, enabled: boolean) {
         reason: t("h5EntryLibrary.defaults.statusReason"),
       }),
     });
-    ElMessage.success(t("h5EntryLibrary.messages.statusDraftSaved"));
+    ElMessage.success(t("liveConfig.saved"));
     window.dispatchEvent(new Event("brand-config-refresh"));
     await load();
   } catch (error) {
@@ -294,12 +292,12 @@ async function remove(row: H5NavigationRecord) {
 	if (row.isFallback) return;
   try {
     await ElMessageBox.confirm(t("h5EntryLibrary.dialogs.deleteMessage"), t("h5EntryLibrary.dialogs.deleteTitle"), {
-      confirmButtonText: t("h5EntryLibrary.actions.deleteDraft"),
+      confirmButtonText: t("common.delete"),
       cancelButtonText: t("common.cancel"),
       type: "warning",
     });
     await deleteH5Navigation(row.id);
-    ElMessage.success(t("h5EntryLibrary.messages.deleteDraftSaved"));
+    ElMessage.success(t("liveConfig.saved"));
     window.dispatchEvent(new Event("brand-config-refresh"));
     await load();
   } catch (error) {
@@ -325,35 +323,13 @@ async function dropOn(targetID: number) {
   sorting.value = true;
   try {
     await sortH5Navigation(activePosition.value, reordered.map((row) => row.id), t("h5EntryLibrary.defaults.sortReason"));
-    ElMessage.success(t("h5EntryLibrary.messages.sortDraftSaved"));
+    ElMessage.success(t("liveConfig.saved"));
     window.dispatchEvent(new Event("brand-config-refresh"));
     await load();
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : t("h5EntryLibrary.messages.sortFailed"));
   } finally {
     sorting.value = false;
-  }
-}
-
-async function publish() {
-  if (!overview.value?.siteID) return;
-  try {
-    const result = await ElMessageBox.prompt(t("h5EntryLibrary.dialogs.publishMessage"), t("h5EntryLibrary.dialogs.publishTitle"), {
-      confirmButtonText: t("h5EntryLibrary.actions.publish"),
-      cancelButtonText: t("common.cancel"),
-      inputValue: t("h5EntryLibrary.defaults.publishReason"),
-      inputValidator: (value) => Boolean(value.trim()) || t("h5EntryLibrary.validation.reasonRequired"),
-    });
-    publishing.value = true;
-    const response = await systemAPI.sites.publish(overview.value.siteID, result.value.trim());
-    ElMessage.success(t("h5EntryLibrary.messages.published", { count: Number(response.navigationDraftsPublished || 0) }));
-    window.dispatchEvent(new Event("brand-config-refresh"));
-    await load();
-  } catch (error) {
-    if (error !== "cancel" && error !== "close")
-      ElMessage.error(error instanceof Error ? error.message : t("h5EntryLibrary.messages.publishFailed"));
-  } finally {
-    publishing.value = false;
   }
 }
 
@@ -371,19 +347,16 @@ onMounted(load);
       <div class="header-actions">
         <el-button :icon="Refresh" @click="load">{{ t("common.refresh") }}</el-button>
         <el-button :icon="Monitor" @click="previewVisible = true">{{ t("h5EntryLibrary.actions.preview") }}</el-button>
-        <el-button type="primary" :icon="UploadFilled" :loading="publishing" @click="publish">{{ t("h5EntryLibrary.actions.publish") }}</el-button>
+
         <el-button type="success" :icon="Plus" @click="openCreate">{{ t("h5EntryLibrary.actions.create") }}</el-button>
       </div>
     </header>
 
-    <el-alert type="warning" :title="t('h5EntryLibrary.draftNotice')" :closable="false" show-icon />
+
 
     <section class="toolbar">
       <el-input v-model="filters.keyword" clearable :placeholder="t('h5EntryLibrary.placeholders.keyword')" @keyup.enter="load" />
-      <el-select v-model="filters.publishStatus" clearable :placeholder="t('h5EntryLibrary.fields.publishStatus')">
-        <el-option :label="t('h5EntryLibrary.status.DRAFT')" value="DRAFT" />
-        <el-option :label="t('h5EntryLibrary.status.PUBLISHED')" value="PUBLISHED" />
-      </el-select>
+
       <el-button type="primary" @click="load">{{ t("common.search") }}</el-button>
     </section>
 
@@ -395,15 +368,15 @@ onMounted(load);
       <el-table :data="currentRows" row-key="id" v-loading="sorting">
 		<el-table-column width="48"><template #default="{ row }"><el-icon v-if="!row.isFallback" class="drag-handle" draggable="true" @dragstart="dragStart(row)" @dragover.prevent @drop="dropOn(row.id)"><Rank /></el-icon></template></el-table-column>
         <el-table-column :label="t('h5EntryLibrary.fields.icon')" width="86">
-          <template #default="{ row }"><div class="entry-icon"><img v-if="iconFor(row)" :src="iconFor(row)" alt="" /><span v-else>{{ draft(row).labels?.['en-US']?.slice(0, 1) }}</span><i v-if="draft(row).badgeType !== 'NONE'">{{ draft(row).badgeType }}</i></div></template>
+          <template #default="{ row }"><div class="entry-icon"><img v-if="iconFor(row)" :src="iconFor(row)" alt="" /><span v-else>{{ configuration(row).labels?.['en-US']?.slice(0, 1) }}</span><i v-if="configuration(row).badgeType !== 'NONE'">{{ configuration(row).badgeType }}</i></div></template>
         </el-table-column>
-        <el-table-column :label="t('h5EntryLibrary.fields.name')" min-width="170"><template #default="{ row }"><strong>{{ draft(row).labels?.['zh-CN'] }}</strong><small>{{ draft(row).labels?.['en-US'] }} · {{ draft(row).menuCode }}</small></template></el-table-column>
-        <el-table-column :label="t('h5EntryLibrary.fields.actionType')" min-width="170"><template #default="{ row }"><el-tag effect="plain">{{ t(`h5EntryLibrary.actionTypes.${draft(row).actionType}`) }}</el-tag><small>{{ draft(row).actionType === 'OPEN_GAME' ? gameLabelForConfig(draft(row)) : draft(row).actionTarget || '-' }}</small></template></el-table-column>
-        <el-table-column :label="t('h5EntryLibrary.fields.visibility')" width="130"><template #default="{ row }">{{ t(`h5EntryLibrary.visibility.${draft(row).visibilityScope}`) }}</template></el-table-column>
-        <el-table-column :label="t('h5EntryLibrary.fields.schedule')" width="185"><template #default="{ row }"><small>{{ scheduleText(draft(row).startAt, 'h5EntryLibrary.labels.immediate') }}</small><small>{{ scheduleText(draft(row).endAt, 'h5EntryLibrary.labels.noExpiry') }}</small></template></el-table-column>
-        <el-table-column :label="t('h5EntryLibrary.fields.publishStatus')" width="145"><template #default="{ row }"><el-tag :type="row.publishStatus === 'DRAFT' ? 'warning' : 'success'">{{ t(`h5EntryLibrary.status.${row.publishStatus}`) }}</el-tag></template></el-table-column>
+        <el-table-column :label="t('h5EntryLibrary.fields.name')" min-width="170"><template #default="{ row }"><strong>{{ configuration(row).labels?.['zh-CN'] }}</strong><small>{{ configuration(row).labels?.['en-US'] }} · {{ configuration(row).menuCode }}</small></template></el-table-column>
+        <el-table-column :label="t('h5EntryLibrary.fields.actionType')" min-width="170"><template #default="{ row }"><el-tag effect="plain">{{ t(`h5EntryLibrary.actionTypes.${configuration(row).actionType}`) }}</el-tag><small>{{ configuration(row).actionType === 'OPEN_GAME' ? gameLabelForConfig(configuration(row)) : configuration(row).actionTarget || '-' }}</small></template></el-table-column>
+        <el-table-column :label="t('h5EntryLibrary.fields.visibility')" width="130"><template #default="{ row }">{{ t(`h5EntryLibrary.visibility.${configuration(row).visibilityScope}`) }}</template></el-table-column>
+        <el-table-column :label="t('h5EntryLibrary.fields.schedule')" width="185"><template #default="{ row }"><small>{{ scheduleText(configuration(row).startAt, 'h5EntryLibrary.labels.immediate') }}</small><small>{{ scheduleText(configuration(row).endAt, 'h5EntryLibrary.labels.noExpiry') }}</small></template></el-table-column>
+
 		<el-table-column :label="t('operations.fields.source')" width="130"><template #default="{ row }"><el-tag v-if="row.isFallback" type="info" effect="plain">{{ t('operations.values.platformDefault') }}</el-tag><span v-else>{{ t('operations.values.siteCustom') }}</span></template></el-table-column>
-        <el-table-column :label="t('h5EntryLibrary.fields.enabled')" width="90"><template #default="{ row }"><el-switch :model-value="draft(row).enabled" @change="toggle(row, Boolean($event))" /></template></el-table-column>
+        <el-table-column :label="t('h5EntryLibrary.fields.enabled')" width="90"><template #default="{ row }"><el-switch :model-value="configuration(row).enabled" @change="toggle(row, Boolean($event))" /></template></el-table-column>
 		<el-table-column :label="t('common.actions')" width="150" fixed="right"><template #default="{ row }"><template v-if="!row.isFallback"><el-button link type="primary" :icon="Edit" @click="openEdit(row)" /><el-button link :icon="CopyDocument" @click="duplicate(row)" /><el-button link type="danger" :icon="Delete" @click="remove(row)" /></template><span v-else>-</span></template></el-table-column>
         <template #empty>{{ t("h5EntryLibrary.messages.empty") }}</template>
       </el-table>
@@ -431,14 +404,14 @@ onMounted(load);
           <el-col :span="12"><el-form-item :label="t('h5EntryLibrary.fields.reason')"><el-input v-model="form.reason" maxlength="500" /></el-form-item></el-col>
         </el-row>
       </el-form>
-      <template #footer><el-button @click="editVisible = false">{{ t("common.cancel") }}</el-button><el-button type="primary" :loading="saving" @click="save">{{ t("h5EntryLibrary.actions.saveDraft") }}</el-button></template>
+      <template #footer><el-button @click="editVisible = false">{{ t("common.cancel") }}</el-button><el-button type="primary" :loading="saving" @click="save">{{ t("common.save") }}</el-button></template>
     </el-dialog>
 
     <el-dialog v-model="previewVisible" :title="t('h5EntryLibrary.dialogs.previewTitle')" width="500px">
       <div class="entry-preview" :class="`is-${activePosition.toLowerCase()}`">
         <button v-for="row in previewRows" :key="row.id" type="button">
-          <span class="entry-icon"><img v-if="iconFor(row)" :src="iconFor(row)" alt="" /><strong v-else>{{ draft(row).labels?.['en-US']?.slice(0, 1) }}</strong><i v-if="draft(row).badgeType !== 'NONE'">{{ draft(row).badgeType }}</i></span>
-          <small>{{ draft(row).labels?.['zh-CN'] }}</small>
+          <span class="entry-icon"><img v-if="iconFor(row)" :src="iconFor(row)" alt="" /><strong v-else>{{ configuration(row).labels?.['en-US']?.slice(0, 1) }}</strong><i v-if="configuration(row).badgeType !== 'NONE'">{{ configuration(row).badgeType }}</i></span>
+          <small>{{ configuration(row).labels?.['zh-CN'] }}</small>
         </button>
         <el-empty v-if="!previewRows.length" :description="t('h5EntryLibrary.messages.emptyPreview')" />
       </div>

@@ -1,5 +1,6 @@
 import type { Component } from "vue";
 import {
+Headset,
   Avatar,
   Brush,
   Checked,
@@ -20,7 +21,6 @@ import {
   FolderOpened,
   GoldMedal,
   Grid,
-  Headset,
   Histogram,
   Key,
   Link,
@@ -55,7 +55,6 @@ import {
   TrendCharts,
   User,
   UserFilled,
-  UploadFilled,
   VideoPlay,
   Wallet,
   WarnTriangleFilled,
@@ -359,13 +358,6 @@ export const menuGroups: MenuGroup[] = [
         i18nKey: "menu.operations.popups",
         path: "/operations/popups",
         icon: Files,
-      },
-      {
-        key: "music",
-        label: "音乐管理",
-        i18nKey: "menu.operations.music",
-        path: "/operations/music",
-        icon: Headset,
       },
       {
         key: "social-links",
@@ -705,15 +697,12 @@ const siteExperienceItems: MenuItem[] = [
 	{ key: "brand-domain", label: "域名", i18nKey: "siteExperience.menu.domain", path: "/brand/domain", navigationPath: "/system/brand", icon: Link },
 	{ key: "brand-region", label: "国家与币种", i18nKey: "siteExperience.menu.countryCurrency", path: "/brand/region", navigationPath: "/system/brand", icon: Position },
 	{ key: "brand-languages", label: "语言", i18nKey: "siteExperience.menu.languages", path: "/brand/languages", navigationPath: "/system/brand", icon: Message },
-	{ key: "brand-preview", label: "预览", i18nKey: "siteExperience.menu.preview", path: "/brand/preview", navigationPath: "/system/brand", icon: Monitor },
-	{ key: "brand-publish", label: "发布", i18nKey: "siteExperience.menu.publish", path: "/brand/publish", navigationPath: "/system/brand", icon: UploadFilled },
 ];
 
 const sharedOpsItems: MenuItem[] = [
   { key: "payment-monitor", label: "支付监控", i18nKey: "opsV1.monitor.pages.payment-monitor", path: "/ops/payments", icon: CreditCard },
   { key: "provider-monitor", label: "Provider 监控", i18nKey: "opsV1.monitor.pages.provider-monitor", path: "/ops/providers", icon: Odometer },
   { key: "maintenance-center", label: "维护管理", i18nKey: "opsV1.maintenance.title", path: "/ops/maintenance", icon: Warning },
-  { key: "release-center", label: "发布中心", i18nKey: "opsV1.stability.pages.release-center", path: "/ops/releases", icon: UploadFilled },
 ];
 
 const platformOpsItems: MenuItem[] = [

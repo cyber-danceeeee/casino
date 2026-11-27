@@ -16,7 +16,6 @@ import {
 } from "@/utils/timezone";
 import { useAdminAuth } from "@/composables/useAdminAuth";
 import { useAdminPermissions } from "@/composables/useAdminPermissions";
-import BrandDraftStatusBar from "@/components/brand/BrandDraftStatusBar.vue";
 import { accountAPI, type AccountProfile } from "@/api/adminAccount";
 import { systemAPI, type PlatformBranding } from "@/api/adminSystem";
 
@@ -252,7 +251,6 @@ async function handleUserCommand(command: string) {
 
       <el-main class="admin-main">
         <div class="admin-main-body">
-          <BrandDraftStatusBar v-if="route.path !== '/system/countries'" />
           <router-view />
         </div>
         <footer class="admin-footer">{{ platformFooter }}</footer>

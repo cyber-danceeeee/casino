@@ -117,7 +117,7 @@ func TestAlertAcknowledgeAndResolveAreAudited(t *testing.T) {
 
 func TestBackupArtifactChecksumAndManifestValidation(t *testing.T) {
 	row := BackupTaskRow{BackupNo: "BKP-TEST", ScopeType: backupScopeH5Config, SiteID: 101}
-	manifest := backupManifest{FormatVersion: 1, BackupNo: row.BackupNo, ScopeType: row.ScopeType, SiteID: row.SiteID, CreatedAt: time.Now(), Data: json.RawMessage(`{"sites":{"101":{"site":{"id":101}}}}`)}
+	manifest := backupManifest{FormatVersion: 2, BackupNo: row.BackupNo, ScopeType: row.ScopeType, SiteID: row.SiteID, CreatedAt: time.Now(), Data: json.RawMessage(`{"sites":{"101":{"site":{"id":101}}}}`)}
 	artifact := testBackupArtifact(t, manifest)
 	sum := sha256.Sum256(artifact)
 	row.ChecksumSHA256 = hex.EncodeToString(sum[:])
@@ -135,16 +135,6 @@ func TestBackupArtifactChecksumAndManifestValidation(t *testing.T) {
 	wrong.ChecksumSHA256 = row.ChecksumSHA256
 	if _, err := verifyBackupArtifact(wrong, artifact); ErrorCode(err) != "INVALID_BACKUP_ARTIFACT" {
 		t.Fatalf("mismatched manifest error = %v", err)
-	}
-}
-
-func TestReleaseKeysAreStableAndScopeBound(t *testing.T) {
-	first := releaseIdempotencyKey(101, "publish-request")
-	if first != releaseIdempotencyKey(101, "publish-request") {
-		t.Fatal("release idempotency key is not stable")
-	}
-	if first == releaseIdempotencyKey(202, "publish-request") {
-		t.Fatal("release idempotency key is not H5 content scoped")
 	}
 }
 

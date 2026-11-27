@@ -7,7 +7,7 @@ const normalizedKey = computed(() => String(normalizedValue.value || '').toUpper
 const type = computed(() => {
   if (props.typeOverride) return props.typeOverride
   if (['ACTIVE', 'SUCCESS', 'VALID', 'CREDIT', 'CLEARED', 'NORMAL', 'TRUSTED', 'PAID', 'APPROVED', 'COMPLETED', 'ENABLED', 'ONLINE'].includes(normalizedKey.value)) return 'success'
-  if (['DEBIT', 'DISABLED', 'FROZEN', 'OBSERVED', 'MEDIUM', 'PENDING', 'PENDING_REVIEW', 'DRAFT', 'PROCESSING', 'REVIEW', 'BUILDING', 'MAINTENANCE', 'SUSPENDED'].includes(normalizedKey.value)) return 'warning'
+  if (['DEBIT', 'DISABLED', 'FROZEN', 'OBSERVED', 'MEDIUM', 'PENDING', 'PENDING_REVIEW', 'READY', 'PROCESSING', 'REVIEW', 'BUILDING', 'MAINTENANCE', 'SUSPENDED'].includes(normalizedKey.value)) return 'warning'
   if (['ROLLBACK', 'ROLLED_BACK', 'INVALID', 'LOCKED', 'CLOSED', 'FAILED', 'BLOCKED', 'RESTRICTED', 'HIGH', 'CRITICAL', 'RISKY', 'REJECTED', 'CANCELLED', 'EXPIRED'].includes(normalizedKey.value)) return 'danger'
   if (['BALANCE', 'NOT_CHECKED'].includes(normalizedKey.value)) return 'info'
   return 'info'

@@ -26,23 +26,13 @@ export type BrandOverview = SystemDetail & {
   packageCode: string
   gameLimit: number
   providerLimit: number
-  publishStatus: string
-  publishedVersion: number
-  draftVersion: number
-  publishedAt: string
-  draftUpdatedAt: string
-  hasUnpublished: boolean
-	unpublishedChanges: number
-	unpublishedModules: string[]
-	pendingChanges: Array<{ module: string; summary: string; updatedBy: string; updatedAt: string; before?: SystemDetail; after?: SystemDetail }>
 	lastUpdatedBy: string
   isInitialized: boolean
 	setupChecklist: Array<{ key: string; status: 'COMPLETED' | 'INCOMPLETE' | 'WARNING' | 'ERROR'; path: string }>
 	setupCompleted: number
 	setupTotal: number
 	setupPercent: number
-  publishedConfig?: SystemDetail
-  draftConfig?: SystemDetail
+  configuration?: SystemDetail
   configMeta?: SystemDetail
 }
 
@@ -55,9 +45,9 @@ export type AnnouncementConfiguration = {
   startAt: string | null; endAt: string | null; enabled: boolean; deleted?: boolean
 }
 export type SiteAnnouncementRecord = {
-  id: number; siteID: number; publishStatus: 'DRAFT' | 'PUBLISHED'
-  configVersion: number; draftUpdatedAt: string; publishedAt: string
-  draftConfiguration: AnnouncementConfiguration; publishedConfiguration: AnnouncementConfiguration
+  id: number; siteID: number;
+  configVersion: number;
+  configuration: AnnouncementConfiguration
 }
 export type PopupFrequency = 'EVERY_VISIT' | 'ONCE_PER_SESSION' | 'ONCE_PER_DAY' | 'ONCE_PER_USER'
 export type PopupTrigger = 'HOME_ENTER' | 'PAGE_ENTER'
@@ -76,9 +66,9 @@ export type PopupConfiguration = {
   startAt: string | null; endAt: string | null; priority: number; enabled: boolean; deleted?: boolean
 }
 export type SitePopupRecord = {
-  id: number; siteID: number; publishStatus: 'DRAFT' | 'PUBLISHED'
-  configVersion: number; draftUpdatedAt: string; publishedAt: string
-  draftConfiguration: PopupConfiguration; publishedConfiguration: PopupConfiguration
+  id: number; siteID: number;
+  configVersion: number;
+  configuration: PopupConfiguration
   component?: PopupComponentRecord
 }
 
@@ -143,8 +133,6 @@ export const systemAPI = {
     detail: (id: number) => apiGet<SystemDetail>(`${root}/sites/${id}`),
     update: (id: number, payload: unknown) => apiPut<void>(`${root}/sites/${id}`, payload),
     status: (id: number, enabled: boolean, reason: string) => apiPatch<void>(`${root}/sites/${id}/status`, { enabled, reason }),
-    preview: (id: number) => apiGet<SystemDetail>(`${root}/sites/${id}/config/preview`),
-    publish: (id: number, reason: string) => apiPost<SystemDetail>(`${root}/sites/${id}/config/publish`, { reason }),
     uploadAPK: async (file: File) => uploadForm<UploadedAsset>(`${root}/sites/apk/upload`, file),
   },
   announcements: {

@@ -153,7 +153,7 @@ func (h *gameGamesHandler) Lobby(c *gin.Context) {
 
 func h5LobbySections(db *gorm.DB, scope content.Scope, country string, currency string) ([]model.GameLobbySections, error) {
 	var rows []model.GameLobbySections
-	q := db.Model(&model.GameLobbySections{}).Where("deleted_at IS NULL AND enabled = ? AND publish_status = ?", true, "PUBLISHED")
+	q := db.Model(&model.GameLobbySections{}).Where("deleted_at IS NULL AND enabled = ?", true)
 	q = h5LobbyScope(q, scope)
 	q = h5Availability(q, "game_lobby_sections", country, currency)
 	if err := q.Order("site_id DESC, sort_order ASC, id ASC").Find(&rows).Error; err != nil {

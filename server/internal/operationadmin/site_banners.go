@@ -16,17 +16,14 @@ import (
 	"casino/internal/storage"
 )
 
-const (
-	BannerPublishDraft     = "DRAFT"
-	BannerPublishPublished = "PUBLISHED"
-)
+const ()
 
 var allowedBannerActions = map[string]bool{
 	"NONE": true, "OPEN_INTERNAL_PAGE": true, "OPEN_EXTERNAL_URL": true,
 	"OPEN_GAME": true, "OPEN_PROMOTION": true, "OPEN_DEPOSIT": true, "OPEN_SUPPORT": true,
 }
 
-type SiteBannerDraft struct {
+type SiteBannerConfiguration struct {
 	Name            string     `json:"name"`
 	Title           string     `json:"title"`
 	Subtitle        string     `json:"subtitle"`
@@ -76,46 +73,39 @@ type SiteBannerSortInput struct {
 type siteBannerRecord struct {
 	ID uint64 `gorm:"primaryKey" json:"id"`
 
-	SiteID                 uint64              `gorm:"column:site_id" json:"siteID"`
-	Name                   string              `gorm:"column:name" json:"name"`
-	Title                  string              `gorm:"column:title" json:"title"`
-	Subtitle               string              `gorm:"column:subtitle" json:"subtitle"`
-	DesktopAssetID         uint64              `gorm:"column:desktop_asset_id" json:"desktopAssetID"`
-	MobileAssetID          uint64              `gorm:"column:mobile_asset_id" json:"mobileAssetID"`
-	DesktopAssetIDDraft    uint64              `gorm:"column:desktop_asset_id_draft" json:"desktopAssetIDDraft"`
-	MobileAssetIDDraft     uint64              `gorm:"column:mobile_asset_id_draft" json:"mobileAssetIDDraft"`
-	ActionType             string              `gorm:"column:action_type" json:"actionType"`
-	ActionTarget           string              `gorm:"column:action_target" json:"actionTarget"`
-	SortOrder              int                 `gorm:"column:sort_order" json:"sortOrder"`
-	LanguageCode           string              `gorm:"column:language_code" json:"languageCode"`
-	CountryCode            string              `gorm:"column:country_code" json:"countryCode"`
-	CurrencyCode           string              `gorm:"column:currency_code" json:"currencyCode"`
-	VisibilityScope        string              `gorm:"column:visibility_scope" json:"visibilityScope"`
-	StartAt                *time.Time          `gorm:"column:start_at" json:"startAt"`
-	EndAt                  *time.Time          `gorm:"column:end_at" json:"endAt"`
-	Enabled                bool                `gorm:"column:enabled" json:"enabled"`
-	DraftPayload           string              `gorm:"column:draft_payload" json:"-"`
-	PublishedPayload       string              `gorm:"column:published_payload" json:"-"`
-	PublishStatus          string              `gorm:"column:publish_status" json:"publishStatus"`
-	ConfigVersion          uint64              `gorm:"column:config_version" json:"configVersion"`
-	CreatedBy              uint64              `gorm:"column:created_by" json:"createdBy"`
-	UpdatedBy              uint64              `gorm:"column:updated_by" json:"updatedBy"`
-	DraftUpdatedAt         *time.Time          `gorm:"column:draft_updated_at" json:"draftUpdatedAt"`
-	PublishedAt            *time.Time          `gorm:"column:published_at" json:"publishedAt"`
-	CreatedAt              time.Time           `gorm:"column:created_at" json:"createdAt"`
-	UpdatedAt              time.Time           `gorm:"column:updated_at" json:"updatedAt"`
-	DeletedAt              *time.Time          `gorm:"column:deleted_at" json:"-"`
-	DraftConfiguration     SiteBannerDraft     `gorm:"-" json:"draftConfiguration"`
-	PublishedConfiguration SiteBannerDraft     `gorm:"-" json:"publishedConfiguration"`
-	DesktopAsset           *assetLibraryRecord `gorm:"-" json:"desktopAsset,omitempty"`
-	MobileAsset            *assetLibraryRecord `gorm:"-" json:"mobileAsset,omitempty"`
-	IsFallback             bool                `gorm:"-" json:"isFallback"`
-	CanEdit                bool                `gorm:"-" json:"canEdit"`
-	CanDelete              bool                `gorm:"-" json:"canDelete"`
-	Visible                bool                `gorm:"-" json:"visible"`
-	FallbackSourceID       uint64              `gorm:"-" json:"fallbackSourceID"`
-	FallbackImageURL       string              `gorm:"-" json:"fallbackImageURL"`
-	RowKey                 string              `gorm:"-" json:"rowKey"`
+	SiteID               uint64                  `gorm:"column:site_id" json:"siteID"`
+	Name                 string                  `gorm:"column:name" json:"name"`
+	Title                string                  `gorm:"column:title" json:"title"`
+	Subtitle             string                  `gorm:"column:subtitle" json:"subtitle"`
+	DesktopAssetID       uint64                  `gorm:"column:desktop_asset_id" json:"desktopAssetID"`
+	MobileAssetID        uint64                  `gorm:"column:mobile_asset_id" json:"mobileAssetID"`
+	ActionType           string                  `gorm:"column:action_type" json:"actionType"`
+	ActionTarget         string                  `gorm:"column:action_target" json:"actionTarget"`
+	SortOrder            int                     `gorm:"column:sort_order" json:"sortOrder"`
+	LanguageCode         string                  `gorm:"column:language_code" json:"languageCode"`
+	CountryCode          string                  `gorm:"column:country_code" json:"countryCode"`
+	CurrencyCode         string                  `gorm:"column:currency_code" json:"currencyCode"`
+	VisibilityScope      string                  `gorm:"column:visibility_scope" json:"visibilityScope"`
+	StartAt              *time.Time              `gorm:"column:start_at" json:"startAt"`
+	EndAt                *time.Time              `gorm:"column:end_at" json:"endAt"`
+	Enabled              bool                    `gorm:"column:enabled" json:"enabled"`
+	ConfigurationPayload string                  `gorm:"column:configuration_json" json:"-"`
+	ConfigVersion        uint64                  `gorm:"column:config_version" json:"configVersion"`
+	CreatedBy            uint64                  `gorm:"column:created_by" json:"createdBy"`
+	UpdatedBy            uint64                  `gorm:"column:updated_by" json:"updatedBy"`
+	CreatedAt            time.Time               `gorm:"column:created_at" json:"createdAt"`
+	UpdatedAt            time.Time               `gorm:"column:updated_at" json:"updatedAt"`
+	DeletedAt            *time.Time              `gorm:"column:deleted_at" json:"-"`
+	Configuration        SiteBannerConfiguration `gorm:"-" json:"configuration"`
+	DesktopAsset         *assetLibraryRecord     `gorm:"-" json:"desktopAsset,omitempty"`
+	MobileAsset          *assetLibraryRecord     `gorm:"-" json:"mobileAsset,omitempty"`
+	IsFallback           bool                    `gorm:"-" json:"isFallback"`
+	CanEdit              bool                    `gorm:"-" json:"canEdit"`
+	CanDelete            bool                    `gorm:"-" json:"canDelete"`
+	Visible              bool                    `gorm:"-" json:"visible"`
+	FallbackSourceID     uint64                  `gorm:"-" json:"fallbackSourceID"`
+	FallbackImageURL     string                  `gorm:"-" json:"fallbackImageURL"`
+	RowKey               string                  `gorm:"-" json:"rowKey"`
 }
 
 func (siteBannerRecord) TableName() string { return "game_site_banners" }
@@ -139,7 +129,6 @@ func (s *Service) ListSiteBanners(q ListQuery) (PageResult, error) {
 	var rows []siteBannerRecord
 	db := content.ApplySiteStrict(s.db.Model(&siteBannerRecord{}), "", q.Scope).Where("deleted_at IS NULL")
 	db = contains(db, "name", q.Values["keyword"])
-	db = equal(db, "publish_status", strings.ToUpper(q.Values["publishStatus"]))
 	if !q.Scope.SiteScoped() {
 		result, err := page(db.Order("sort_order ASC,id ASC"), q, &rows)
 		if err != nil {
@@ -147,7 +136,7 @@ func (s *Service) ListSiteBanners(q ListQuery) (PageResult, error) {
 		}
 		for i := range rows {
 			s.hydrateSiteBanner(&rows[i], q.Scope)
-			rows[i].CanEdit, rows[i].CanDelete, rows[i].Visible = true, true, rows[i].DraftConfiguration.Enabled
+			rows[i].CanEdit, rows[i].CanDelete, rows[i].Visible = true, true, rows[i].Configuration.Enabled
 			rows[i].RowKey = "banner-" + strconv.FormatUint(rows[i].ID, 10)
 		}
 		result.List = rows
@@ -158,7 +147,7 @@ func (s *Service) ListSiteBanners(q ListQuery) (PageResult, error) {
 	}
 	for i := range rows {
 		s.hydrateSiteBanner(&rows[i], q.Scope)
-		rows[i].CanEdit, rows[i].CanDelete, rows[i].Visible = true, true, rows[i].DraftConfiguration.Enabled
+		rows[i].CanEdit, rows[i].CanDelete, rows[i].Visible = true, true, rows[i].Configuration.Enabled
 		rows[i].RowKey = "banner-" + strconv.FormatUint(rows[i].ID, 10)
 	}
 	list, total, p, ps := operationdefaults.Page(rows, q.Page, q.PageSize)
@@ -176,7 +165,7 @@ func (s *Service) GetSiteBanner(id uint64, scope content.Scope) (map[string]any,
 }
 
 func (s *Service) SaveSiteBanner(id uint64, in SiteBannerInput, actor Actor) (uint64, error) {
-	draft, err := normalizeSiteBannerInput(in)
+	configuration, err := normalizeSiteBannerInput(in)
 	if err != nil {
 		return 0, err
 	}
@@ -187,15 +176,15 @@ func (s *Service) SaveSiteBanner(id uint64, in SiteBannerInput, actor Actor) (ui
 	if err != nil {
 		return 0, err
 	}
-	draft.CountryCode = strings.ToUpper(strings.TrimSpace(dimensions.CountryCode))
-	draft.CurrencyCode = strings.ToUpper(strings.TrimSpace(dimensions.CurrencyCode))
-	draft.LanguageCode = strings.TrimSpace(dimensions.DefaultLanguage)
-	draft.DesktopImageURL = strings.TrimSpace(in.DesktopImageURL)
-	draft.MobileImageURL = strings.TrimSpace(in.MobileImageURL)
-	if draft.DesktopAssetID == 0 && strings.TrimSpace(draft.DesktopImageURL) == "" {
+	configuration.CountryCode = strings.ToUpper(strings.TrimSpace(dimensions.CountryCode))
+	configuration.CurrencyCode = strings.ToUpper(strings.TrimSpace(dimensions.CurrencyCode))
+	configuration.LanguageCode = strings.TrimSpace(dimensions.DefaultLanguage)
+	configuration.DesktopImageURL = strings.TrimSpace(in.DesktopImageURL)
+	configuration.MobileImageURL = strings.TrimSpace(in.MobileImageURL)
+	if configuration.DesktopAssetID == 0 && strings.TrimSpace(configuration.DesktopImageURL) == "" {
 		return 0, newError("BANNER_DESKTOP_ASSET_REQUIRED", "desktop banner asset is required")
 	}
-	if err := s.validateBannerAssets(s.db, actor.Scope, draft.DesktopAssetID, draft.MobileAssetID); err != nil {
+	if err := s.validateBannerAssets(s.db, actor.Scope, configuration.DesktopAssetID, configuration.MobileAssetID); err != nil {
 		return 0, err
 	}
 	err = s.db.Transaction(func(tx *gorm.DB) error {
@@ -206,31 +195,24 @@ func (s *Service) SaveSiteBanner(id uint64, in SiteBannerInput, actor Actor) (ui
 			if err != nil {
 				return err
 			}
-		}
-		nowValue := time.Now()
-		payload, _ := json.Marshal(draft)
-		updates := map[string]any{
-			"desktop_asset_id_draft": draft.DesktopAssetID, "mobile_asset_id_draft": draft.MobileAssetID,
-			"draft_payload": string(payload), "publish_status": BannerPublishDraft, "draft_updated_at": nowValue,
-			"updated_by": actor.ID, "updated_at": nowValue,
-		}
-		if id == 0 {
-			row := siteBannerRecord{SiteID: actor.Scope.SiteID, Name: draft.Name,
-				DesktopAssetIDDraft: draft.DesktopAssetID, MobileAssetIDDraft: draft.MobileAssetID, DraftPayload: string(payload),
-				PublishedPayload: "{}",
-				PublishStatus:    BannerPublishDraft, CreatedBy: actor.ID, UpdatedBy: actor.ID, DraftUpdatedAt: &nowValue,
-				CreatedAt: nowValue, UpdatedAt: nowValue}
+		} else {
+			row := siteBannerRecord{ConfigurationPayload: "{}", SiteID: actor.Scope.SiteID, Name: configuration.Name, CreatedBy: actor.ID, UpdatedBy: actor.ID, CreatedAt: time.Now(), UpdatedAt: time.Now()}
 			if err := tx.Create(&row).Error; err != nil {
 				return err
 			}
 			id = row.ID
-		} else if err := content.ApplySiteStrict(tx.Model(&siteBannerRecord{}), "", actor.Scope).Where("id=?", id).Updates(updates).Error; err != nil {
+		}
+		values, err := bannerValues(configuration, actor.ID)
+		if err != nil {
 			return err
 		}
-		if err := markBannerSiteDraft(tx, actor); err != nil {
+		if err := content.ApplySiteStrict(tx.Model(&siteBannerRecord{}), "", actor.Scope).Where("id=?", id).Updates(values).Error; err != nil {
 			return err
 		}
-		return audit(tx, actor, "operation:banner:update", "save_draft", "site_banner", id, before, draft, in.Reason)
+		if err := markBannerSiteConfiguration(tx, actor); err != nil {
+			return err
+		}
+		return audit(tx, actor, "operation:banner:update", "save", "site_banner", id, before, configuration, in.Reason)
 	})
 	return id, err
 }
@@ -240,48 +222,38 @@ func (s *Service) CopySiteBanner(id uint64, actor Actor) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	draft := decodeBannerDraft(row.DraftPayload)
-	if strings.TrimSpace(row.DraftPayload) == "" {
-		draft = decodeBannerDraft(row.PublishedPayload)
-	}
-	draft.Name = strings.TrimSpace(draft.Name) + " Copy"
-	draft.Enabled = false
-	return s.SaveSiteBanner(0, SiteBannerInput{Name: draft.Name, Title: draft.Title, Subtitle: draft.Subtitle,
-		DesktopAssetID: draft.DesktopAssetID, MobileAssetID: draft.MobileAssetID, ActionType: draft.ActionType,
-		ActionTarget: draft.ActionTarget, SortOrder: draft.SortOrder + 1, LanguageCode: draft.LanguageCode,
-		CountryCode: draft.CountryCode, CurrencyCode: draft.CurrencyCode, VisibilityScope: draft.VisibilityScope,
-		StartAt: draft.StartAt, EndAt: draft.EndAt, Enabled: false, Reason: "copy banner draft"}, actor)
+	configuration := decodeBannerConfiguration(row.ConfigurationPayload)
+	configuration.Name = strings.TrimSpace(configuration.Name) + " Copy"
+	configuration.Enabled = false
+	return s.SaveSiteBanner(0, SiteBannerInput{Name: configuration.Name, Title: configuration.Title, Subtitle: configuration.Subtitle, DesktopImageURL: configuration.DesktopImageURL, MobileImageURL: configuration.MobileImageURL,
+		DesktopAssetID: configuration.DesktopAssetID, MobileAssetID: configuration.MobileAssetID, ActionType: configuration.ActionType,
+		ActionTarget: configuration.ActionTarget, SortOrder: configuration.SortOrder + 1, LanguageCode: configuration.LanguageCode,
+		CountryCode: configuration.CountryCode, CurrencyCode: configuration.CurrencyCode, VisibilityScope: configuration.VisibilityScope,
+		StartAt: configuration.StartAt, EndAt: configuration.EndAt, Enabled: false, Reason: "copy banner configuration"}, actor)
 }
 
 func (s *Service) DeleteSiteBanner(id uint64, actor Actor) error {
-	row, err := s.siteBannerByID(s.db, id, actor.Scope, false)
-	if err != nil {
-		return err
+	if !actor.Scope.SiteScoped() {
+		return newError("SITE_REQUIRED", "H5 configuration is required")
 	}
-	draft := decodeBannerDraft(row.DraftPayload)
-	if strings.TrimSpace(row.DraftPayload) == "" {
-		draft = decodeBannerDraft(row.PublishedPayload)
-	}
-	draft.Deleted = true
-	payload, _ := json.Marshal(draft)
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		nowValue := time.Now()
-		if err := content.ApplySiteStrict(tx.Model(&siteBannerRecord{}), "", actor.Scope).Where("id=?", id).Updates(map[string]any{
-			"draft_payload": string(payload), "publish_status": BannerPublishDraft, "draft_updated_at": nowValue,
-			"updated_by": actor.ID, "updated_at": nowValue,
-		}).Error; err != nil {
+		before, err := s.siteBannerByID(tx, id, actor.Scope, true)
+		if err != nil {
 			return err
 		}
-		if err := markBannerSiteDraft(tx, actor); err != nil {
+		if err := content.ApplySiteStrict(tx.Table("game_site_banners"), "", actor.Scope).Where("id=?", id).Updates(map[string]any{"enabled": 0, "deleted_at": time.Now(), "updated_at": time.Now()}).Error; err != nil {
 			return err
 		}
-		return audit(tx, actor, "operation:banner:delete", "delete_draft", "site_banner", id, row, draft, "")
+		if err := markBannerSiteConfiguration(tx, actor); err != nil {
+			return err
+		}
+		return audit(tx, actor, "operation:banner:delete", "delete", "game_site_banners", id, before, nil, "")
 	})
 }
 
 func (s *Service) SortSiteBanners(in SiteBannerSortInput, actor Actor) error {
 	if !actor.Scope.SiteScoped() {
-		return newError("BANNER_SCOPE_REQUIRED", "H5 scope is required")
+		return newError("SITE_REQUIRED", "H5 configuration is required")
 	}
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		for index, id := range in.IDs {
@@ -289,21 +261,20 @@ func (s *Service) SortSiteBanners(in SiteBannerSortInput, actor Actor) error {
 			if err != nil {
 				return err
 			}
-			draft := decodeBannerDraft(row.DraftPayload)
-			if strings.TrimSpace(row.DraftPayload) == "" {
-				draft = decodeBannerDraft(row.PublishedPayload)
+			configuration := decodeBannerConfiguration(row.ConfigurationPayload)
+			configuration.SortOrder = index
+			values, err := bannerValues(configuration, actor.ID)
+			if err != nil {
+				return err
 			}
-			draft.SortOrder = index
-			payload, _ := json.Marshal(draft)
-			if err := tx.Model(&siteBannerRecord{}).Where("id = ? AND site_id = ?", id, actor.Scope.SiteID).
-				Updates(map[string]any{"draft_payload": string(payload), "publish_status": BannerPublishDraft, "draft_updated_at": time.Now(), "updated_by": actor.ID, "updated_at": time.Now()}).Error; err != nil {
+			if err := content.ApplySiteStrict(tx.Table("game_site_banners"), "", actor.Scope).Where("id=?", id).Updates(values).Error; err != nil {
 				return err
 			}
 		}
-		if err := markBannerSiteDraft(tx, actor); err != nil {
+		if err := markBannerSiteConfiguration(tx, actor); err != nil {
 			return err
 		}
-		return audit(tx, actor, "operation:banner:update", "sort_draft", "site_banner", 0, nil, in.IDs, in.Reason)
+		return audit(tx, actor, "operation:banner:update", "sort", "game_site_banners", 0, nil, in.IDs, in.Reason)
 	})
 }
 
@@ -319,24 +290,24 @@ func (s *Service) PublicSiteBanners(scope content.Scope, language string, countr
 		visibility = append(visibility, "LOGGED_OUT")
 	}
 	var rows []struct {
-		ID               uint64     `gorm:"column:id"`
-		Name             string     `gorm:"column:name"`
-		Title            string     `gorm:"column:title"`
-		Subtitle         string     `gorm:"column:subtitle"`
-		ActionType       string     `gorm:"column:action_type"`
-		ActionTarget     string     `gorm:"column:action_target"`
-		SortOrder        int        `gorm:"column:sort_order"`
-		StartAt          *time.Time `gorm:"column:start_at"`
-		EndAt            *time.Time `gorm:"column:end_at"`
-		ConfigVersion    uint64     `gorm:"column:config_version"`
-		DesktopObjectKey string     `gorm:"column:desktop_object_key"`
-		MobileObjectKey  string     `gorm:"column:mobile_object_key"`
-		PublishedPayload string     `gorm:"column:published_payload"`
+		ConfigurationPayload string     `gorm:"column:configuration_json"`
+		ID                   uint64     `gorm:"column:id"`
+		Name                 string     `gorm:"column:name"`
+		Title                string     `gorm:"column:title"`
+		Subtitle             string     `gorm:"column:subtitle"`
+		ActionType           string     `gorm:"column:action_type"`
+		ActionTarget         string     `gorm:"column:action_target"`
+		SortOrder            int        `gorm:"column:sort_order"`
+		StartAt              *time.Time `gorm:"column:start_at"`
+		EndAt                *time.Time `gorm:"column:end_at"`
+		ConfigVersion        uint64     `gorm:"column:config_version"`
+		DesktopObjectKey     string     `gorm:"column:desktop_object_key"`
+		MobileObjectKey      string     `gorm:"column:mobile_object_key"`
 	}
 	err := s.db.Table("game_site_banners b").Select("b.*,da.object_key desktop_object_key,ma.object_key mobile_object_key").
 		Joins("LEFT JOIN game_asset_library da ON da.id=b.desktop_asset_id AND da.status=? AND da.deleted_at IS NULL", AssetStatusActive).
 		Joins("LEFT JOIN game_asset_library ma ON ma.id=b.mobile_asset_id AND ma.status=? AND ma.deleted_at IS NULL", AssetStatusActive).
-		Where("b.site_id = ? AND b.config_version > 0 AND b.enabled = 1 AND b.deleted_at IS NULL", scope.SiteID).
+		Where("b.site_id = ? AND b.enabled = 1 AND b.deleted_at IS NULL", scope.SiteID).
 		Where("b.visibility_scope IN ?", visibility).
 		Where("(b.language_code='' OR b.language_code='ALL' OR LOWER(b.language_code) IN ?)", languages).
 		Where("(b.country_code='' OR b.country_code='ALL' OR UPPER(b.country_code)=?)", strings.ToUpper(strings.TrimSpace(country))).
@@ -347,17 +318,17 @@ func (s *Service) PublicSiteBanners(scope content.Scope, language string, countr
 	}
 	out := make([]PublicBanner, 0, len(rows))
 	for _, row := range rows {
-		draft := decodeBannerDraft(row.PublishedPayload)
+		configuration := decodeBannerConfiguration(row.ConfigurationPayload)
 		desktop := publicAssetURL(row.DesktopObjectKey)
 		if desktop == "" {
-			desktop = operationAssetURL(draft.DesktopImageURL)
+			desktop = operationAssetURL(configuration.DesktopImageURL)
 		}
 		if strings.TrimSpace(desktop) == "" {
 			continue
 		}
 		mobile := publicAssetURL(row.MobileObjectKey)
 		if mobile == "" {
-			mobile = operationAssetURL(draft.MobileImageURL)
+			mobile = operationAssetURL(configuration.MobileImageURL)
 		}
 		if strings.TrimSpace(mobile) == "" {
 			mobile = desktop
@@ -402,38 +373,38 @@ func bannerLanguageCandidates(language string) []string {
 	return values
 }
 
-func normalizeSiteBannerInput(in SiteBannerInput) (SiteBannerDraft, error) {
+func normalizeSiteBannerInput(in SiteBannerInput) (SiteBannerConfiguration, error) {
 	if err := validateTime(in.StartAt, in.EndAt); err != nil {
-		return SiteBannerDraft{}, err
+		return SiteBannerConfiguration{}, err
 	}
 	if strings.TrimSpace(in.Name) == "" || strings.TrimSpace(in.Title) == "" {
-		return SiteBannerDraft{}, newError("BANNER_FIELDS_REQUIRED", "banner name and title are required")
+		return SiteBannerConfiguration{}, newError("BANNER_FIELDS_REQUIRED", "banner name and title are required")
 	}
 	action := strings.ToUpper(strings.TrimSpace(in.ActionType))
 	if !allowedBannerActions[action] {
-		return SiteBannerDraft{}, newError("INVALID_BANNER_ACTION", "invalid banner action")
+		return SiteBannerConfiguration{}, newError("INVALID_BANNER_ACTION", "invalid banner action")
 	}
 	target := strings.TrimSpace(in.ActionTarget)
 	if action == "OPEN_EXTERNAL_URL" {
 		parsed, err := url.ParseRequestURI(target)
 		if err != nil || parsed.Scheme != "https" || parsed.Host == "" {
-			return SiteBannerDraft{}, newError("INVALID_BANNER_TARGET", "external URL must use HTTPS")
+			return SiteBannerConfiguration{}, newError("INVALID_BANNER_TARGET", "external URL must use HTTPS")
 		}
 	}
 	if action != "NONE" && action != "OPEN_DEPOSIT" && action != "OPEN_SUPPORT" && target == "" {
-		return SiteBannerDraft{}, newError("BANNER_TARGET_REQUIRED", "banner action target is required")
+		return SiteBannerConfiguration{}, newError("BANNER_TARGET_REQUIRED", "banner action target is required")
 	}
 	visibility := strings.ToUpper(strings.TrimSpace(in.VisibilityScope))
 	if visibility != "ALL" && visibility != "LOGGED_OUT" && visibility != "LOGGED_IN" {
-		return SiteBannerDraft{}, newError("INVALID_BANNER_VISIBILITY", "invalid banner visibility")
+		return SiteBannerConfiguration{}, newError("INVALID_BANNER_VISIBILITY", "invalid banner visibility")
 	}
 	if strings.TrimSpace(in.DesktopImageURL) != "" && !storage.IsAssetURL(in.DesktopImageURL) {
-		return SiteBannerDraft{}, newError("BANNER_IMAGE_INVALID", "desktop banner image is not a valid asset URL")
+		return SiteBannerConfiguration{}, newError("BANNER_IMAGE_INVALID", "desktop banner image is not a valid asset URL")
 	}
 	if strings.TrimSpace(in.MobileImageURL) != "" && !storage.IsAssetURL(in.MobileImageURL) {
-		return SiteBannerDraft{}, newError("BANNER_IMAGE_INVALID", "mobile banner image is not a valid asset URL")
+		return SiteBannerConfiguration{}, newError("BANNER_IMAGE_INVALID", "mobile banner image is not a valid asset URL")
 	}
-	return SiteBannerDraft{Name: strings.TrimSpace(in.Name), Title: strings.TrimSpace(in.Title), Subtitle: strings.TrimSpace(in.Subtitle),
+	return SiteBannerConfiguration{Name: strings.TrimSpace(in.Name), Title: strings.TrimSpace(in.Title), Subtitle: strings.TrimSpace(in.Subtitle),
 		DesktopAssetID: in.DesktopAssetID, MobileAssetID: in.MobileAssetID, DesktopImageURL: strings.TrimSpace(in.DesktopImageURL), MobileImageURL: strings.TrimSpace(in.MobileImageURL), ActionType: action, ActionTarget: target,
 		SortOrder: in.SortOrder, LanguageCode: normalizeBannerDimension(in.LanguageCode), CountryCode: normalizeBannerDimension(in.CountryCode),
 		CurrencyCode: normalizeBannerDimension(in.CurrencyCode), VisibilityScope: visibility, StartAt: in.StartAt, EndAt: in.EndAt, Enabled: in.Enabled}, nil
@@ -473,14 +444,13 @@ func (s *Service) validateBannerAssets(db *gorm.DB, scope content.Scope, ids ...
 }
 
 func (s *Service) hydrateSiteBanner(row *siteBannerRecord, scope content.Scope) {
-	row.DraftConfiguration = decodeBannerDraft(row.DraftPayload)
-	row.PublishedConfiguration = decodeBannerDraft(row.PublishedPayload)
+	row.Configuration = decodeBannerConfiguration(row.ConfigurationPayload)
 	s.hydrateLegacyBannerImages(row)
-	if row.DesktopAssetIDDraft > 0 {
-		row.DesktopAsset = s.bannerAsset(row.DesktopAssetIDDraft, scope)
+	if row.DesktopAssetID > 0 {
+		row.DesktopAsset = s.bannerAsset(row.DesktopAssetID, scope)
 	}
-	if row.MobileAssetIDDraft > 0 {
-		row.MobileAsset = s.bannerAsset(row.MobileAssetIDDraft, scope)
+	if row.MobileAssetID > 0 {
+		row.MobileAsset = s.bannerAsset(row.MobileAssetID, scope)
 	}
 }
 
@@ -488,7 +458,7 @@ func (s *Service) hydrateSiteBanner(row *siteBannerRecord, scope content.Scope) 
 // site-banner payload. Resolve those rows from the platform catalog so the
 // admin can preview and edit them without inventing a zero asset selection.
 func (s *Service) hydrateLegacyBannerImages(row *siteBannerRecord) {
-	if row.DraftConfiguration.DesktopImageURL != "" && row.PublishedConfiguration.DesktopImageURL != "" {
+	if row.Configuration.DesktopImageURL != "" && row.Configuration.MobileImageURL != "" {
 		return
 	}
 	var legacy bannerRecord
@@ -499,17 +469,11 @@ func (s *Service) hydrateLegacyBannerImages(row *siteBannerRecord) {
 	if query.First(&legacy).Error != nil {
 		return
 	}
-	if row.DraftConfiguration.DesktopImageURL == "" {
-		row.DraftConfiguration.DesktopImageURL = operationAssetURL(legacy.ImageURL)
+	if row.Configuration.DesktopImageURL == "" {
+		row.Configuration.DesktopImageURL = operationAssetURL(legacy.ImageURL)
 	}
-	if row.DraftConfiguration.MobileImageURL == "" {
-		row.DraftConfiguration.MobileImageURL = operationAssetURL(firstNonEmpty(legacy.MobileImageURL, legacy.ImageURL))
-	}
-	if row.PublishedConfiguration.DesktopImageURL == "" {
-		row.PublishedConfiguration.DesktopImageURL = operationAssetURL(legacy.ImageURL)
-	}
-	if row.PublishedConfiguration.MobileImageURL == "" {
-		row.PublishedConfiguration.MobileImageURL = operationAssetURL(firstNonEmpty(legacy.MobileImageURL, legacy.ImageURL))
+	if row.Configuration.MobileImageURL == "" {
+		row.Configuration.MobileImageURL = operationAssetURL(firstNonEmpty(legacy.MobileImageURL, legacy.ImageURL))
 	}
 }
 
@@ -522,8 +486,8 @@ func (s *Service) bannerAsset(id uint64, scope content.Scope) *assetLibraryRecor
 	return &row
 }
 
-func decodeBannerDraft(raw string) SiteBannerDraft {
-	var out SiteBannerDraft
+func decodeBannerConfiguration(raw string) SiteBannerConfiguration {
+	var out SiteBannerConfiguration
 	_ = json.Unmarshal([]byte(raw), &out)
 	return out
 }
@@ -539,7 +503,6 @@ func publicAssetURL(objectKey string) string {
 	return value
 }
 
-func markBannerSiteDraft(tx *gorm.DB, actor Actor) error {
-	return tx.Table("game_site_config").Where("id = ? AND deleted_at IS NULL", actor.Scope.SiteID).
-		Updates(map[string]any{"config_status": BannerPublishDraft, "config_draft_updated_at": time.Now(), "updated_by": actor.ID, "updated_at": time.Now()}).Error
+func markBannerSiteConfiguration(tx *gorm.DB, actor Actor) error {
+	return tx.Table("game_site_config").Where("id=? AND deleted_at IS NULL", actor.Scope.SiteID).Updates(map[string]any{"config_version": gorm.Expr("config_version+1"), "updated_by": actor.ID, "updated_at": time.Now()}).Error
 }

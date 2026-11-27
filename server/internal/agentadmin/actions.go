@@ -404,7 +404,7 @@ func (s *Service) GenerateSettlement(in GenerateSettlementInput, actor Actor) (u
 		for _, r := range records {
 			gross = gross.Add(r.CommissionAmount)
 		}
-		row := map[string]any{"site_id": actor.Scope.SiteID, "settlement_no": nowNo("ST"), "agent_id": in.AgentID, "period_start": in.PeriodStart, "period_end": in.PeriodEnd, "gross_commission": gross, "adjustments": decimal.Zero, "final_amount": gross, "currency": strings.ToUpper(in.Currency), "status": "DRAFT", "creator_id": actor.ID, "creator_username": actor.Username, "idempotency_key": in.IdempotencyKey, "created_at": time.Now(), "updated_at": time.Now()}
+		row := map[string]any{"site_id": actor.Scope.SiteID, "settlement_no": nowNo("ST"), "agent_id": in.AgentID, "period_start": in.PeriodStart, "period_end": in.PeriodEnd, "gross_commission": gross, "adjustments": decimal.Zero, "final_amount": gross, "currency": strings.ToUpper(in.Currency), "status": "READY", "creator_id": actor.ID, "creator_username": actor.Username, "idempotency_key": in.IdempotencyKey, "created_at": time.Now(), "updated_at": time.Now()}
 		if e := tx.Table("game_agent_settlements").Create(&row).Error; e != nil {
 			return e
 		}
@@ -454,7 +454,7 @@ func (s *Service) SettlementAction(id uint64, action string, reason string, acto
 		updates := map[string]any{"updated_at": time.Now()}
 		switch action {
 		case "submit":
-			if row.Status != "DRAFT" {
+			if row.Status != "READY" {
 				return NewError("INVALID_SETTLEMENT_TRANSITION", "only draft settlement can be submitted")
 			}
 			next = "PENDING_REVIEW"
@@ -481,7 +481,7 @@ func (s *Service) SettlementAction(id uint64, action string, reason string, acto
 			updates["reviewer_username"] = actor.Username
 			updates["review_reason"] = reason
 		case "cancel":
-			if row.Status != "DRAFT" && row.Status != "REJECTED" {
+			if row.Status != "READY" && row.Status != "REJECTED" {
 				return NewError("INVALID_SETTLEMENT_TRANSITION", "settlement cannot be cancelled")
 			}
 			next = "CANCELLED"

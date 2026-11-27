@@ -12,6 +12,7 @@ import (
 	"casino/internal/model"
 
 	"github.com/go-sql-driver/mysql"
+	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -111,8 +112,8 @@ func TestListProviderGameTypesIsH5Scoped(t *testing.T) {
 	for _, statement := range []string{
 		`CREATE TABLE game_game_providers (id INTEGER PRIMARY KEY, site_id INTEGER NOT NULL, provider_code TEXT NOT NULL, name TEXT NOT NULL, deleted_at DATETIME)`,
 		`CREATE TABLE game_games (id INTEGER PRIMARY KEY, site_id INTEGER NOT NULL, provider_id INTEGER NOT NULL, category TEXT NOT NULL DEFAULT '', game_type TEXT NOT NULL DEFAULT '', deleted_at DATETIME)`,
-		`INSERT INTO game_game_providers (id, site_id, provider_code, name) VALUES (1, 101, 'ag', 'H5 A AG'), (2, 202, 'ag', 'H5 B AG')`,
-		`INSERT INTO game_games (id, site_id, provider_id, category, game_type) VALUES (11, 101, 1, 'slots', 'SLOT'), (12, 101, 1, 'slots', 'SLOT'), (21, 202, 2, 'live', 'LIVE')`,
+		`INSERT INTO game_game_providers (id,site_id,provider_code,name) VALUES (1,101,'ag','H5 A AG'), (2, 202, 'ag', 'H5 B AG')`,
+		`INSERT INTO game_games (id,site_id,provider_id,category,game_type) VALUES (11,101,1,'slots','SLOT'), (12, 101, 1, 'slots', 'SLOT'), (21, 202, 2, 'live', 'LIVE')`,
 	} {
 		if err := db.Exec(statement).Error; err != nil {
 			t.Fatal(err)
@@ -148,10 +149,10 @@ func TestH5CategoryListContainsOnlyH5CopiesAndHidesInternalFields(t *testing.T) 
 	for _, statement := range []string{
 		`CREATE TABLE game_game_categories (id INTEGER PRIMARY KEY, site_id INTEGER NOT NULL, category_key TEXT NOT NULL, label TEXT NOT NULL, name_zh TEXT NOT NULL, name_en TEXT NOT NULL, short_label TEXT NOT NULL, icon_url TEXT NOT NULL, banner_url TEXT NOT NULL, sort INTEGER NOT NULL, status INTEGER NOT NULL, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME)`,
 		`CREATE TABLE game_game_category_relations (id INTEGER PRIMARY KEY, site_id INTEGER NOT NULL, category_id INTEGER NOT NULL, game_id INTEGER NOT NULL, deleted_at DATETIME)`,
-		`INSERT INTO game_game_categories (id, site_id, category_key, label, name_zh, name_en, short_label, icon_url, banner_url, sort, status, created_at, updated_at) VALUES (1, 0, 'slots', 'Slots', '老虎机', 'Slots', 'S', '', '', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-		`INSERT INTO game_game_categories (id, site_id, category_key, label, name_zh, name_en, short_label, icon_url, banner_url, sort, status, created_at, updated_at) VALUES (2, 101, 'vip', 'VIP', '贵宾', 'VIP', 'V', '', '', 2, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-		`INSERT INTO game_game_categories (id, site_id, category_key, label, name_zh, name_en, short_label, icon_url, banner_url, sort, status, created_at, updated_at) VALUES (3, 202, 'other', 'Other', '其他', 'Other', 'O', '', '', 3, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-		`INSERT INTO game_game_category_relations (id, site_id, category_id, game_id) VALUES (10, 101, 1, 1001), (11, 202, 1, 2001), (12, 101, 2, 1002)`,
+		`INSERT INTO game_game_categories (id,site_id,category_key,label,name_zh,name_en,short_label,icon_url,banner_url,sort,status,created_at,updated_at) VALUES (1,0,'slots','Slots','老虎机','Slots','S','','',1,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)`,
+		`INSERT INTO game_game_categories (id,site_id,category_key,label,name_zh,name_en,short_label,icon_url,banner_url,sort,status,created_at,updated_at) VALUES (2,101,'vip','VIP','贵宾','VIP','V','','',2,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)`,
+		`INSERT INTO game_game_categories (id,site_id,category_key,label,name_zh,name_en,short_label,icon_url,banner_url,sort,status,created_at,updated_at) VALUES (3,202,'other','Other','其他','Other','O','','',3,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)`,
+		`INSERT INTO game_game_category_relations (id,site_id,category_id,game_id) VALUES (10,101,1,1001), (11, 202, 1, 2001), (12, 101, 2, 1002)`,
 	} {
 		if err := db.Exec(statement).Error; err != nil {
 			t.Fatal(err)
@@ -223,7 +224,7 @@ func TestH5CategoryWritesAreStrictlyScoped(t *testing.T) {
 	assertGameAdminErrorCode(t, err, "CATEGORY_NOT_FOUND")
 }
 
-func TestH5ImportsPlatformGamesAsDraft(t *testing.T) {
+func TestH5ImportsPlatformGamesDisabled(t *testing.T) {
 	db := newGameImportTestDB(t)
 	service := &Service{db: db}
 	actor := Actor{ID: 10, Username: "h5-admin", Scope: content.Scope{SiteID: 9}}
@@ -240,18 +241,15 @@ func TestH5ImportsPlatformGamesAsDraft(t *testing.T) {
 		GameCode             string `gorm:"column:game_code"`
 		ProviderID           uint64 `gorm:"column:provider_id"`
 		PlatformEnabled      bool   `gorm:"column:platform_enabled"`
-		PlatformEnabledDraft bool   `gorm:"column:platform_enabled_draft"`
 		Status               int    `gorm:"column:status"`
-		StatusDraft          int    `gorm:"column:status_draft"`
-		ConfigStatus         string `gorm:"column:config_status"`
 		PlatformCategoryID   uint64 `gorm:"column:platform_category_id"`
 		PlatformCategoryCode string `gorm:"column:platform_category_code"`
 	}
 	if err := db.Table("game_games").Where("site_id = ? AND provider_game_code = ?", 9, "demo-1").Take(&row).Error; err != nil {
 		t.Fatal(err)
 	}
-	if row.ProviderID != 200 || row.PlatformEnabled || row.PlatformEnabledDraft || row.Status != 3 || row.StatusDraft != 3 || row.ConfigStatus != "DRAFT" || row.PlatformCategoryID != 0 || row.PlatformCategoryCode != "" {
-		t.Fatalf("imported game was not a h5 draft: %+v", row)
+	if row.ProviderID != 200 || row.PlatformEnabled || row.Status != 3 || row.PlatformCategoryID != 0 || row.PlatformCategoryCode != "" {
+		t.Fatalf("imported game did not start disabled: %+v", row)
 	}
 
 	result, err = service.ImportGames(GameImportInput{IDs: []uint64{1001}, Reason: "repeat import"}, actor)
@@ -290,8 +288,8 @@ func TestH5AdminCannotModifyOtherH5LobbySection(t *testing.T) {
 		SupportedCountries:  "",
 		SupportedCurrencies: "",
 		ConfigJSON:          "{}",
-		PublishStatus:       "PUBLISHED",
-		ConfigVersion:       1,
+
+		ConfigVersion: 1,
 	}
 	if err := db.Create(&row).Error; err != nil {
 		t.Fatal(err)
@@ -317,149 +315,58 @@ func TestH5AdminCannotModifyOtherH5LobbySection(t *testing.T) {
 	}
 }
 
-func TestPlatformGameUpdateIsImmediateWhileH5UpdateRemainsDraft(t *testing.T) {
+func TestH5GameUpdateAndBatchAreImmediate(t *testing.T) {
 	db := newGameUpdateWorkflowTestDB(t)
-	service := &Service{db: db}
-	input := GameInput{
-		Name:                "Fortune Tiger",
-		PlatformEnabled:     true,
-		IsHot:               true,
-		IsFeatured:          true,
-		IsNew:               false,
-		SortOrder:           8,
-		SupportedCountries:  "PK",
-		SupportedCurrencies: "PKR",
-		SupportedDevices:    "mobile",
-		Reason:              "update game availability",
-	}
-
-	if err := service.UpdateGame(1, input, Actor{ID: 10, Username: "platform-admin", Scope: content.Scope{Platform: true}}); err != nil {
-		t.Fatal(err)
-	}
-	var platformRow struct {
-		PlatformEnabled      bool   `gorm:"column:platform_enabled"`
-		PlatformEnabledDraft bool   `gorm:"column:platform_enabled_draft"`
-		IsHot                bool   `gorm:"column:is_hot"`
-		ConfigStatus         string `gorm:"column:config_status"`
-		ConfigVersion        uint64 `gorm:"column:config_version"`
-	}
-	if err := db.Table("game_games").Where("id=1").Take(&platformRow).Error; err != nil {
-		t.Fatal(err)
-	}
-	if !platformRow.PlatformEnabled || !platformRow.PlatformEnabledDraft || !platformRow.IsHot || platformRow.ConfigStatus != "PUBLISHED" || platformRow.ConfigVersion != 2 {
-		t.Fatalf("platform update was not published immediately: %+v", platformRow)
-	}
-	if err := service.SetGameCategories(1, RelationInput{IDs: []uint64{100}, Reason: "assign platform category"}, Actor{ID: 10, Username: "platform-admin", Scope: content.Scope{Platform: true}}); err != nil {
-		t.Fatal(err)
-	}
-	var relationCount int64
-	if err := db.Table("game_game_category_relations").Where("game_id=1 AND category_id=100 AND deleted_at IS NULL").Count(&relationCount).Error; err != nil {
-		t.Fatal(err)
-	}
-	if relationCount != 1 {
-		t.Fatalf("platform category assignment was not published immediately: count=%d", relationCount)
-	}
-	featured := false
-	if _, err := service.BatchUpdateGames(GameBatchInput{
-		IDs:         []uint64{1},
-		IsFeatured:  &featured,
-		CategoryIDs: &[]uint64{100},
-		SortOrders:  []GameSortInput{{ID: 1, SortOrder: 12}},
-		Reason:      "batch update platform game",
-	}, Actor{ID: 10, Username: "platform-admin", Scope: content.Scope{Platform: true}}); err != nil {
-		t.Fatal(err)
-	}
-	var batchRow struct {
-		Sort          int    `gorm:"column:sort"`
-		IsFeatured    bool   `gorm:"column:is_featured"`
-		ConfigStatus  string `gorm:"column:config_status"`
-		ConfigVersion uint64 `gorm:"column:config_version"`
-	}
-	if err := db.Table("game_games").Where("id=1").Take(&batchRow).Error; err != nil {
-		t.Fatal(err)
-	}
-	if batchRow.Sort != 12 || batchRow.IsFeatured || batchRow.ConfigStatus != "PUBLISHED" || batchRow.ConfigVersion != 4 {
-		t.Fatalf("platform batch update was not applied as one published revision: %+v", batchRow)
-	}
-
-	if err := service.UpdateGame(2, input, Actor{ID: 20, Username: "h5-admin", Scope: content.Scope{SiteID: 9}}); err != nil {
-		t.Fatal(err)
-	}
-	var h5Row struct {
-		PlatformEnabled      bool   `gorm:"column:platform_enabled"`
-		PlatformEnabledDraft bool   `gorm:"column:platform_enabled_draft"`
-		ConfigStatus         string `gorm:"column:config_status"`
-		ConfigVersion        uint64 `gorm:"column:config_version"`
-	}
-	if err := db.Table("game_games").Where("id=2").Take(&h5Row).Error; err != nil {
-		t.Fatal(err)
-	}
-	if h5Row.PlatformEnabled || !h5Row.PlatformEnabledDraft || h5Row.ConfigStatus != "DRAFT" || h5Row.ConfigVersion != 1 {
-		t.Fatalf("h5 update bypassed draft workflow: %+v", h5Row)
-	}
+	svc := &Service{db: db}
+	actor := Actor{ID: 20, Scope: content.Scope{SiteID: 9}}
+	require.NoError(t, svc.UpdateGame(2, GameInput{Name: "Live", PlatformEnabled: true, IsHot: true, SortOrder: 12}, actor))
+	var row gameRecord
+	require.NoError(t, db.Table("game_games").Where("id=2").Take(&row).Error)
+	require.True(t, row.PlatformEnabled)
+	require.True(t, row.IsHot)
+	require.Equal(t, 1, row.Status)
+	require.Equal(t, 12, row.SortOrder)
+	require.Equal(t, uint64(2), row.ConfigVersion)
+	disabled := false
+	_, err := svc.BatchUpdateGames(GameBatchInput{IDs: []uint64{2}, PlatformEnabled: &disabled}, actor)
+	require.NoError(t, err)
+	require.NoError(t, db.Table("game_games").Where("id=2").Take(&row).Error)
+	require.False(t, row.PlatformEnabled)
+	require.Equal(t, 3, row.Status)
 }
 
-func TestH5BatchAddCategoriesPreservesExistingDraft(t *testing.T) {
+func TestH5BatchAddCategoriesPreservesExistingSelection(t *testing.T) {
 	db := newGameUpdateWorkflowTestDB(t)
-	service := &Service{db: db}
-	actor := Actor{ID: 20, Username: "h5-admin", Scope: content.Scope{SiteID: 9}}
-	if err := service.SetGameCategories(2, RelationInput{IDs: []uint64{200}, Reason: "initial category"}, actor); err != nil {
-		t.Fatal(err)
-	}
-	additions := []uint64{201}
-	result, err := service.BatchUpdateGames(GameBatchInput{IDs: []uint64{2}, AddCategoryIDs: &additions, Reason: "add another category"}, actor)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if result["updatedCount"] != int64(1) {
-		t.Fatalf("unexpected batch result: %+v", result)
-	}
-	var row struct {
-		CategoryIDsDraft string `gorm:"column:category_ids_draft"`
-		ConfigStatus     string `gorm:"column:config_status"`
-	}
-	if err := db.Table("game_games").Where("id=2").Take(&row).Error; err != nil {
-		t.Fatal(err)
-	}
-	var items []gameCategoryDraftItem
-	if err := json.Unmarshal([]byte(row.CategoryIDsDraft), &items); err != nil {
-		t.Fatal(err)
-	}
-	if len(items) != 2 || items[0].CategoryID != 200 || items[1].CategoryID != 201 || row.ConfigStatus != "DRAFT" {
-		t.Fatalf("batch category addition replaced or published the draft: row=%+v items=%+v", row, items)
-	}
+	svc := &Service{db: db}
+	actor := Actor{ID: 20, Scope: content.Scope{SiteID: 9}}
+	require.NoError(t, svc.SetGameCategories(2, RelationInput{IDs: []uint64{200}}, actor))
+	ids := []uint64{201}
+	_, err := svc.BatchUpdateGames(GameBatchInput{IDs: []uint64{2}, AddCategoryIDs: &ids}, actor)
+	require.NoError(t, err)
+	rows, err := svc.loadGameCategories(db, actor, 2)
+	require.NoError(t, err)
+	require.Len(t, rows, 2)
+	require.Equal(t, uint64(200), rows[0].CategoryID)
+	require.Equal(t, uint64(201), rows[1].CategoryID)
 }
 
-func TestH5GameEnableDraftDoesNotEnforcePackageLimit(t *testing.T) {
+func TestEnablingGameDoesNotOverrideProviderDisabledState(t *testing.T) {
 	db := newGameUpdateWorkflowTestDB(t)
-	for _, statement := range []string{
-		`INSERT INTO game_games (id, site_id, provider_enabled, platform_enabled, platform_enabled_draft, config_status, config_version) VALUES (3, 9, 1, 1, 1, 'PUBLISHED', 1)`,
-	} {
-		if err := db.Exec(statement).Error; err != nil {
-			t.Fatal(err)
-		}
-	}
+	require.NoError(t, db.Table("game_games").Where("id=2").Update("provider_enabled", false).Error)
 	enabled := true
-	if _, err := (&Service{db: db}).BatchUpdateGames(GameBatchInput{IDs: []uint64{2}, PlatformEnabled: &enabled, Reason: "save draft beyond package"}, Actor{ID: 20, Username: "h5-admin", Scope: content.Scope{SiteID: 9}}); err != nil {
-		t.Fatalf("h5 draft enable should not enforce H5 published game limit: %v", err)
-	}
-	var row struct {
-		PlatformEnabledDraft bool   `gorm:"column:platform_enabled_draft"`
-		ConfigStatus         string `gorm:"column:config_status"`
-	}
-	if err := db.Table("game_games").Where("id=2").Take(&row).Error; err != nil {
-		t.Fatal(err)
-	}
-	if !row.PlatformEnabledDraft || row.ConfigStatus != "DRAFT" {
-		t.Fatalf("expected enabled draft, got %+v", row)
-	}
+	_, err := (&Service{db: db}).BatchUpdateGames(GameBatchInput{IDs: []uint64{2}, PlatformEnabled: &enabled}, Actor{Scope: content.Scope{SiteID: 9}})
+	require.NoError(t, err)
+	var row gameRecord
+	require.NoError(t, db.Table("game_games").Where("id=2").Take(&row).Error)
+	require.True(t, row.PlatformEnabled)
+	require.Equal(t, 3, row.Status)
 }
 
 func TestH5GameEnableAllowsExistingPublishedCountAbovePackageLimit(t *testing.T) {
 	db := newGameUpdateWorkflowTestDB(t)
 	for _, statement := range []string{
-		`UPDATE game_games SET platform_enabled=1,platform_enabled_draft=1 WHERE id=2`,
-		`INSERT INTO game_games (id, site_id, provider_enabled, platform_enabled, platform_enabled_draft, config_status, config_version) VALUES (3, 9, 1, 1, 1, 'PUBLISHED', 1)`,
+		`UPDATE game_games SET platform_enabled=1 WHERE id=2`,
+		`INSERT INTO game_games (id,site_id,provider_enabled,platform_enabled,config_version) VALUES (3,9,1,1,1)`,
 	} {
 		if err := db.Exec(statement).Error; err != nil {
 			t.Fatal(err)
@@ -483,7 +390,7 @@ func newGameUpdateWorkflowTestDB(t *testing.T) *gorm.DB {
 	}
 	sqlDB.SetMaxOpenConns(1)
 	t.Cleanup(func() { _ = sqlDB.Close() })
-	if err := db.Exec("CREATE TABLE game_games (id INTEGER PRIMARY KEY, site_id INTEGER NOT NULL DEFAULT 0, deleted_at DATETIME, provider_enabled INTEGER NOT NULL DEFAULT 1, name TEXT NOT NULL DEFAULT '', name_i18n TEXT, local_thumbnail_url TEXT NOT NULL DEFAULT '', background_url TEXT NOT NULL DEFAULT '', launch_image_url TEXT NOT NULL DEFAULT '', rtp REAL, volatility TEXT NOT NULL DEFAULT '', supports_demo INTEGER NOT NULL DEFAULT 0, supports_free_spins INTEGER NOT NULL DEFAULT 0, platform_enabled INTEGER NOT NULL DEFAULT 0, platform_enabled_draft INTEGER, is_hot INTEGER NOT NULL DEFAULT 0, is_hot_draft INTEGER, is_featured INTEGER NOT NULL DEFAULT 0, is_featured_draft INTEGER, is_new INTEGER NOT NULL DEFAULT 0, is_new_draft INTEGER, sort INTEGER NOT NULL DEFAULT 0, sort_draft INTEGER, status INTEGER NOT NULL DEFAULT 3, status_draft INTEGER, maintenance_message TEXT NOT NULL DEFAULT '', maintenance_message_draft TEXT, category_ids_draft TEXT, platform_category_id INTEGER NOT NULL DEFAULT 0, platform_category_code TEXT NOT NULL DEFAULT '', supported_countries TEXT NOT NULL DEFAULT '', supported_currencies TEXT NOT NULL DEFAULT '', supported_devices TEXT NOT NULL DEFAULT '', config_status TEXT NOT NULL DEFAULT 'PUBLISHED', config_version INTEGER NOT NULL DEFAULT 1, config_published_at DATETIME, config_published_by INTEGER NOT NULL DEFAULT 0, draft_updated_at DATETIME, draft_updated_by INTEGER NOT NULL DEFAULT 0, updated_at DATETIME)").Error; err != nil {
+	if err := db.Exec("CREATE TABLE game_games (id INTEGER PRIMARY KEY, site_id INTEGER NOT NULL DEFAULT 0, deleted_at DATETIME, provider_enabled INTEGER NOT NULL DEFAULT 1, name TEXT NOT NULL DEFAULT '', name_i18n TEXT, local_thumbnail_url TEXT NOT NULL DEFAULT '', background_url TEXT NOT NULL DEFAULT '', launch_image_url TEXT NOT NULL DEFAULT '', rtp REAL, volatility TEXT NOT NULL DEFAULT '', supports_demo INTEGER NOT NULL DEFAULT 0, supports_free_spins INTEGER NOT NULL DEFAULT 0, platform_enabled INTEGER NOT NULL DEFAULT 0, is_hot INTEGER NOT NULL DEFAULT 0, is_featured INTEGER NOT NULL DEFAULT 0, is_new INTEGER NOT NULL DEFAULT 0, sort INTEGER NOT NULL DEFAULT 0, status INTEGER NOT NULL DEFAULT 3, maintenance_message TEXT NOT NULL DEFAULT '', platform_category_id INTEGER NOT NULL DEFAULT 0, platform_category_code TEXT NOT NULL DEFAULT '', supported_countries TEXT NOT NULL DEFAULT '', supported_currencies TEXT NOT NULL DEFAULT '', supported_devices TEXT NOT NULL DEFAULT '', config_version INTEGER NOT NULL DEFAULT 1, updated_at DATETIME)").Error; err != nil {
 		t.Fatal(err)
 	}
 	if err := db.AutoMigrate(&model.GameAdminOperationLogs{}); err != nil {
@@ -495,10 +402,10 @@ func newGameUpdateWorkflowTestDB(t *testing.T) *gorm.DB {
 	if err := db.Exec("CREATE TABLE game_game_category_relations (id INTEGER PRIMARY KEY AUTOINCREMENT, site_id INTEGER NOT NULL DEFAULT 0, game_id INTEGER NOT NULL, category_id INTEGER NOT NULL, sort INTEGER NOT NULL DEFAULT 0, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME, UNIQUE (game_id, category_id))").Error; err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Exec("INSERT INTO game_game_categories (id, site_id, category_key) VALUES (100, 0, 'slots'), (200, 9, 'featured'), (201, 9, 'live')").Error; err != nil {
+	if err := db.Exec("INSERT INTO game_game_categories (id,site_id,category_key) VALUES (100,0,'slots'), (200, 9, 'featured'), (201, 9, 'live')").Error; err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Exec("INSERT INTO game_games (id, site_id, provider_enabled, config_status, config_version) VALUES (1, 0, 1, 'PUBLISHED', 1), (2, 9, 1, 'PUBLISHED', 1)").Error; err != nil {
+	if err := db.Exec("INSERT INTO game_games (id,site_id,provider_enabled,config_version) VALUES (1,0,1,1), (2,9,1,1)").Error; err != nil {
 		t.Fatal(err)
 	}
 	return db
@@ -519,11 +426,11 @@ func newGameImportTestDB(t *testing.T) *gorm.DB {
 	for _, statement := range []string{
 		`CREATE TABLE game_game_providers (id INTEGER PRIMARY KEY, site_id INTEGER NOT NULL DEFAULT 0, provider_code TEXT NOT NULL, name TEXT NOT NULL DEFAULT '', logo_url TEXT NOT NULL DEFAULT '', api_base_url TEXT NOT NULL DEFAULT '', environment TEXT NOT NULL DEFAULT '', api_status TEXT NOT NULL DEFAULT '', status INTEGER NOT NULL DEFAULT 1, wallet_mode TEXT NOT NULL DEFAULT '', callback_url TEXT NOT NULL DEFAULT '', supported_countries TEXT NOT NULL DEFAULT '', supported_currencies TEXT NOT NULL DEFAULT '', maintenance_message TEXT NOT NULL DEFAULT '', sort INTEGER NOT NULL DEFAULT 0, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME)`,
 
-		`CREATE TABLE game_games (id INTEGER PRIMARY KEY AUTOINCREMENT, site_id INTEGER NOT NULL DEFAULT 0, game_code TEXT NOT NULL, provider_id INTEGER NOT NULL DEFAULT 0, provider_game_code TEXT NOT NULL DEFAULT '', name TEXT NOT NULL DEFAULT '', name_i18n TEXT, slug TEXT NOT NULL DEFAULT '', category TEXT NOT NULL DEFAULT '', platform_category_id INTEGER NOT NULL DEFAULT 0, platform_category_code TEXT NOT NULL DEFAULT '', game_type TEXT NOT NULL DEFAULT '', rtp REAL, volatility TEXT NOT NULL DEFAULT '', cover_url TEXT NOT NULL DEFAULT '', local_thumbnail_url TEXT NOT NULL DEFAULT '', background_url TEXT NOT NULL DEFAULT '', launch_image_url TEXT NOT NULL DEFAULT '', maintenance_message TEXT NOT NULL DEFAULT '', supports_demo INTEGER NOT NULL DEFAULT 0, supports_free_spins INTEGER NOT NULL DEFAULT 0, provider_enabled INTEGER NOT NULL DEFAULT 1, platform_enabled INTEGER NOT NULL DEFAULT 0, platform_enabled_draft INTEGER, is_hot INTEGER NOT NULL DEFAULT 0, is_hot_draft INTEGER, is_featured INTEGER NOT NULL DEFAULT 0, is_featured_draft INTEGER, is_new INTEGER NOT NULL DEFAULT 0, is_new_draft INTEGER, supported_countries TEXT NOT NULL DEFAULT '', supported_currencies TEXT NOT NULL DEFAULT '', supported_devices TEXT NOT NULL DEFAULT '', raw_metadata TEXT, metadata_hash TEXT NOT NULL DEFAULT '', last_synced_at DATETIME, badge TEXT NOT NULL DEFAULT '', player_count INTEGER NOT NULL DEFAULT 0, hot_score INTEGER NOT NULL DEFAULT 0, launch_url TEXT NOT NULL DEFAULT '', status INTEGER NOT NULL DEFAULT 1, status_draft INTEGER, sort INTEGER NOT NULL DEFAULT 0, sort_draft INTEGER, maintenance_message_draft TEXT, category_ids_draft TEXT, config_status TEXT NOT NULL DEFAULT 'PUBLISHED', config_version INTEGER NOT NULL DEFAULT 1, config_published_at DATETIME, config_published_by INTEGER NOT NULL DEFAULT 0, draft_updated_at DATETIME, draft_updated_by INTEGER NOT NULL DEFAULT 0, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME, UNIQUE (site_id, game_code))`,
+		`CREATE TABLE game_games (id INTEGER PRIMARY KEY AUTOINCREMENT, site_id INTEGER NOT NULL DEFAULT 0, game_code TEXT NOT NULL, provider_id INTEGER NOT NULL DEFAULT 0, provider_game_code TEXT NOT NULL DEFAULT '', name TEXT NOT NULL DEFAULT '', name_i18n TEXT, slug TEXT NOT NULL DEFAULT '', category TEXT NOT NULL DEFAULT '', platform_category_id INTEGER NOT NULL DEFAULT 0, platform_category_code TEXT NOT NULL DEFAULT '', game_type TEXT NOT NULL DEFAULT '', rtp REAL, volatility TEXT NOT NULL DEFAULT '', cover_url TEXT NOT NULL DEFAULT '', local_thumbnail_url TEXT NOT NULL DEFAULT '', background_url TEXT NOT NULL DEFAULT '', launch_image_url TEXT NOT NULL DEFAULT '', maintenance_message TEXT NOT NULL DEFAULT '', supports_demo INTEGER NOT NULL DEFAULT 0, supports_free_spins INTEGER NOT NULL DEFAULT 0, provider_enabled INTEGER NOT NULL DEFAULT 1, platform_enabled INTEGER NOT NULL DEFAULT 0, is_hot INTEGER NOT NULL DEFAULT 0, is_featured INTEGER NOT NULL DEFAULT 0, is_new INTEGER NOT NULL DEFAULT 0, supported_countries TEXT NOT NULL DEFAULT '', supported_currencies TEXT NOT NULL DEFAULT '', supported_devices TEXT NOT NULL DEFAULT '', raw_metadata TEXT, metadata_hash TEXT NOT NULL DEFAULT '', last_synced_at DATETIME, badge TEXT NOT NULL DEFAULT '', player_count INTEGER NOT NULL DEFAULT 0, hot_score INTEGER NOT NULL DEFAULT 0, launch_url TEXT NOT NULL DEFAULT '', status INTEGER NOT NULL DEFAULT 1, sort INTEGER NOT NULL DEFAULT 0, config_version INTEGER NOT NULL DEFAULT 1, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME, UNIQUE (site_id, game_code))`,
 
-		`INSERT INTO game_game_providers (id, site_id, provider_code, name, status, created_at, updated_at) VALUES (100, 0, 'ag', 'AG', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP), (200, 9, 'ag', 'AG H5', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+		`INSERT INTO game_game_providers (id,site_id,provider_code,name,status,created_at,updated_at) VALUES (100,0,'ag','AG',1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP), (200, 9, 'ag', 'AG H5', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
 
-		`INSERT INTO game_games (id, site_id, game_code, provider_id, provider_game_code, name, name_i18n, slug, category, game_type, cover_url, local_thumbnail_url, raw_metadata, metadata_hash, provider_enabled, platform_enabled, status, sort, config_status, config_version, created_at, updated_at) VALUES (1001, 0, 'ag-demo', 100, 'demo-1', 'Demo', '{}', 'demo', 'slots', 'SLOT', '', '', '{}', 'hash', 1, 1, 1, 5, 'PUBLISHED', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+		`INSERT INTO game_games (id,site_id,game_code,provider_id,provider_game_code,name,name_i18n,slug,category,game_type,cover_url,local_thumbnail_url,raw_metadata,metadata_hash,provider_enabled,platform_enabled,status,sort,config_version,created_at,updated_at) VALUES (1001,0,'ag-demo',100,'demo-1','Demo','{}','demo','slots','SLOT','','','{}','hash',1,1,1,5,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)`,
 	} {
 		if err := db.Exec(statement).Error; err != nil {
 			t.Fatal(err)
@@ -550,7 +457,7 @@ func newCategoryWriteScopeTestDB(t *testing.T) *gorm.DB {
 	if err := db.Exec("CREATE TABLE game_game_categories (id INTEGER PRIMARY KEY AUTOINCREMENT, site_id INTEGER NOT NULL DEFAULT 0, category_key TEXT NOT NULL, label TEXT NOT NULL DEFAULT '', name_zh TEXT NOT NULL DEFAULT '', name_en TEXT NOT NULL DEFAULT '', short_label TEXT NOT NULL DEFAULT '', icon_url TEXT NOT NULL DEFAULT '', banner_url TEXT NOT NULL DEFAULT '', sort INTEGER NOT NULL DEFAULT 0, status INTEGER NOT NULL DEFAULT 1, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME, UNIQUE (site_id, category_key))").Error; err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Exec("INSERT INTO game_game_categories (id, site_id, category_key, label, name_zh, name_en, short_label, sort, status, created_at, updated_at) VALUES (100, 0, 'slots', 'Slots', 'Slots', 'Slots', 'Slots', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP), (300, 0, 'shared', 'Shared', 'Shared', 'Shared', 'Shared', 2, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)").Error; err != nil {
+	if err := db.Exec("INSERT INTO game_game_categories (id,site_id,category_key,label,name_zh,name_en,short_label,sort,status,created_at,updated_at) VALUES (100,0,'slots','Slots','Slots','Slots','Slots',1,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP), (300, 0, 'shared', 'Shared', 'Shared', 'Shared', 'Shared', 2, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)").Error; err != nil {
 		t.Fatal(err)
 	}
 	if err := db.AutoMigrate(&model.GameAdminOperationLogs{}); err != nil {
@@ -574,9 +481,9 @@ func newCategoryListScopeTestDB(t *testing.T) *gorm.DB {
 	for _, statement := range []string{
 		`CREATE TABLE game_game_categories (id INTEGER PRIMARY KEY, site_id INTEGER NOT NULL, category_key TEXT NOT NULL, label TEXT NOT NULL, name_zh TEXT NOT NULL, name_en TEXT NOT NULL, short_label TEXT NOT NULL, icon_url TEXT NOT NULL, banner_url TEXT NOT NULL, sort INTEGER NOT NULL, status INTEGER NOT NULL, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME)`,
 		`CREATE TABLE game_game_category_relations (id INTEGER PRIMARY KEY, site_id INTEGER NOT NULL, category_id INTEGER NOT NULL, game_id INTEGER NOT NULL, deleted_at DATETIME)`,
-		`INSERT INTO game_game_categories (id, site_id, category_key, label, name_zh, name_en, short_label, icon_url, banner_url, sort, status, created_at, updated_at) VALUES (1, 0, 'slots', 'Slots', 'Slots', 'Slots', 'S', '', '', 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP), (2, 101, 'vip', 'VIP', 'VIP', 'VIP', 'V', '', '', 2, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP), (3, 202, 'live', 'Live', 'Live', 'Live', 'L', '', '', 3, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+		`INSERT INTO game_game_categories (id,site_id,category_key,label,name_zh,name_en,short_label,icon_url,banner_url,sort,status,created_at,updated_at) VALUES (1,0,'slots','Slots','Slots','Slots','S','','',1,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP), (2, 101, 'vip', 'VIP', 'VIP', 'VIP', 'V', '', '', 2, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP), (3, 202, 'live', 'Live', 'Live', 'Live', 'L', '', '', 3, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
 
-		`INSERT INTO game_game_category_relations (id, site_id, category_id, game_id) VALUES (10, 0, 1, 1001), (11, 101, 1, 2001), (12, 101, 2, 2002)`,
+		`INSERT INTO game_game_category_relations (id,site_id,category_id,game_id) VALUES (10,0,1,1001), (11, 101, 1, 2001), (12, 101, 2, 2002)`,
 	} {
 		if err := db.Exec(statement).Error; err != nil {
 			t.Fatal(err)
@@ -601,7 +508,7 @@ func newGameAdminScopeTestDB(t *testing.T) *gorm.DB {
 			t.Fatal(err)
 		}
 	})
-	if err := db.Exec("CREATE TABLE game_lobby_sections (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME, site_id INTEGER NOT NULL DEFAULT 0, section_code TEXT NOT NULL, section_type TEXT NOT NULL, title_zh TEXT NOT NULL, title_en TEXT NOT NULL, display_style TEXT NOT NULL, source_type TEXT NOT NULL, source_ref TEXT NOT NULL, max_items INTEGER NOT NULL DEFAULT 12, sort_order INTEGER NOT NULL DEFAULT 0, enabled INTEGER NOT NULL DEFAULT 1, supported_countries TEXT NOT NULL, supported_currencies TEXT NOT NULL, config_json TEXT, draft_payload TEXT, publish_status TEXT NOT NULL DEFAULT 'PUBLISHED', config_version INTEGER NOT NULL DEFAULT 1, published_at DATETIME, published_by INTEGER NOT NULL DEFAULT 0, draft_updated_at DATETIME, draft_updated_by INTEGER NOT NULL DEFAULT 0)").Error; err != nil {
+	if err := db.Exec("CREATE TABLE game_lobby_sections (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME, site_id INTEGER NOT NULL DEFAULT 0, section_code TEXT NOT NULL, section_type TEXT NOT NULL, title_zh TEXT NOT NULL, title_en TEXT NOT NULL, display_style TEXT NOT NULL, source_type TEXT NOT NULL, source_ref TEXT NOT NULL, max_items INTEGER NOT NULL DEFAULT 12, sort_order INTEGER NOT NULL DEFAULT 0, enabled INTEGER NOT NULL DEFAULT 1, supported_countries TEXT NOT NULL, supported_currencies TEXT NOT NULL, config_json TEXT, config_version INTEGER NOT NULL DEFAULT 1)").Error; err != nil {
 		t.Fatal(err)
 	}
 	return db

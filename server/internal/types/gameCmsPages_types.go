@@ -16,7 +16,7 @@ type CreateGameCmsPagesRequest struct {
 	Title       string     `json:"title" binding:""`
 	ContentHTML string     `json:"contentHTML" binding:""`
 	VersionNo   uint       `json:"versionNo" binding:""`
-	Status      int        `json:"status" binding:""` // 1 published, 2 draft, 3 disabled
+	Status      int        `json:"status" binding:""` // 1 enabled, 3 disabled
 	EffectiveAt *time.Time `json:"effectiveAt" binding:""`
 }
 
@@ -28,7 +28,7 @@ type UpdateGameCmsPagesByIDRequest struct {
 	Title       string     `json:"title" binding:""`
 	ContentHTML string     `json:"contentHTML" binding:""`
 	VersionNo   uint       `json:"versionNo" binding:""`
-	Status      int        `json:"status" binding:""` // 1 published, 2 draft, 3 disabled
+	Status      int        `json:"status" binding:""` // 1 enabled, 3 disabled
 	EffectiveAt *time.Time `json:"effectiveAt" binding:""`
 }
 
@@ -40,7 +40,7 @@ type GameCmsPagesObjDetail struct {
 	Title       string     `json:"title"`
 	ContentHTML string     `json:"contentHTML"`
 	VersionNo   uint       `json:"versionNo"`
-	Status      int        `json:"status"` // 1 published, 2 draft, 3 disabled
+	Status      int        `json:"status"` // 1 enabled, 3 disabled
 	EffectiveAt *time.Time `json:"effectiveAt"`
 	CreatedAt   *time.Time `json:"createdAt"`
 	UpdatedAt   *time.Time `json:"updatedAt"`

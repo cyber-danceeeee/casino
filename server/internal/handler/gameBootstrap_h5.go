@@ -2,7 +2,6 @@ package handler
 
 import (
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-dev-frame/sponge/pkg/gin/response"
@@ -16,23 +15,22 @@ import (
 type h5BootstrapSiteRow struct {
 	ID uint64 `gorm:"column:id"`
 
-	SiteCode          string     `gorm:"column:site_code"`
-	SiteName          string     `gorm:"column:site_name"`
-	PrimaryDomain     string     `gorm:"column:primary_domain"`
-	H5Domain          string     `gorm:"column:h5_domain"`
-	CountryCode       string     `gorm:"column:country_code"`
-	CurrencyCode      string     `gorm:"column:currency_code"`
-	DefaultLanguage   string     `gorm:"column:default_language"`
-	Timezone          string     `gorm:"column:timezone"`
-	BrandConfig       string     `gorm:"column:brand_config"`
-	ThemeConfig       string     `gorm:"column:theme_config"`
-	FeatureConfig     string     `gorm:"column:feature_config"`
-	MaintenanceConfig string     `gorm:"column:maintenance_config"`
-	SEOConfig         string     `gorm:"column:seo_config"`
-	ConfigVersion     uint64     `gorm:"column:config_version"`
-	ConfigPublishedAt *time.Time `gorm:"column:config_published_at"`
-	Enabled           bool       `gorm:"column:enabled"`
-	Status            string     `gorm:"column:status"`
+	SiteCode          string `gorm:"column:site_code"`
+	SiteName          string `gorm:"column:site_name"`
+	PrimaryDomain     string `gorm:"column:primary_domain"`
+	H5Domain          string `gorm:"column:h5_domain"`
+	CountryCode       string `gorm:"column:country_code"`
+	CurrencyCode      string `gorm:"column:currency_code"`
+	DefaultLanguage   string `gorm:"column:default_language"`
+	Timezone          string `gorm:"column:timezone"`
+	BrandConfig       string `gorm:"column:brand_config"`
+	ThemeConfig       string `gorm:"column:theme_config"`
+	FeatureConfig     string `gorm:"column:feature_config"`
+	MaintenanceConfig string `gorm:"column:maintenance_config"`
+	SEOConfig         string `gorm:"column:seo_config"`
+	ConfigVersion     uint64 `gorm:"column:config_version"`
+	Enabled           bool   `gorm:"column:enabled"`
+	Status            string `gorm:"column:status"`
 }
 
 type h5BootstrapCountryRow struct {
@@ -80,7 +78,6 @@ func (h *gameGamesHandler) Bootstrap(c *gin.Context) {
 
 		"siteId":        site.ID,
 		"configVersion": h5ConfigVersion(site.ConfigVersion),
-		"publishedAt":   site.ConfigPublishedAt,
 		"site": gin.H{
 			"id": site.ID, "siteCode": site.SiteCode, "siteName": site.SiteName,
 			"primaryDomain": site.PrimaryDomain, "h5Domain": site.H5Domain, "status": site.Status,
@@ -114,7 +111,7 @@ func h5BootstrapSite(db interface {
 		return row
 	}
 	_ = db.Table("game_site_config").
-		Select("id, site_code, site_name, primary_domain, h5_domain, country_code, currency_code, default_language, timezone, COALESCE(CAST(brand_config AS CHAR), '') AS brand_config, COALESCE(CAST(theme_config AS CHAR), '') AS theme_config, COALESCE(CAST(feature_config AS CHAR), '') AS feature_config, COALESCE(CAST(maintenance_config AS CHAR), '') AS maintenance_config, COALESCE(CAST(seo_config AS CHAR), '') AS seo_config, config_version, config_published_at, enabled, status").
+		Select("id, site_code, site_name, primary_domain, h5_domain, country_code, currency_code, default_language, timezone, COALESCE(CAST(brand_config AS CHAR), '') AS brand_config, COALESCE(CAST(theme_config AS CHAR), '') AS theme_config, COALESCE(CAST(feature_config AS CHAR), '') AS feature_config, COALESCE(CAST(maintenance_config AS CHAR), '') AS maintenance_config, COALESCE(CAST(seo_config AS CHAR), '') AS seo_config, config_version, enabled, status").
 		Where("id=? AND deleted_at IS NULL", siteID).
 		Take(&row).Error
 	return row

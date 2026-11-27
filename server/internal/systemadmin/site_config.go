@@ -32,20 +32,7 @@ type SiteRow struct {
 	FeatureConfig        string     `json:"featureConfig" gorm:"column:feature_config"`
 	MaintenanceConfig    string     `json:"maintenanceConfig" gorm:"column:maintenance_config"`
 	SEOConfig            string     `json:"seoConfig" gorm:"column:seo_config"`
-	SiteNameDraft        string     `json:"siteNameDraft" gorm:"column:site_name_draft"`
-	CountryCodeDraft     string     `json:"countryCodeDraft" gorm:"column:country_code_draft"`
-	CurrencyCodeDraft    string     `json:"currencyCodeDraft" gorm:"column:currency_code_draft"`
-	LanguageDraft        string     `json:"languageDraft" gorm:"column:default_language_draft"`
-	TimezoneDraft        string     `json:"timezoneDraft" gorm:"column:timezone_draft"`
-	BrandConfigDraft     string     `json:"brandConfigDraft" gorm:"column:brand_config_draft"`
-	ThemeConfigDraft     string     `json:"themeConfigDraft" gorm:"column:theme_config_draft"`
-	FeatureConfigDraft   string     `json:"featureConfigDraft" gorm:"column:feature_config_draft"`
-	MaintenanceDraft     string     `json:"maintenanceConfigDraft" gorm:"column:maintenance_config_draft"`
-	SEOConfigDraft       string     `json:"seoConfigDraft" gorm:"column:seo_config_draft"`
-	ConfigStatus         string     `json:"configStatus" gorm:"column:config_status"`
 	ConfigVersion        uint64     `json:"configVersion" gorm:"column:config_version"`
-	ConfigPublishedAt    *time.Time `json:"configPublishedAt" gorm:"column:config_published_at"`
-	ConfigDraftUpdatedAt *time.Time `json:"configDraftUpdatedAt" gorm:"column:config_draft_updated_at"`
 	IsInitialized        bool       `json:"isInitialized" gorm:"column:is_initialized"`
 	Enabled              bool       `json:"enabled"`
 	Status               string     `json:"status"`
@@ -105,7 +92,7 @@ func validateSiteInput(input SiteInput, creating bool) error {
 }
 
 func siteSelect() string {
-	return `s.id, s.site_code, s.site_name, s.primary_domain, s.admin_domain, s.h5_domain, s.android_package_name, s.ios_bundle_id, s.country_code, s.currency_code, s.default_language, s.timezone, COALESCE(CAST(s.brand_config AS CHAR), '') AS brand_config, COALESCE(CAST(s.theme_config AS CHAR), '') AS theme_config, COALESCE(CAST(s.feature_config AS CHAR), '') AS feature_config, COALESCE(CAST(s.maintenance_config AS CHAR), '') AS maintenance_config, COALESCE(CAST(s.seo_config AS CHAR), '') AS seo_config, COALESCE(s.site_name_draft, '') AS site_name_draft, COALESCE(s.country_code_draft, '') AS country_code_draft, COALESCE(s.currency_code_draft, '') AS currency_code_draft, COALESCE(s.default_language_draft, '') AS default_language_draft, COALESCE(s.timezone_draft, '') AS timezone_draft, COALESCE(CAST(s.brand_config_draft AS CHAR), '') AS brand_config_draft, COALESCE(CAST(s.theme_config_draft AS CHAR), '') AS theme_config_draft, COALESCE(CAST(s.feature_config_draft AS CHAR), '') AS feature_config_draft, COALESCE(CAST(s.maintenance_config_draft AS CHAR), '') AS maintenance_config_draft, COALESCE(CAST(s.seo_config_draft AS CHAR), '') AS seo_config_draft, s.config_status, s.config_version, s.config_published_at, s.config_draft_updated_at, s.is_initialized, s.enabled, s.status, s.remark, s.created_at, s.updated_at`
+	return `s.id,s.site_code,s.site_name,s.primary_domain,s.admin_domain,s.h5_domain,s.android_package_name,s.ios_bundle_id,s.country_code,s.currency_code,s.default_language,s.timezone,COALESCE(CAST(s.brand_config AS CHAR),'{}') brand_config,COALESCE(CAST(s.theme_config AS CHAR),'{}') theme_config,COALESCE(CAST(s.feature_config AS CHAR),'{}') feature_config,COALESCE(CAST(s.maintenance_config AS CHAR),'{}') maintenance_config,COALESCE(CAST(s.seo_config AS CHAR),'{}') seo_config,s.config_version,s.is_initialized,s.enabled,s.status,s.remark,s.created_at,s.updated_at`
 }
 
 func (s *Service) SiteDetail(id uint64, actor Actor) (map[string]any, error) {
@@ -133,8 +120,7 @@ func (s *Service) SiteDetail(id uint64, actor Actor) (map[string]any, error) {
 		"featureConfig":     parseJSONMap(row.FeatureConfig),
 		"maintenanceConfig": parseJSONMap(row.MaintenanceConfig),
 		"seoConfig":         parseJSONMap(row.SEOConfig),
-		"publishedConfig":   sitePublishedConfig(row),
-		"draftConfig":       siteDraftConfig(row),
+		"configuration":     siteConfiguration(row),
 		"configMeta":        siteConfigMeta(row),
 		"operationLogs":     s.operationLogs("site", id),
 	}, nil
@@ -163,15 +149,12 @@ func (s *Service) UpdateSite(id uint64, input SiteInput, actor Actor) error {
 			return err
 		}
 	}
-	input = preserveSiteDraftDefaults(input, before)
-	updates := siteDraftInputRow(input, actor.ID)
-	action := "system.site.config.draft"
-	if actor.Platform {
-		enabled := boolDefault(input.Enabled, dbTruthy(before["enabled"]))
-		updates = siteImmediateInputRow(input, enabled, actor.ID)
-		stripUnavailableSiteColumns(s.db, updates)
-		action = "system.site.update"
-	}
+	input = preserveSiteDefaults(input, before)
+	enabled := boolDefault(input.Enabled, dbTruthy(before["enabled"]))
+	updates := siteImmediateInputRow(input, enabled, actor.ID)
+	stripUnavailableSiteColumns(s.db, updates)
+	action := "system.site.update"
+
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		updateDB := tx.Table("game_site_config").Where("id=? AND deleted_at IS NULL", id)
 		if !actor.Platform {
@@ -225,11 +208,8 @@ func siteInputRow(input SiteInput, enabled bool, actorID uint64) map[string]any 
 		"country_code":            strings.ToUpper(strings.TrimSpace(input.CountryCode)), "currency_code": strings.ToUpper(strings.TrimSpace(input.CurrencyCode)),
 		"default_language": strings.TrimSpace(input.DefaultLanguage), "timezone": strings.TrimSpace(input.Timezone), "brand_config": brand,
 		"theme_config": theme, "feature_config": features, "maintenance_config": maintenance, "seo_config": seo,
-		"site_name_draft": strings.TrimSpace(input.SiteName), "country_code_draft": strings.ToUpper(strings.TrimSpace(input.CountryCode)),
-		"currency_code_draft": strings.ToUpper(strings.TrimSpace(input.CurrencyCode)), "default_language_draft": strings.TrimSpace(input.DefaultLanguage),
-		"timezone_draft": strings.TrimSpace(input.Timezone), "brand_config_draft": brand, "theme_config_draft": theme,
-		"feature_config_draft": features, "maintenance_config_draft": maintenance, "seo_config_draft": seo,
-		"config_status": "PUBLISHED", "config_version": 1, "config_published_at": now(), "config_published_by": actorID,
+
+		"config_version": 1,
 		"is_initialized": 0,
 		"enabled":        boolValue(enabled), "status": normalizeStatus(enabled, input.Status, "ONLINE", "DISABLED"), "remark": strings.TrimSpace(input.Remark),
 		"created_by": actorID, "updated_by": actorID, "created_at": now(), "updated_at": now(),
@@ -242,11 +222,6 @@ func siteImmediateInputRow(input SiteInput, enabled bool, actorID uint64) map[st
 		delete(values, key)
 	}
 	values["config_version"] = gorm.Expr("config_version+1")
-	values["config_status"] = "PUBLISHED"
-	values["config_published_at"] = now()
-	values["config_published_by"] = actorID
-	values["config_draft_updated_at"] = now()
-	values["config_draft_updated_by"] = actorID
 	values["version"] = gorm.Expr("version+1")
 	return values
 }
@@ -267,42 +242,21 @@ func stripUnavailableSiteColumns(db *gorm.DB, values map[string]any) {
 	}
 }
 
-func siteDraftInputRow(input SiteInput, actorID uint64) map[string]any {
-	return map[string]any{
-		"site_name_draft":          strings.TrimSpace(input.SiteName),
-		"country_code_draft":       strings.ToUpper(strings.TrimSpace(input.CountryCode)),
-		"currency_code_draft":      strings.ToUpper(strings.TrimSpace(input.CurrencyCode)),
-		"default_language_draft":   strings.TrimSpace(input.DefaultLanguage),
-		"timezone_draft":           strings.TrimSpace(input.Timezone),
-		"brand_config_draft":       marshal(input.BrandConfig),
-		"theme_config_draft":       marshal(input.ThemeConfig),
-		"feature_config_draft":     marshal(input.FeatureConfig),
-		"maintenance_config_draft": marshal(input.MaintenanceConfig),
-		"seo_config_draft":         marshal(input.SEOConfig),
-		"config_status":            "DRAFT",
-		"config_draft_updated_at":  now(),
-		"config_draft_updated_by":  actorID,
-		"updated_by":               actorID,
-		"version":                  gorm.Expr("version+1"),
-		"updated_at":               now(),
-	}
-}
-
-func preserveSiteDraftDefaults(input SiteInput, before map[string]any) SiteInput {
+func preserveSiteDefaults(input SiteInput, before map[string]any) SiteInput {
 	if input.BrandConfig == nil {
-		input.BrandConfig = parseJSONMap(firstDraft(mapString(before, "brand_config_draft"), mapString(before, "brand_config")))
+		input.BrandConfig = parseJSONMap(mapString(before, "brand_config"))
 	}
 	if input.ThemeConfig == nil {
-		input.ThemeConfig = parseJSONMap(firstDraft(mapString(before, "theme_config_draft"), mapString(before, "theme_config")))
+		input.ThemeConfig = parseJSONMap(mapString(before, "theme_config"))
 	}
 	if input.FeatureConfig == nil {
-		input.FeatureConfig = parseJSONMap(firstDraft(mapString(before, "feature_config_draft"), mapString(before, "feature_config")))
+		input.FeatureConfig = parseJSONMap(mapString(before, "feature_config"))
 	}
 	if input.MaintenanceConfig == nil {
-		input.MaintenanceConfig = parseJSONMap(firstDraft(mapString(before, "maintenance_config_draft"), mapString(before, "maintenance_config")))
+		input.MaintenanceConfig = parseJSONMap(mapString(before, "maintenance_config"))
 	}
 	if input.SEOConfig == nil {
-		input.SEOConfig = parseJSONMap(firstDraft(mapString(before, "seo_config_draft"), mapString(before, "seo_config")))
+		input.SEOConfig = parseJSONMap(mapString(before, "seo_config"))
 	}
 	return input
 }

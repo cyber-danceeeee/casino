@@ -10,8 +10,7 @@ import {
   Plus,
   Rank,
   Refresh,
-  UploadFilled,
-} from "@element-plus/icons-vue";
+  } from "@element-plus/icons-vue";
 import H5PreviewFrame from "@/components/brand/H5PreviewFrame.vue";
 import { fetchGames, type GameCenterRecord } from "@/api/adminGames";
 import {
@@ -36,7 +35,6 @@ import { formatBackendTime } from "@/utils/timezone";
 const { t } = useI18n();
 const loading = ref(false);
 const saving = ref(false);
-const publishing = ref(false);
 const sorting = ref(false);
 const rows = ref<SiteBannerRecord[]>([]);
 const assets = ref<AssetLibraryRecord[]>([]);
@@ -47,7 +45,7 @@ const editVisible = ref(false);
 const previewVisible = ref(false);
 const editingID = ref(0);
 const draggedID = ref(0);
-const filters = reactive({ keyword: "", publishStatus: "" });
+const filters = reactive({ keyword: "", });
 
 const emptyForm = () => ({
   name: "",
@@ -95,13 +93,13 @@ const conflictNames = computed(() => {
   return rows.value
     .filter((row) => !row.isFallback && row.id !== editingID.value)
     .filter((row) => {
-      const config = draft(row);
+      const config = configuration(row);
       if (!config.enabled || config.deleted || config.visibilityScope !== form.visibilityScope) return false;
       const otherStart = config.startAt ? new Date(config.startAt).getTime() : Number.NEGATIVE_INFINITY;
       const otherEnd = config.endAt ? new Date(config.endAt).getTime() : Number.POSITIVE_INFINITY;
       return start <= otherEnd && otherStart <= end;
     })
-    .map((row) => draft(row).name)
+    .map((row) => configuration(row).name)
     .filter(Boolean);
 });
 const actionTargetOptions = computed(() => {
@@ -118,8 +116,8 @@ const actionTargetOptions = computed(() => {
   return [];
 });
 
-function draft(row: SiteBannerRecord) {
-  return row.draftConfiguration || row.publishedConfiguration;
+function configuration(row: SiteBannerRecord) {
+  return row.configuration;
 }
 
 function assetURL(asset?: AssetLibraryRecord) {
@@ -130,9 +128,9 @@ function assetByID(id: number) {
   return assets.value.find((asset) => asset.id === id);
 }
 
-function draftImage(row: SiteBannerRecord, mobile = false) {
+function configurationImage(row: SiteBannerRecord, mobile = false) {
 	if (row.isFallback) return row.fallbackImageURL || "";
-  const config = draft(row);
+  const config = configuration(row);
   const selected = assetByID(mobile ? config.mobileAssetID : config.desktopAssetID);
   if (selected) return assetURL(selected);
   return mobile
@@ -147,7 +145,7 @@ function selectedBannerImage(mobile = false) {
 }
 
 function actionTargetLabel(row: SiteBannerRecord) {
-  const config = draft(row);
+  const config = configuration(row);
   if (!config.actionTarget) return "-";
   if (config.actionType === "OPEN_GAME") {
     const game = games.value.find((item) =>
@@ -197,7 +195,7 @@ function openCreate() {
 
 function openEdit(row: SiteBannerRecord) {
 	if (row.isFallback) return;
-  const config = draft(row);
+  const config = configuration(row);
   editingID.value = row.id;
   Object.assign(form, emptyForm(), config, {
     startAt: config.startAt ? new Date(config.startAt) : null,
@@ -244,7 +242,7 @@ async function save() {
     if (editingID.value) await updateSiteBanner(editingID.value, payload());
     else await createSiteBanner(payload());
     editVisible.value = false;
-    ElMessage.success(t("bannerLibrary.messages.draftSaved"));
+    ElMessage.success(t("liveConfig.saved"));
     window.dispatchEvent(new Event("brand-config-refresh"));
     await load();
   } catch (error) {
@@ -259,17 +257,17 @@ async function toggle(row: SiteBannerRecord, enabled: boolean) {
 		try {
 			await setOperationDefaultVisibility("banners", row.fallbackSourceID || row.id, enabled);
 			row.visible = enabled;
-			row.draftConfiguration.enabled = enabled;
+			row.configuration.enabled = enabled;
 			ElMessage.success(t("operations.messages.defaultVisibilitySaved"));
 		} catch (error) {
 			ElMessage.error(error instanceof Error ? error.message : t("bannerLibrary.messages.saveFailed"));
 		}
 		return;
 	}
-  const config = draft(row);
+  const config = configuration(row);
   try {
     await updateSiteBanner(row.id, { ...config, enabled, reason: t("bannerLibrary.defaults.statusReason") });
-    ElMessage.success(t("bannerLibrary.messages.statusDraftSaved"));
+    ElMessage.success(t("liveConfig.saved"));
     window.dispatchEvent(new Event("brand-config-refresh"));
     await load();
   } catch (error) {
@@ -293,12 +291,12 @@ async function remove(row: SiteBannerRecord) {
 	if (row.isFallback) return;
   try {
     await ElMessageBox.confirm(t("bannerLibrary.dialogs.deleteMessage"), t("bannerLibrary.dialogs.deleteTitle"), {
-      confirmButtonText: t("bannerLibrary.actions.deleteDraft"),
+      confirmButtonText: t("common.delete"),
       cancelButtonText: t("bannerLibrary.actions.cancel"),
       type: "warning",
     });
     await deleteSiteBanner(row.id);
-    ElMessage.success(t("bannerLibrary.messages.deleteDraftSaved"));
+    ElMessage.success(t("liveConfig.saved"));
     window.dispatchEvent(new Event("brand-config-refresh"));
     await load();
   } catch (error) {
@@ -324,7 +322,7 @@ async function dropOn(targetID: number) {
   sorting.value = true;
   try {
     await sortSiteBanners(reordered.map((row) => row.id), t("bannerLibrary.defaults.sortReason"));
-    ElMessage.success(t("bannerLibrary.messages.sortDraftSaved"));
+    ElMessage.success(t("liveConfig.saved"));
     window.dispatchEvent(new Event("brand-config-refresh"));
     await load();
   } catch (error) {
@@ -332,28 +330,6 @@ async function dropOn(targetID: number) {
     await load();
   } finally {
     sorting.value = false;
-  }
-}
-
-async function publish() {
-  if (!overview.value?.siteID) return;
-  try {
-    const result = await ElMessageBox.prompt(t("bannerLibrary.dialogs.publishMessage"), t("bannerLibrary.dialogs.publishTitle"), {
-      confirmButtonText: t("bannerLibrary.actions.publish"),
-      cancelButtonText: t("bannerLibrary.actions.cancel"),
-      inputValue: t("bannerLibrary.defaults.publishReason"),
-      inputValidator: (value) => Boolean(value.trim()) || t("bannerLibrary.validation.reasonRequired"),
-    });
-    publishing.value = true;
-    const response = await systemAPI.sites.publish(overview.value.siteID, result.value.trim());
-    ElMessage.success(t("bannerLibrary.messages.published", { count: Number(response.bannerDraftsPublished || 0) }));
-    window.dispatchEvent(new Event("brand-config-refresh"));
-    await load();
-  } catch (error) {
-    if (error !== "cancel" && error !== "close")
-      ElMessage.error(error instanceof Error ? error.message : t("bannerLibrary.messages.publishFailed"));
-  } finally {
-    publishing.value = false;
   }
 }
 
@@ -371,21 +347,16 @@ onMounted(load);
       <div class="header-actions">
         <el-button :icon="Refresh" @click="load">{{ t("bannerLibrary.actions.refresh") }}</el-button>
         <el-button :icon="Monitor" @click="previewVisible = true">{{ t("bannerLibrary.actions.preview") }}</el-button>
-        <el-button type="primary" :icon="UploadFilled" :loading="publishing" @click="publish">
-          {{ t("bannerLibrary.actions.publish") }}
-        </el-button>
+
         <el-button type="success" :icon="Plus" @click="openCreate">{{ t("bannerLibrary.actions.create") }}</el-button>
       </div>
     </header>
 
-    <el-alert type="warning" :title="t('bannerLibrary.draftNotice')" :closable="false" show-icon />
+
 
     <section class="toolbar">
       <el-input v-model="filters.keyword" clearable :placeholder="t('bannerLibrary.placeholders.keyword')" @keyup.enter="load" />
-      <el-select v-model="filters.publishStatus" clearable :placeholder="t('bannerLibrary.fields.publishStatus')">
-        <el-option :label="t('bannerLibrary.status.DRAFT')" value="DRAFT" />
-        <el-option :label="t('bannerLibrary.status.PUBLISHED')" value="PUBLISHED" />
-      </el-select>
+
       <el-button type="primary" @click="load">{{ t("bannerLibrary.actions.search") }}</el-button>
     </section>
 
@@ -397,32 +368,30 @@ onMounted(load);
           </template>
         </el-table-column>
         <el-table-column :label="t('bannerLibrary.fields.preview')" width="150">
-          <template #default="{ row }"><el-image class="banner-thumb" :src="draftImage(row)" fit="cover" /></template>
+          <template #default="{ row }"><el-image class="banner-thumb" :src="configurationImage(row)" fit="cover" /></template>
         </el-table-column>
         <el-table-column :label="t('bannerLibrary.fields.name')" min-width="170">
-          <template #default="{ row }"><strong>{{ draft(row).name }}</strong><small>{{ draft(row).title }}</small></template>
+          <template #default="{ row }"><strong>{{ configuration(row).name }}</strong><small>{{ configuration(row).title }}</small></template>
         </el-table-column>
         <el-table-column :label="t('bannerLibrary.fields.target')" min-width="165">
-          <template #default="{ row }"><el-tag effect="plain">{{ t(`bannerLibrary.actionsType.${draft(row).actionType}`) }}</el-tag><small v-if="draft(row).actionTarget">{{ actionTargetLabel(row) }}</small></template>
+          <template #default="{ row }"><el-tag effect="plain">{{ t(`bannerLibrary.actionsType.${configuration(row).actionType}`) }}</el-tag><small v-if="configuration(row).actionTarget">{{ actionTargetLabel(row) }}</small></template>
         </el-table-column>
         <el-table-column :label="t('bannerLibrary.fields.visibility')" width="130">
-          <template #default="{ row }">{{ t(`bannerLibrary.visibility.${draft(row).visibilityScope}`) }}</template>
+          <template #default="{ row }">{{ t(`bannerLibrary.visibility.${configuration(row).visibilityScope}`) }}</template>
         </el-table-column>
         <el-table-column :label="t('bannerLibrary.fields.schedule')" min-width="190">
-          <template #default="{ row }"><span>{{ formatBackendTime(draft(row).startAt || "") }}</span><small>{{ formatBackendTime(draft(row).endAt || "") }}</small></template>
+          <template #default="{ row }"><span>{{ formatBackendTime(configuration(row).startAt || "") }}</span><small>{{ formatBackendTime(configuration(row).endAt || "") }}</small></template>
         </el-table-column>
-        <el-table-column :label="t('bannerLibrary.fields.publishStatus')" width="150">
-          <template #default="{ row }"><el-tag :type="row.publishStatus === 'DRAFT' ? 'warning' : 'success'">{{ t(`bannerLibrary.status.${row.publishStatus}`) }}</el-tag></template>
-        </el-table-column>
+
 		<el-table-column :label="t('operations.fields.source')" width="130"><template #default="{ row }"><el-tag v-if="row.isFallback" type="info" effect="plain">{{ t('operations.values.platformDefault') }}</el-tag><span v-else>{{ t('operations.values.siteCustom') }}</span></template></el-table-column>
         <el-table-column :label="t('bannerLibrary.fields.enabled')" width="100">
-          <template #default="{ row }"><el-switch :model-value="draft(row).enabled" @change="toggle(row, Boolean($event))" /></template>
+          <template #default="{ row }"><el-switch :model-value="configuration(row).enabled" @change="toggle(row, Boolean($event))" /></template>
         </el-table-column>
         <el-table-column :label="t('bannerLibrary.fields.actions')" width="150" fixed="right">
           <template #default="{ row }">
 			<template v-if="!row.isFallback"><el-tooltip :content="t('bannerLibrary.actions.edit')"><el-button circle :icon="Edit" @click="openEdit(row)" /></el-tooltip>
 			<el-tooltip :content="t('bannerLibrary.actions.copy')"><el-button circle :icon="CopyDocument" @click="duplicate(row)" /></el-tooltip>
-			<el-tooltip :content="t('bannerLibrary.actions.deleteDraft')"><el-button circle type="danger" plain :icon="Delete" @click="remove(row)" /></el-tooltip></template><span v-else>-</span>
+			<el-tooltip :content="t('common.delete')"><el-button circle type="danger" plain :icon="Delete" @click="remove(row)" /></el-tooltip></template><span v-else>-</span>
           </template>
         </el-table-column>
       </el-table>
@@ -448,7 +417,7 @@ onMounted(load);
           <el-col :span="24"><el-form-item :label="t('bannerLibrary.fields.reason')"><el-input v-model="form.reason" type="textarea" /></el-form-item></el-col>
         </el-row>
       </el-form>
-      <template #footer><el-button @click="editVisible = false">{{ t("bannerLibrary.actions.cancel") }}</el-button><el-button type="primary" :loading="saving" @click="save">{{ t("bannerLibrary.actions.saveDraft") }}</el-button></template>
+      <template #footer><el-button @click="editVisible = false">{{ t("bannerLibrary.actions.cancel") }}</el-button><el-button type="primary" :loading="saving" @click="save">{{ t("common.save") }}</el-button></template>
     </el-dialog>
 
     <el-dialog v-model="previewVisible" :title="t('bannerLibrary.dialogs.previewTitle')" width="min(560px, 96vw)">

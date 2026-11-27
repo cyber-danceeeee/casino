@@ -3,7 +3,7 @@ import { phoneLimits } from '../utils/phoneNumber'
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '/api/v1').replace(/\/$/, '')
 const API_ORIGIN = API_BASE_URL.startsWith('http') ? new URL(API_BASE_URL).origin : ''
-const runtimeConfigStoragePrefix = 'casino-h5-runtime-config-single-site-v2'
+const runtimeConfigStoragePrefix = 'casino-h5-runtime-config-single-site-v3'
 
 export interface RuntimeConfig {
   resourceVersion: string
@@ -187,7 +187,7 @@ export async function loadRuntimeConfig() {
     runtimeConfig.value = {
       ...defaultRuntimeConfig,
       ...envelope.data,
-      branding: { ...defaultRuntimeConfig.branding, ...(envelope.data.branding || {}) },
+      branding: { ...defaultRuntimeConfig.branding, appName:envelope.data.branding?.appName,siteName:envelope.data.branding?.siteName },
       currency: { ...defaultRuntimeConfig.currency, ...(envelope.data.currency || {}) },
       language: { ...defaultRuntimeConfig.language, ...(envelope.data.language || {}) },
       maintenance: { ...defaultRuntimeConfig.maintenance, ...(envelope.data.maintenance || {}) },

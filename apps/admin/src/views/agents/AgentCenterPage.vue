@@ -720,7 +720,7 @@ onMounted(async () => {
                   ><template v-else-if="moduleKey === 'agent-settlements'"
                     ><el-dropdown-item
                       v-if="
-                        row.status === 'DRAFT' && can('agent:settlement:submit')
+                        row.status === 'READY' && can('agent:settlement:submit')
                       "
                       @click="ask('submit', row)"
                       >{{ t("agentCenter.actions.submit") }}</el-dropdown-item
@@ -746,7 +746,7 @@ onMounted(async () => {
                       >{{ t("agentCenter.actions.markPaid") }}</el-dropdown-item
                     ><el-dropdown-item
                       v-if="
-                        ['DRAFT', 'REJECTED'].includes(String(row.status)) &&
+                        ['READY', 'REJECTED'].includes(String(row.status)) &&
                         can('agent:settlement:cancel')
                       "
                       @click="ask('cancel', row)"

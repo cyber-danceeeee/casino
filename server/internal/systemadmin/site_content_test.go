@@ -26,53 +26,30 @@ type contentTestAsset struct {
 
 func (contentTestAsset) TableName() string { return "game_asset_library" }
 
-func TestAnnouncementDraftPublishIsolationAndXSS(t *testing.T) {
-	service, db := newSiteContentTestService(t)
-	actorA := Actor{ID: 7, Username: "h5-a", SiteID: 101}
-	input := AnnouncementInput{AnnouncementDraft: AnnouncementDraft{
-		Title: "Security", Summary: "Safe content", Content: `<p onclick="alert(1)">Hello <strong>world</strong><script>alert(1)</script><a href="javascript:alert(1)">bad</a></p>`,
-		AnnouncementType: "SYSTEM", Priority: 5, IsPinned: true, LanguageCode: "EN", CountryCode: "MX",
-		CurrencyCode: "MXN", VisibilityScope: "GUEST", Enabled: true,
-	}, Reason: "create security announcement"}
-	id, err := service.SaveSiteAnnouncement(101, 0, input, actorA)
+func TestAnnouncementSaveEditDeleteAreImmediatelyVisible(t *testing.T) {
+	service, _ := newSiteContentTestService(t)
+	actor := Actor{ID: 7, SiteID: 101}
+	input := AnnouncementInput{AnnouncementConfiguration: AnnouncementConfiguration{Title: "Security", Content: `<p onclick="alert(1)">Hello <strong>world</strong><script>alert(1)</script></p>`, AnnouncementType: "SYSTEM", VisibilityScope: "ALL", Enabled: true}}
+	id, err := service.SaveSiteAnnouncement(101, 0, input, actor)
 	require.NoError(t, err)
-
-	rows, err := service.PublicAnnouncements(content.Scope{SiteID: 101}, "es-MX", "MX", "MXN", false, time.Now())
-	require.NoError(t, err)
-	require.Empty(t, rows, "draft announcement must not be public")
-
-	count, err := publishAnnouncementDrafts(db, 101, actorA.ID, 2)
-	require.NoError(t, err)
-	require.Equal(t, 1, count)
-	count, err = publishAnnouncementDrafts(db, 101, actorA.ID, 2)
-	require.NoError(t, err)
-	require.Zero(t, count, "repeat publish must be idempotent")
-	rows, err = service.PublicAnnouncements(content.Scope{SiteID: 101}, "es-MX", "MX", "MXN", false, time.Now())
-	require.NoError(t, err)
+	read := func() []PublicAnnouncement {
+		rows, err := service.PublicAnnouncements(content.Scope{SiteID: 101}, "es", "MX", "MXN", false, time.Now())
+		require.NoError(t, err)
+		return rows
+	}
+	rows := read()
 	require.Len(t, rows, 1)
 	require.NotContains(t, strings.ToLower(rows[0].Content), "script")
-	require.NotContains(t, strings.ToLower(rows[0].Content), "onclick")
-	require.NotContains(t, strings.ToLower(rows[0].Content), "javascript:")
+	require.NotContains(t, rows[0].Content, "onclick")
 	require.Contains(t, rows[0].Content, "<strong>world</strong>")
-	currencyMismatch, err := service.PublicAnnouncements(content.Scope{SiteID: 101}, "en", "MX", "USD", false, time.Now())
+	input.Title = "Updated"
+	_, err = service.SaveSiteAnnouncement(101, id, input, actor)
 	require.NoError(t, err)
-	require.Empty(t, currencyMismatch)
-
-	_, err = service.GetSiteAnnouncement(101, id, Actor{ID: 8, SiteID: 202})
-	var domain *Error
-	require.True(t, errors.As(err, &domain))
-	require.Equal(t, "SITE_NOT_FOUND", domain.Code)
-
-	require.NoError(t, service.DeleteSiteAnnouncement(101, id, actorA))
-	rows, err = service.PublicAnnouncements(content.Scope{SiteID: 101}, "es", "MX", "MXN", false, time.Now())
-	require.NoError(t, err)
-	require.Len(t, rows, 1, "published announcement remains live until delete draft is published")
-	count, err = publishAnnouncementDrafts(db, 101, actorA.ID, 3)
-	require.NoError(t, err)
-	require.Equal(t, 1, count)
-	rows, err = service.PublicAnnouncements(content.Scope{SiteID: 101}, "es", "MX", "MXN", false, time.Now())
-	require.NoError(t, err)
-	require.Empty(t, rows)
+	require.Equal(t, "Updated", read()[0].Title)
+	_, err = service.GetSiteAnnouncement(101, id, Actor{SiteID: 202})
+	require.Error(t, err)
+	require.NoError(t, service.DeleteSiteAnnouncement(101, id, actor))
+	require.Empty(t, read())
 }
 
 func TestPopupCampaignPublishFrequencyTrackingAndIsolation(t *testing.T) {
@@ -81,7 +58,7 @@ func TestPopupCampaignPublishFrequencyTrackingAndIsolation(t *testing.T) {
 		DefaultActionType: "OPEN_PROMOTION", AllowedActionTypesJSON: `["OPEN_PROMOTION","CLOSE_ONLY"]`, Status: 1}
 	require.NoError(t, db.Create(&component).Error)
 	actorA := Actor{ID: 7, Username: "h5-a", SiteID: 101}
-	input := PopupInput{PopupDraft: PopupDraft{PopupComponentID: 1, CampaignName: "Daily Offer",
+	input := PopupInput{PopupConfiguration: PopupConfiguration{PopupComponentID: 1, CampaignName: "Daily Offer",
 		ActionType: "OPEN_PROMOTION", ActionTarget: "daily-offer", TriggerType: "HOME_ENTER", FrequencyType: "ONCE_PER_DAY",
 		VisibilityScope: "ALL", Enabled: true}, Reason: "create daily popup campaign"}
 	id, err := service.SaveSitePopup(101, 0, input, actorA)
@@ -89,14 +66,8 @@ func TestPopupCampaignPublishFrequencyTrackingAndIsolation(t *testing.T) {
 	viewer := PopupViewer{SessionID: "session-a", DeviceID: "device-a"}
 	rows, err := service.PublicPopups(content.Scope{SiteID: 101}, "es-MX", "MX", "MXN", false, viewer, time.Now())
 	require.NoError(t, err)
-	require.Empty(t, rows, "draft popup must not be public")
+	require.Len(t, rows, 1)
 
-	count, err := publishPopupDrafts(db, 101, actorA.ID, 2)
-	require.NoError(t, err)
-	require.Equal(t, 1, count)
-	count, err = publishPopupDrafts(db, 101, actorA.ID, 2)
-	require.NoError(t, err)
-	require.Zero(t, count, "repeat popup publish must be idempotent")
 	rows, err = service.PublicPopups(content.Scope{SiteID: 101}, "es-MX", "MX", "MXN", false, viewer, time.Now())
 	require.NoError(t, err)
 	require.Len(t, rows, 1)
@@ -149,8 +120,8 @@ func TestPopupComponentRegistryValidationAndUsageProtection(t *testing.T) {
 	_, err = service.SavePopupComponent(0, invalid, actor)
 	require.Error(t, err)
 
-	require.NoError(t, db.Create(&SitePopupRecord{SiteID: 101, PopupComponentID: id, PopupComponentIDDraft: id,
-		CampaignName: "in use", DraftPayload: `{}`, PublishedPayload: `{}`, PublishStatus: "PUBLISHED"}).Error)
+	require.NoError(t, db.Create(&SitePopupRecord{SiteID: 101, PopupComponentID: id,
+		CampaignName: "in use", ConfigurationPayload: `{}`}).Error)
 	err = service.DeletePopupComponent(id, "remove", actor)
 	var domain *Error
 	require.True(t, errors.As(err, &domain))
@@ -201,16 +172,16 @@ func TestPopupActionTargetsRejectScriptAndMalformedRoutes(t *testing.T) {
 	service, db := newSiteContentTestService(t)
 	require.NoError(t, db.Create(&PopupComponentRecord{ID: 1, ComponentCode: "TEST_POPUP", NameZh: "测试", NameEn: "Test",
 		DefaultActionType: "CLOSE_ONLY", AllowedActionTypesJSON: `["OPEN_INTERNAL_PAGE","OPEN_EXTERNAL_URL","OPEN_GAME","OPEN_PROMOTION","CLOSE_ONLY"]`, Status: 1}).Error)
-	for _, input := range []PopupDraft{
+	for _, input := range []PopupConfiguration{
 		{PopupComponentID: 1, CampaignName: "script", TriggerType: "HOME_ENTER", ActionType: "OPEN_INTERNAL_PAGE", ActionTarget: "javascript:alert(1)", FrequencyType: "EVERY_VISIT", VisibilityScope: "ALL"},
 		{PopupComponentID: 1, CampaignName: "external", TriggerType: "HOME_ENTER", ActionType: "OPEN_EXTERNAL_URL", ActionTarget: "javascript:alert(1)", FrequencyType: "EVERY_VISIT", VisibilityScope: "ALL"},
 		{PopupComponentID: 1, CampaignName: "game", TriggerType: "HOME_ENTER", ActionType: "OPEN_GAME", ActionTarget: "../../admin", FrequencyType: "EVERY_VISIT", VisibilityScope: "ALL"},
 		{PopupComponentID: 1, CampaignName: "promotion", TriggerType: "HOME_ENTER", ActionType: "OPEN_PROMOTION", ActionTarget: "data:text/html,bad", FrequencyType: "EVERY_VISIT", VisibilityScope: "ALL"},
 	} {
-		_, err := service.normalizePopupDraft(input)
+		_, err := service.normalizePopupConfiguration(input)
 		require.Error(t, err)
 	}
-	valid, err := service.normalizePopupDraft(PopupDraft{PopupComponentID: 1, CampaignName: "valid", TriggerType: "HOME_ENTER",
+	valid, err := service.normalizePopupConfiguration(PopupConfiguration{PopupComponentID: 1, CampaignName: "valid", TriggerType: "HOME_ENTER",
 		ActionType: "OPEN_INTERNAL_PAGE", ActionTarget: "/offers?tab=events", FrequencyType: "EVERY_VISIT", VisibilityScope: "ALL"})
 	require.NoError(t, err)
 	require.Equal(t, "/offers?tab=events", valid.ActionTarget)

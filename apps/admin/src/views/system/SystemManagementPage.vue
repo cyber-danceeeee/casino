@@ -15,7 +15,6 @@ import * as ElementPlusIcons from "@element-plus/icons-vue";
 import { useI18n } from "vue-i18n";
 import UserCenterCard from "@/components/users/UserCenterCard.vue";
 import UserStatusTag from "@/components/users/UserStatusTag.vue";
-import H5PreviewFrame from "@/components/brand/H5PreviewFrame.vue";
 import { useAdminPermissions } from "@/composables/useAdminPermissions";
 import { formatBackendTime, selectedTimeToBackend } from "@/utils/timezone";
 
@@ -29,7 +28,7 @@ import { rowID, systemConfigs } from "./config";
 
 const route = useRoute();
 const { t, te, locale } = useI18n();
-const { can, actor, loadPermissions, reloadNavigation } = useAdminPermissions();
+const { can, loadPermissions, reloadNavigation } = useAdminPermissions();
 const moduleKey = computed(() => String(route.meta.moduleKey || "admins"));
 const config = computed(() => {
   const source = systemConfigs[moduleKey.value];
@@ -89,10 +88,6 @@ const monitorDetailLoading = ref(false);
 const monitorDetail = ref<SystemDetail>({});
 const monitorDetailService = ref("");
 const autoRefresh = ref(true);
-const sitePreviewVisible = ref(false);
-const sitePreviewLoading = ref(false);
-const sitePreview = ref<SystemDetail>({});
-const sitePublishingID = ref(0);
 const apkUploading = ref(false);
 const platformLogoPreview = ref("");
 let monitorTimer: number | undefined;
@@ -251,32 +246,6 @@ function display(key: string, value: unknown) {
     return normalizedValue ? t("common.yes") : t("common.no");
   if (typeof normalizedValue === "object") return JSON.stringify(normalizedValue, null, 2);
   return valueText(normalizedValue);
-}
-function siteConfigStatus(value: unknown) {
-  return String(value || "PUBLISHED").toUpperCase();
-}
-function siteConfigStatusType(value: unknown) {
-  return siteConfigStatus(value) === "DRAFT" ? "warning" : "success";
-}
-function siteConfigMeta(source: SystemDetail = detail.value) {
-  return isObject(source.configMeta) ? source.configMeta : {};
-}
-function sitePublishedVersion(source: SystemDetail = detail.value) {
-  return Number(siteConfigMeta(source).configVersion || 0);
-}
-function siteDraftVersion(source: SystemDetail = detail.value) {
-  return siteConfigStatus(siteConfigMeta(source).status) === "DRAFT"
-    ? sitePublishedVersion(source) + 1
-    : sitePublishedVersion(source);
-}
-function siteUnpublishedChanges(source: SystemDetail = detail.value) {
-  if (siteConfigStatus(siteConfigMeta(source).status) === "DRAFT") return 1;
-  return JSON.stringify(source.publishedConfig ?? null) === JSON.stringify(source.draftConfig ?? null)
-    ? 0
-    : 1;
-}
-function sitePreviewTabValue(tab: string) {
-  return sitePreview.value[tab];
 }
 function isByteMetric(key: string) {
   return key.toLowerCase().endsWith("bytes");
@@ -453,7 +422,7 @@ function siteConfigGroups(value: unknown): DetailConfigGroup[] {
   }).filter((group) => group.items.length);
 }
 function isSiteConfigTab(tab: string) {
-  return isSiteModule.value && ["publishedConfig", "draftConfig"].includes(tab);
+  return isSiteModule.value && ["configuration"].includes(tab);
 }
 function countryAssetURL(value: unknown) {
   return String(value || "").trim();
@@ -628,8 +597,8 @@ async function openEdit(row: SystemRecord) {
   try {
     const data = await config.value.detail(editID.value);
     Object.assign(form, isObject(data.overview) ? data.overview : row);
-    if (isSiteModule.value && isObject(data.draftConfig))
-      Object.assign(form, data.draftConfig);
+    if (isSiteModule.value && isObject(data.configuration))
+      Object.assign(form, data.configuration);
     for (const field of config.value?.form || []) {
       if (field.type === "json" && typeof form[field.key] === "object")
         form[field.key] = JSON.stringify(form[field.key], null, 2);
@@ -743,7 +712,7 @@ async function save() {
     else if (config.value?.create) await config.value.create(payload());
     editVisible.value = false;
     ElMessage.success(
-      t(isSiteModule.value ? (actor.value?.platform ? "systemCenter.messages.siteSaved" : "systemCenter.messages.siteDraftSaved") : "systemCenter.messages.saved"),
+      t(isSiteModule.value ? ("systemCenter.messages.siteSaved") : "systemCenter.messages.saved"),
     );
     if (moduleKey.value === "menus") await reloadNavigation();
     load();
@@ -755,49 +724,6 @@ async function save() {
     );
   } finally {
     editLoading.value = false;
-  }
-}
-
-async function previewSiteConfig(row: SystemRecord) {
-  const id = rowID(row);
-  sitePreviewVisible.value = true;
-  sitePreviewLoading.value = true;
-  sitePreview.value = {};
-  selected.value = row;
-  try {
-    sitePreview.value = await systemAPI.sites.preview(id);
-  } catch {
-    sitePreviewVisible.value = false;
-    ElMessage.error(t("systemCenter.messages.detailFailed"));
-  } finally {
-    sitePreviewLoading.value = false;
-  }
-}
-
-async function publishSiteConfig(row: SystemRecord) {
-  const id = rowID(row);
-  try {
-    const reason = await reasonPrompt("systemCenter.actions.publishConfig");
-    sitePublishingID.value = id;
-    const result = await systemAPI.sites.publish(id, reason);
-    await ElMessageBox.alert(
-      t("systemCenter.messages.publishSuccessSummary", {
-        version: result.configVersion || "-",
-        time: formatBackendTime(String(result.publishedAt || "")),
-        count: result.gameDraftsPublished || 0,
-      }),
-      t("systemCenter.messages.publishSucceeded"),
-      { confirmButtonText: t("common.confirm"), type: "success" },
-    );
-    await load();
-    if (detailVisible.value && selected.value && rowID(selected.value) === id && config.value?.detail) {
-      detail.value = await config.value.detail(id);
-    }
-  } catch (error) {
-    if (error !== "cancel" && error !== "close")
-      ElMessage.error(t("systemCenter.messages.operationFailed"));
-  } finally {
-    sitePublishingID.value = 0;
   }
 }
 
@@ -1477,21 +1403,8 @@ onBeforeUnmount(() => {
                 @click="openEdit(row)"
                 >{{ t("common.edit") }}</el-button
               >
-              <el-button
-                v-if="isSiteModule && can('system:site:config:preview')"
-                link
-                type="primary"
-                @click="previewSiteConfig(row)"
-                >{{ t("systemCenter.actions.previewConfig") }}</el-button
-              >
-              <el-button
-                v-if="isSiteModule && can('system:site:config:publish')"
-                link
-                type="success"
-                :loading="sitePublishingID === rowID(row)"
-                @click="publishSiteConfig(row)"
-                >{{ t("systemCenter.actions.publishConfig") }}</el-button
-              >
+
+
               <el-dropdown v-if="!config.readOnly" trigger="click">
                 <el-button link>{{ t("systemCenter.actions.more") }}</el-button>
                 <template #dropdown
@@ -1635,47 +1548,7 @@ onBeforeUnmount(() => {
       destroy-on-close
     >
       <div v-loading="detailLoading">
-        <div v-if="isSiteModule && isObject(detail.configMeta)" class="site-config-bar">
-          <div class="site-config-bar__meta">
-            <el-tag
-              :type="siteConfigStatusType(siteConfigMeta().status)"
-              effect="plain"
-            >
-              {{ valueText(siteConfigMeta().status) }}
-            </el-tag>
-            <span>{{
-              t("systemCenter.messages.publishedVersion", {
-                version: sitePublishedVersion() || "-",
-              })
-            }}</span>
-            <span>{{
-              t("systemCenter.messages.draftVersion", {
-                version: siteDraftVersion() || "-",
-              })
-            }}</span>
-            <span>{{
-              t("systemCenter.messages.unpublishedChanges", {
-                count: siteUnpublishedChanges(),
-              })
-            }}</span>
-          </div>
-          <div v-if="selected" class="site-config-bar__actions">
-            <el-button
-              v-if="can('system:site:config:preview')"
-              @click="previewSiteConfig(selected)"
-            >
-              {{ t("systemCenter.actions.previewConfig") }}
-            </el-button>
-            <el-button
-              v-if="can('system:site:config:publish')"
-              type="primary"
-              :loading="sitePublishingID === rowID(selected)"
-              @click="publishSiteConfig(selected)"
-            >
-              {{ t("systemCenter.actions.publishConfig") }}
-            </el-button>
-          </div>
-        </div>
+
         <el-tabs v-model="activeTab" type="card">
           <el-tab-pane
             v-for="tab in config?.tabs || []"
@@ -1862,138 +1735,7 @@ onBeforeUnmount(() => {
       </div>
     </el-dialog>
 
-    <el-dialog
-      v-model="sitePreviewVisible"
-      :title="t('systemCenter.dialogs.siteConfigPreview')"
-      width="min(1080px,94vw)"
-      destroy-on-close
-    >
-      <div v-loading="sitePreviewLoading">
-        <div class="site-config-bar">
-          <div class="site-config-bar__meta">
-            <el-tag
-              :type="siteConfigStatusType(siteConfigMeta(sitePreview).status)"
-              effect="plain"
-            >
-              {{ valueText(siteConfigMeta(sitePreview).status) }}
-            </el-tag>
-            <span>{{
-              t("systemCenter.messages.publishedVersion", {
-                version: sitePublishedVersion(sitePreview) || "-",
-              })
-            }}</span>
-            <span>{{
-              t("systemCenter.messages.draftVersion", {
-                version: siteDraftVersion(sitePreview) || "-",
-              })
-            }}</span>
-            <span>{{
-              t("systemCenter.messages.unpublishedChanges", {
-                count: siteUnpublishedChanges(sitePreview),
-              })
-            }}</span>
-          </div>
-          <div v-if="selected" class="site-config-bar__actions">
-            <el-button
-              v-if="can('system:site:config:publish')"
-              type="primary"
-              :loading="sitePublishingID === rowID(selected)"
-              @click="publishSiteConfig(selected)"
-            >
-              {{ t("systemCenter.actions.publishConfig") }}
-            </el-button>
-          </div>
-        </div>
-        <H5PreviewFrame
-          v-if="selected"
-          :h5-domain="String(selected.h5Domain || '')"
-          :site-i-d="Number(selected.id || selected.siteID || 0)"
-        />
-        <el-tabs type="card">
-          <el-tab-pane
-            v-for="tab in ['overview', 'publishedConfig', 'draftConfig', 'configMeta']"
-            :key="tab"
-            :label="t(`systemCenter.tabs.${tab}`)"
-          >
-            <div
-              v-if="isSiteConfigTab(tab)"
-              class="site-config-groups"
-            >
-              <section
-                v-for="group in siteConfigGroups(sitePreviewTabValue(tab))"
-                :key="group.key"
-                class="site-config-group"
-              >
-                <h3>{{ group.title }}</h3>
-                <dl class="site-config-group__items">
-                  <template v-for="item in group.items" :key="item.path">
-                    <dt>{{ label(item.key) }}</dt>
-                    <dd>
-                      <div v-if="isColorLike(item.value)" class="config-color-value">
-                        <span
-                          class="config-color-value__swatch"
-                          :style="{ background: colorValue(item.value) }"
-                        />
-                        <span>{{ display(item.key, item.value) }}</span>
-                      </div>
-                      <el-switch
-                        v-else-if="isConfigBooleanValue(item.value)"
-                        :model-value="Boolean(item.value)"
-                        disabled
-                        inline-prompt
-                        :active-text="valueText('enable')"
-                        :inactive-text="valueText('disable')"
-                      />
-                      <pre v-else-if="isObject(structuredValue(item.value)) || Array.isArray(structuredValue(item.value))">{{ display(item.key, item.value) }}</pre>
-                      <span v-else>{{ display(item.key, item.value) }}</span>
-                    </dd>
-                  </template>
-                </dl>
-              </section>
-              <el-empty
-                v-if="!siteConfigGroups(sitePreviewTabValue(tab)).length"
-                :description="t('systemCenter.messages.empty')"
-              />
-            </div>
-            <el-descriptions
-              v-else-if="isObject(structuredValue(sitePreviewTabValue(tab)))"
-              :column="2"
-              border
-            >
-              <el-descriptions-item
-                v-for="[key, value] in flattenedObjectEntries(sitePreviewTabValue(tab)).filter(([entryKey]) => !isHiddenDetailKey(entryKey, tab))"
-                :key="key"
-                :label="label(key)"
-              >
-                <div v-if="isColorLike(value)" class="config-color-value">
-                  <span
-                    class="config-color-value__swatch"
-                    :style="{ background: colorValue(value) }"
-                  />
-                  <span>{{ display(key, value) }}</span>
-                </div>
-                <el-switch
-                  v-else-if="isConfigBooleanValue(value)"
-                  :model-value="Boolean(value)"
-                  disabled
-                  inline-prompt
-                  :active-text="valueText('enable')"
-                  :inactive-text="valueText('disable')"
-                />
-                <pre v-else-if="isObject(structuredValue(value)) || Array.isArray(structuredValue(value))">{{ display(key, value) }}</pre>
-                <span v-else>{{ display(key, value) }}</span>
-              </el-descriptions-item>
-            </el-descriptions>
-            <el-empty v-else :description="t('systemCenter.messages.empty')" />
-          </el-tab-pane>
-        </el-tabs>
-      </div>
-      <template #footer>
-        <el-button @click="sitePreviewVisible = false">
-          {{ t("common.close") }}
-        </el-button>
-      </template>
-    </el-dialog>
+
 
     <el-dialog
       v-model="editVisible"
@@ -2001,14 +1743,7 @@ onBeforeUnmount(() => {
       width="min(780px,94vw)"
       destroy-on-close
     >
-      <el-alert
-        v-if="isSiteModule && actor?.platform === false"
-        class="site-draft-alert"
-        type="warning"
-        :title="t('systemCenter.messages.siteDraftHint')"
-        :closable="false"
-        show-icon
-      />
+
       <el-form
         v-loading="editLoading || menuEditorLoading"
         label-position="left"
@@ -2179,7 +1914,7 @@ onBeforeUnmount(() => {
           t("common.cancel")
         }}</el-button
         ><el-button type="primary" :loading="editLoading" @click="save">{{
-          t(isSiteModule ? (actor?.platform ? "systemCenter.actions.saveSite" : "systemCenter.actions.saveSiteDraft") : "common.confirm")
+          t("common.save")
         }}</el-button></template
       >
     </el-dialog>
@@ -2430,9 +2165,6 @@ onBeforeUnmount(() => {
 }
 .site-config-bar__meta {
   color: var(--el-text-color-secondary);
-}
-.site-draft-alert {
-  margin-bottom: 14px;
 }
 .site-config-groups {
   display: grid;

@@ -23,8 +23,7 @@ type Repository struct {
 }
 
 const (
-	syncedGameNameI18nDefault         = "{}"
-	syncedGameCategoryIDsDraftDefault = "[]"
+	syncedGameNameI18nDefault = "{}"
 )
 
 type SyncSummary struct {
@@ -165,7 +164,6 @@ func (r *Repository) UpsertGame(ctx context.Context, provider *model.GameGamePro
 			ProviderEnabled:      game.IsEnabled,
 			PlatformEnabled:      true,
 			RawMetadata:          rawMetadata,
-			CategoryIDsDraft:     syncedGameCategoryIDsDraftDefault,
 			MetadataHash:         rawMetadataHash,
 			LastSyncedAt:         &now,
 			Status:               effectiveGameStatus(game.IsEnabled, true),

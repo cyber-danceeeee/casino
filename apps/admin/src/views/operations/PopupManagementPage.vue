@@ -9,7 +9,6 @@ import {
   Plus,
   Rank,
   Refresh,
-  UploadFilled,
   VideoPlay,
 } from "@element-plus/icons-vue";
 import { fetchGames, type GameCenterRecord } from "@/api/adminGames";
@@ -29,7 +28,6 @@ import { formatBackendTime } from "@/utils/timezone";
 const { t, locale } = useI18n();
 const loading = ref(false),
   saving = ref(false),
-  publishing = ref(false),
   sorting = ref(false);
 const rows = ref<SitePopupRecord[]>([]),
   components = ref<PopupComponentRecord[]>([]),
@@ -39,7 +37,7 @@ const editVisible = ref(false),
   editingID = ref(0),
   draggedID = ref(0),
   wizardStep = ref(0);
-const filters = reactive({ keyword: "", publishStatus: "" });
+const filters = reactive({ keyword: "", });
 const frequencies: PopupFrequency[] = [
   "EVERY_VISIT",
   "ONCE_PER_SESSION",
@@ -99,8 +97,8 @@ type PopupPreviewConfiguration = Pick<
   | "cooldownMinutes"
   | "priority"
 >;
-const draft = (row: SitePopupRecord) =>
-  row.draftConfiguration || row.publishedConfiguration;
+const configuration = (row: SitePopupRecord) =>
+  row.configuration;
 const componentName = (component?: PopupComponentRecord) =>
   !component
     ? "-"
@@ -166,7 +164,6 @@ async function load() {
         page: 1,
         pageSize: 200,
         keyword: filters.keyword,
-        publishStatus: filters.publishStatus,
       }),
       systemAPI.popupComponents.available(),
       fetchGames({ page: 1, pageSize: 200 }).catch(() => ({
@@ -211,7 +208,7 @@ function selectComponent(component: PopupComponentRecord) {
   applyComponentDefaults();
 }
 function openEdit(row: SitePopupRecord) {
-  const value = draft(row);
+  const value = configuration(row);
   editingID.value = row.id;
   Object.assign(form, emptyForm(), value, {
     startAt: value.startAt ? new Date(value.startAt) : null,
@@ -276,7 +273,7 @@ async function save() {
       );
     else await systemAPI.popups.create(overview.value.siteID, payload());
     editVisible.value = false;
-    ElMessage.success(t("popupLibrary.messages.draftSaved"));
+    ElMessage.success(t("liveConfig.saved"));
     window.dispatchEvent(new Event("brand-config-refresh"));
     await load();
   } catch (error) {
@@ -293,11 +290,11 @@ async function toggle(row: SitePopupRecord, enabled: boolean) {
   if (!overview.value?.siteID) return;
   try {
     await systemAPI.popups.update(overview.value.siteID, row.id, {
-      ...draft(row),
+      ...configuration(row),
       enabled,
       reason: t("popupLibrary.defaults.statusReason"),
     });
-    ElMessage.success(t("popupLibrary.messages.draftSaved"));
+    ElMessage.success(t("liveConfig.saved"));
     window.dispatchEvent(new Event("brand-config-refresh"));
     await load();
   } catch (error) {
@@ -332,7 +329,7 @@ async function remove(row: SitePopupRecord) {
       t("popupLibrary.dialogs.deleteTitle"),
       {
         type: "warning",
-        confirmButtonText: t("popupLibrary.actions.deleteDraft"),
+        confirmButtonText: t("common.delete"),
         cancelButtonText: t("popupLibrary.actions.cancel"),
       },
     );
@@ -352,7 +349,7 @@ async function remove(row: SitePopupRecord) {
 function preview(row: SitePopupRecord) {
   const target = popupPreviewURL(
     row.component?.componentCode || "",
-    draft(row),
+    configuration(row),
   );
   if (target) window.open(target, "_blank", "noopener,noreferrer");
   else ElMessage.info(t("popupLibrary.messages.noPreview"));
@@ -390,43 +387,6 @@ async function dropOn(targetID: number) {
     sorting.value = false;
   }
 }
-async function publish() {
-  if (!overview.value?.siteID) return;
-  try {
-    const prompt = await ElMessageBox.prompt(
-      t("popupLibrary.dialogs.publishMessage"),
-      t("popupLibrary.dialogs.publishTitle"),
-      {
-        confirmButtonText: t("popupLibrary.actions.publish"),
-        cancelButtonText: t("popupLibrary.actions.cancel"),
-        inputValue: t("popupLibrary.defaults.publishReason"),
-        inputValidator: (value) =>
-          Boolean(value.trim()) || t("popupLibrary.validation.reasonRequired"),
-      },
-    );
-    publishing.value = true;
-    const result = await systemAPI.sites.publish(
-      overview.value.siteID,
-      prompt.value.trim(),
-    );
-    ElMessage.success(
-      t("popupLibrary.messages.published", {
-        count: Number(result.popupDraftsPublished || 0),
-      }),
-    );
-    window.dispatchEvent(new Event("brand-config-refresh"));
-    await load();
-  } catch (error) {
-    if (error !== "cancel" && error !== "close")
-      ElMessage.error(
-        error instanceof Error
-          ? error.message
-          : t("popupLibrary.messages.publishFailed"),
-      );
-  } finally {
-    publishing.value = false;
-  }
-}
 onMounted(load);
 </script>
 
@@ -442,39 +402,19 @@ onMounted(load);
         <el-button :icon="Refresh" @click="load">{{
           t("popupLibrary.actions.refresh")
         }}</el-button
-        ><el-button
-          type="primary"
-          :icon="UploadFilled"
-          :loading="publishing"
-          @click="publish"
-          >{{ t("popupLibrary.actions.publish") }}</el-button
         ><el-button type="success" :icon="Plus" @click="openCreate">{{
           t("popupLibrary.actions.create")
         }}</el-button>
       </div>
     </header>
-    <el-alert
-      type="warning"
-      :title="t('popupLibrary.draftNotice')"
-      :closable="false"
-      show-icon
-    />
+
     <section class="toolbar">
       <el-input
         v-model="filters.keyword"
         clearable
         :placeholder="t('popupLibrary.placeholders.keyword')"
         @keyup.enter="load"
-      /><el-select
-        v-model="filters.publishStatus"
-        clearable
-        :placeholder="t('popupLibrary.fields.publishStatus')"
-        ><el-option
-          :label="t('popupLibrary.status.DRAFT')"
-          value="DRAFT" /><el-option
-          :label="t('popupLibrary.status.PUBLISHED')"
-          value="PUBLISHED" /></el-select
-      ><el-button type="primary" @click="load">{{
+      /><el-button type="primary" @click="load">{{
         t("popupLibrary.actions.search")
       }}</el-button>
     </section>
@@ -503,11 +443,11 @@ onMounted(load);
           :label="t('popupLibrary.fields.campaignName')"
           min-width="180"
           ><template #default="{ row }"
-            ><strong>{{ draft(row).campaignName }}</strong
+            ><strong>{{ configuration(row).campaignName }}</strong
             ><small
-              >{{ t(`popupLibrary.trigger.${draft(row).triggerType}`)
-              }}<template v-if="draft(row).triggerValue">
-                · {{ draft(row).triggerValue }}</template
+              >{{ t(`popupLibrary.trigger.${configuration(row).triggerType}`)
+              }}<template v-if="configuration(row).triggerValue">
+                · {{ configuration(row).triggerValue }}</template
               ></small
             ></template
           ></el-table-column
@@ -515,7 +455,7 @@ onMounted(load);
         <el-table-column :label="t('popupLibrary.fields.frequency')" width="150"
           ><template #default="{ row }"
             ><el-tag effect="plain">{{
-              t(`popupLibrary.frequency.${draft(row).frequencyType}`)
+              t(`popupLibrary.frequency.${configuration(row).frequencyType}`)
             }}</el-tag></template
           ></el-table-column
         >
@@ -524,10 +464,10 @@ onMounted(load);
           min-width="170"
           ><template #default="{ row }"
             ><span>{{
-              t(`popupLibrary.actionType.${draft(row).actionType}`)
+              t(`popupLibrary.actionType.${configuration(row).actionType}`)
             }}</span
-            ><small v-if="draft(row).actionTarget">{{
-              draft(row).actionTarget
+            ><small v-if="configuration(row).actionTarget">{{
+              configuration(row).actionTarget
             }}</small></template
           ></el-table-column
         >
@@ -535,31 +475,22 @@ onMounted(load);
           :label="t('popupLibrary.fields.schedule')"
           min-width="180"
           ><template #default="{ row }"
-            ><span>{{ formatBackendTime(draft(row).startAt || "") }}</span
+            ><span>{{ formatBackendTime(configuration(row).startAt || "") }}</span
             ><small>{{
-              formatBackendTime(draft(row).endAt || "")
+              formatBackendTime(configuration(row).endAt || "")
             }}</small></template
           ></el-table-column
         >
         <el-table-column :label="t('popupLibrary.fields.priority')" width="90"
           ><template #default="{ row }">{{
-            draft(row).priority
+            configuration(row).priority
           }}</template></el-table-column
         >
-        <el-table-column
-          :label="t('popupLibrary.fields.publishStatus')"
-          width="145"
-          ><template #default="{ row }"
-            ><el-tag
-              :type="row.publishStatus === 'DRAFT' ? 'warning' : 'success'"
-              >{{ t(`popupLibrary.status.${row.publishStatus}`) }}</el-tag
-            ></template
-          ></el-table-column
-        >
+
         <el-table-column :label="t('popupLibrary.fields.enabled')" width="90"
           ><template #default="{ row }"
             ><el-switch
-              :model-value="draft(row).enabled"
+              :model-value="configuration(row).enabled"
               @change="toggle(row, Boolean($event))" /></template
         ></el-table-column>
         <el-table-column
@@ -582,7 +513,7 @@ onMounted(load);
                 circle
                 :icon="CopyDocument"
                 @click="duplicate(row)" /></el-tooltip
-            ><el-tooltip :content="t('popupLibrary.actions.deleteDraft')"
+            ><el-tooltip :content="t('common.delete')"
               ><el-button
                 circle
                 type="danger"
@@ -820,7 +751,7 @@ onMounted(load);
           >{{ t("brandPortal.actions.next") }}</el-button
         >
         <el-button v-else type="primary" :loading="saving" @click="save">{{
-          t("popupLibrary.actions.saveDraft")
+          t("common.save")
         }}</el-button>
       </template>
     </el-dialog>

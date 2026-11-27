@@ -406,38 +406,34 @@ func (s *Service) AddCategoryGames(id uint64, in CategoryGamesAddInput, actor Ac
 		if count != int64(len(gameIDs)) {
 			return newError("INVALID_RELATION", "one or more games do not exist")
 		}
-		before := map[uint64][]gameCategoryDraftItem{}
-		after := map[uint64][]gameCategoryDraftItem{}
+		before := map[uint64][]gameCategoryItem{}
+		after := map[uint64][]gameCategoryItem{}
 		for index, gameID := range gameIDs {
-			items, err := s.loadGameCategoryDraft(tx, actor, gameID)
-			if actor.Scope.Platform {
-				items, err = s.loadPublishedGameCategories(tx, actor, gameID)
-			}
+			items, err := s.loadGameCategories(tx, actor, gameID)
+
+			items, err = s.loadGameCategories(tx, actor, gameID)
+
 			if err != nil {
 				return err
 			}
 			before[gameID] = items
-			items = append(items, gameCategoryDraftItem{CategoryID: id, Sort: len(items) + index})
-			if actor.Scope.Platform {
-				err = s.savePublishedGameCategories(tx, actor, gameID, items)
-			} else {
-				err = s.saveGameCategoryDraft(tx, actor, gameID, items)
-			}
+			items = append(items, gameCategoryItem{CategoryID: id, Sort: len(items) + index})
+
+			err = s.saveGameCategories(tx, actor, gameID, items)
+
 			if err != nil {
 				return err
 			}
-			if actor.Scope.Platform {
-				after[gameID], _ = s.loadPublishedGameCategories(tx, actor, gameID)
-			} else {
-				after[gameID], _ = s.loadGameCategoryDraft(tx, actor, gameID)
-			}
+
+			after[gameID], _ = s.loadGameCategories(tx, actor, gameID)
+
 		}
-		action := "add_games_draft"
-		resultKey := "draft"
-		if actor.Scope.Platform {
-			action = "add_games"
-			resultKey = "published"
-		}
+		action := "add_games"
+		resultKey := "configuration"
+
+		action = "add_games"
+		resultKey = "configuration"
+
 		return audit(tx, actor, "game:category:assign", action, "game_category", id, before, map[string]any{"addedGameIDs": gameIDs, "categoryCode": category.Code, resultKey: after}, fallbackReason(in.Reason, "add_category_games"))
 	})
 }
@@ -447,14 +443,14 @@ func (s *Service) UpdateCategoryGameSort(id uint64, gameID uint64, in CategoryGa
 		if err := ensureCategoryWritable(tx, id, actor.Scope); err != nil {
 			return err
 		}
-		items, err := s.loadGameCategoryDraft(tx, actor, gameID)
-		if actor.Scope.Platform {
-			items, err = s.loadPublishedGameCategories(tx, actor, gameID)
-		}
+		items, err := s.loadGameCategories(tx, actor, gameID)
+
+		items, err = s.loadGameCategories(tx, actor, gameID)
+
 		if err != nil {
 			return err
 		}
-		before := append([]gameCategoryDraftItem(nil), items...)
+		before := append([]gameCategoryItem(nil), items...)
 		found := false
 		for index := range items {
 			if items[index].CategoryID == id {
@@ -465,22 +461,20 @@ func (s *Service) UpdateCategoryGameSort(id uint64, gameID uint64, in CategoryGa
 		if !found {
 			return notFound(gorm.ErrRecordNotFound, "CATEGORY_GAME_NOT_FOUND")
 		}
-		if actor.Scope.Platform {
-			err = s.savePublishedGameCategories(tx, actor, gameID, items)
-		} else {
-			err = s.saveGameCategoryDraft(tx, actor, gameID, items)
-		}
+
+		err = s.saveGameCategories(tx, actor, gameID, items)
+
 		if err != nil {
 			return err
 		}
-		after, _ := s.loadGameCategoryDraft(tx, actor, gameID)
-		action := "sort_game_draft"
-		resultKey := "draft"
-		if actor.Scope.Platform {
-			after, _ = s.loadPublishedGameCategories(tx, actor, gameID)
-			action = "sort_game"
-			resultKey = "published"
-		}
+		after, _ := s.loadGameCategories(tx, actor, gameID)
+		action := "sort_game"
+		resultKey := "configuration"
+
+		after, _ = s.loadGameCategories(tx, actor, gameID)
+		action = "sort_game"
+		resultKey = "configuration"
+
 		return audit(tx, actor, "game:category:assign", action, "game_category", id, before, map[string]any{"gameID": gameID, "sortOrder": in.SortOrder, resultKey: after}, fallbackReason(in.Reason, "sort_category_game"))
 	})
 }
@@ -490,15 +484,15 @@ func (s *Service) RemoveCategoryGame(id uint64, gameID uint64, reason string, ac
 		if err := ensureCategoryWritable(tx, id, actor.Scope); err != nil {
 			return err
 		}
-		items, err := s.loadGameCategoryDraft(tx, actor, gameID)
-		if actor.Scope.Platform {
-			items, err = s.loadPublishedGameCategories(tx, actor, gameID)
-		}
+		items, err := s.loadGameCategories(tx, actor, gameID)
+
+		items, err = s.loadGameCategories(tx, actor, gameID)
+
 		if err != nil {
 			return err
 		}
-		before := append([]gameCategoryDraftItem(nil), items...)
-		next := make([]gameCategoryDraftItem, 0, len(items))
+		before := append([]gameCategoryItem(nil), items...)
+		next := make([]gameCategoryItem, 0, len(items))
 		found := false
 		for _, item := range items {
 			if item.CategoryID == id {
@@ -510,20 +504,18 @@ func (s *Service) RemoveCategoryGame(id uint64, gameID uint64, reason string, ac
 		if !found {
 			return notFound(gorm.ErrRecordNotFound, "CATEGORY_GAME_NOT_FOUND")
 		}
-		if actor.Scope.Platform {
-			err = s.savePublishedGameCategories(tx, actor, gameID, next)
-		} else {
-			err = s.saveGameCategoryDraft(tx, actor, gameID, next)
-		}
+
+		err = s.saveGameCategories(tx, actor, gameID, next)
+
 		if err != nil {
 			return err
 		}
-		after, _ := s.loadGameCategoryDraft(tx, actor, gameID)
-		action := "remove_game_draft"
-		if actor.Scope.Platform {
-			after, _ = s.loadPublishedGameCategories(tx, actor, gameID)
-			action = "remove_game"
-		}
+		after, _ := s.loadGameCategories(tx, actor, gameID)
+		action := "remove_game"
+
+		after, _ = s.loadGameCategories(tx, actor, gameID)
+		action = "remove_game"
+
 		return audit(tx, actor, "game:category:assign", action, "game_category", id, before, after, fallbackReason(reason, "remove_category_game"))
 	})
 }

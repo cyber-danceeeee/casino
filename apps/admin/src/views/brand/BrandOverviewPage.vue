@@ -49,10 +49,10 @@ onMounted(load);
         <dd>{{ overview.timezone }}</dd>
         <dt>{{ t("siteExperience.fields.h5Domain") }}</dt>
         <dd>{{ overview.h5Domain || "-" }}</dd>
-        <dt>{{ t("siteExperience.fields.publishVersion") }}</dt>
-        <dd>v{{ overview.publishedVersion || 1 }}</dd>
-        <dt>{{ t("siteExperience.fields.lastPublished") }}</dt>
-        <dd>{{ formatBackendTime(overview.publishedAt || "") }}</dd>
+        <dt>{{ t("liveConfig.version") }}</dt>
+        <dd>v{{ overview.configMeta?.configVersion || 1 }}</dd>
+        <dt>{{ t("liveConfig.updatedAt") }}</dt>
+        <dd>{{ formatBackendTime(String(overview.configMeta?.updatedAt || "") || "") }}</dd>
       </dl>
     </section>
   </div>

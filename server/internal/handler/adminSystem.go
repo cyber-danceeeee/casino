@@ -574,26 +574,6 @@ func (h *AdminSystemHandler) GetSite(c *gin.Context) {
 	data, err := h.service.SiteDetail(id, systemActor(c))
 	systemWrite(c, data, err)
 }
-func (h *AdminSystemHandler) PreviewSiteConfig(c *gin.Context) {
-	id, ok := systemNamedID(c, "siteId")
-	if !ok {
-		return
-	}
-	data, err := h.service.PreviewSiteConfig(id, systemActor(c))
-	systemWrite(c, data, err)
-}
-func (h *AdminSystemHandler) PublishSiteConfig(c *gin.Context) {
-	id, ok := systemNamedID(c, "siteId")
-	if !ok {
-		return
-	}
-	var input systemadmin.ReasonInput
-	if !systemBind(c, &input) {
-		return
-	}
-	data, err := h.service.PublishSiteConfigWithKey(id, input.Reason, systemIdempotencyKey(c, ""), systemActor(c))
-	systemWrite(c, data, err)
-}
 
 func (h *AdminSystemHandler) ListSiteAnnouncements(c *gin.Context) {
 	siteID, ok := systemNamedID(c, "siteId")

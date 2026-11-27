@@ -72,9 +72,9 @@ def verify_provider_market(call, h5_base, admin_token, player_token):
         upstream_code = ('studio/' if game_id == 950004 else '') + f'accept-{game_id}'
         sql(f"""INSERT INTO game_games(id,site_id,game_code,provider_id,provider_game_code,name,slug,game_type,
                  provider_enabled,platform_enabled,status,supported_countries,supported_currencies,
-                 supports_demo,name_i18n,category_ids_draft,raw_metadata)
+                 supports_demo,name_i18n,raw_metadata)
                  SELECT {game_id},1,'accept-{game_id}',id,'{upstream_code}','Acceptance Game','accept-{game_id}','SLOT',
-                 1,1,1,'{country}','{currency}',1,'{{}}','[]','{{}}'
+                 1,1,1,'{country}','{currency}',1,'{{}}','{{}}'
                  FROM game_game_providers WHERE provider_code='{code}' AND site_id=0 AND deleted_at IS NULL;""")
     public = call('/games?provider=accept-pk', base=h5_base)
     assert [row['id'] for row in public['list']] == [950001]

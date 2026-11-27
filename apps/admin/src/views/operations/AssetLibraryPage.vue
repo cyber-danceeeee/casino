@@ -230,7 +230,7 @@ async function confirmDelete(row: AssetLibraryRecord) {
       t("assetLibrary.dialogs.deletePrompt"),
       t("assetLibrary.dialogs.deleteTitle"),
       {
-      confirmButtonText: t("assetLibrary.actions.delete"),
+      confirmButtonText: t("common.delete"),
       cancelButtonText: t("assetLibrary.actions.cancel"),
       inputType: "textarea",
       inputValidator: (value) =>
@@ -455,7 +455,7 @@ onMounted(async () => {
               <el-tooltip :content="t('assetLibrary.actions.edit')">
                 <el-button link type="primary" :icon="Edit" @click="openEdit(row)" />
               </el-tooltip>
-              <el-tooltip :content="t('assetLibrary.actions.delete')">
+              <el-tooltip :content="t('common.delete')">
                 <el-button link type="danger" :icon="Delete" @click="confirmDelete(row)" />
               </el-tooltip>
             </div>
@@ -538,7 +538,7 @@ onMounted(async () => {
       </el-form>
       <template #footer>
         <el-button @click="editVisible = false">{{ t("assetLibrary.actions.cancel") }}</el-button>
-        <el-button type="primary" :loading="saving" @click="saveEdit">{{ t("assetLibrary.actions.save") }}</el-button>
+        <el-button type="primary" :loading="saving" @click="saveEdit">{{ t("common.save") }}</el-button>
       </template>
     </el-dialog>
 

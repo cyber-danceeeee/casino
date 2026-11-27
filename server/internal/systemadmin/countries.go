@@ -176,23 +176,48 @@ func (s *Service) CreateCountry(input CountryInput, actor Actor) (uint64, error)
 	if err := validateCountryInput(input, true); err != nil {
 		return 0, err
 	}
-	data := countryUpdates(input, true)
-	data["created_at"] = now()
-	data["updated_at"] = now()
-	if err := s.db.Table("game_country_configs").Create(data).Error; err != nil {
-		return 0, duplicateError(err)
-	}
 	var id uint64
-	if err := s.db.Table("game_country_configs").
-		Select("id").
-		Where("country_code=? AND deleted_at IS NULL", strings.ToUpper(strings.TrimSpace(input.CountryCode))).
-		Scan(&id).Error; err != nil {
-		return 0, err
-	}
-	if err := audit(s.db, actor, "system:country:create", "system.country.create", "country_config", id, nil, data, input.Reason); err != nil {
-		return 0, err
-	}
-	return id, nil
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		data := countryUpdates(input, true)
+		data["status"] = 0
+		data["created_at"], data["updated_at"] = now(), now()
+		var old struct {
+			ID        uint64
+			DeletedAt *time.Time
+		}
+		err := tx.Table("game_country_configs").Select("id,deleted_at").Where("country_code=?", input.CountryCode).Take(&old).Error
+		if err == nil && old.DeletedAt == nil {
+			return NewError("DUPLICATE_COUNTRY_CODE", "country already exists")
+		}
+		if err != nil && err != gorm.ErrRecordNotFound {
+			return err
+		}
+		if old.ID > 0 {
+			delete(data, "branding_config")
+			delete(data, "theme_config")
+			delete(data, "created_at")
+			data["deleted_at"] = nil
+			if err := tx.Table("game_country_configs").Where("id=?", old.ID).Updates(data).Error; err != nil {
+				return err
+			}
+			id = old.ID
+		} else {
+			if err := tx.Table("game_country_configs").Create(data).Error; err != nil {
+				return duplicateError(err)
+			}
+			if err := tx.Table("game_country_configs").Select("id").Where("country_code=? AND deleted_at IS NULL", input.CountryCode).Scan(&id).Error; err != nil {
+				return err
+			}
+		}
+		if boolDefault(input.Enabled, true) {
+			if err := activateCountry(tx, id, actor); err != nil {
+				return err
+			}
+			data["status"], data["is_default"] = 1, 1
+		}
+		return audit(tx, actor, "system:country:create", "system.country.create", "country_config", id, nil, data, input.Reason)
+	})
+	return id, err
 }
 
 func (s *Service) UpdateCountry(id uint64, input CountryInput, actor Actor) error {
@@ -208,18 +233,26 @@ func (s *Service) UpdateCountry(id uint64, input CountryInput, actor Actor) erro
 		input.Enabled = &before.Enabled
 	}
 	updates := countryUpdates(input, false)
+	if boolDefault(input.Enabled, true) {
+		delete(updates, "status")
+	}
 	if input.CountryCode != before.CountryCode {
 		return NewError("COUNTRY_CODE_IMMUTABLE", "create a different country instead of renaming an existing code")
 	}
 	updates["updated_at"] = now()
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		if input.CurrencyCode != before.CurrencyCode || (before.Enabled && !boolDefault(input.Enabled, true)) {
+		if before.Enabled && !boolDefault(input.Enabled, true) {
 			if err := countryNotInUse(tx, before.CountryCode); err != nil {
 				return err
 			}
 		}
 		if err := tx.Table("game_country_configs").Where("id=? AND deleted_at IS NULL", id).Updates(updates).Error; err != nil {
 			return duplicateError(err)
+		}
+		if boolDefault(input.Enabled, before.Enabled) {
+			if err := activateCountry(tx, id, actor); err != nil {
+				return err
+			}
 		}
 		return audit(tx, actor, "system:country:update", "system.country.update", "country_config", id, before, updates, input.Reason)
 	})
@@ -233,20 +266,20 @@ func (s *Service) CountryStatus(id uint64, enabled bool, reason string, actor Ac
 	if err != nil {
 		return err
 	}
-	if before.Enabled == enabled {
-		return NewError("INVALID_STATUS_TRANSITION", "country already has requested status")
-	}
-	updates := map[string]any{"status": boolValue(enabled), "updated_at": now()}
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		if !enabled {
+		if enabled {
+			if err := activateCountry(tx, id, actor); err != nil {
+				return err
+			}
+		} else {
 			if err := countryNotInUse(tx, before.CountryCode); err != nil {
 				return err
 			}
+			if err := tx.Table("game_country_configs").Where("id=?", id).Updates(map[string]any{"status": 0, "updated_at": now()}).Error; err != nil {
+				return err
+			}
 		}
-		if err := tx.Table("game_country_configs").Where("id=? AND deleted_at IS NULL", id).Updates(updates).Error; err != nil {
-			return err
-		}
-		return audit(tx, actor, "system:country:status", "system.country.status", "country_config", id, before, updates, reason)
+		return audit(tx, actor, "system:country:status", "system.country.status", "country_config", id, before, map[string]any{"enabled": enabled}, reason)
 	})
 }
 

@@ -279,7 +279,7 @@ export const agentConfigs: Record<string, Config> = {
       f("settlementCycle"),
       f("currency"),
       f("status", "select", [
-        "DRAFT",
+        "READY",
         "PENDING_REVIEW",
         "APPROVED",
         "PROCESSING",

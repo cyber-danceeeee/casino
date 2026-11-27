@@ -66,7 +66,7 @@ type PopupComponentInput struct {
 	Reason             string   `json:"reason"`
 }
 
-type PopupDraft struct {
+type PopupConfiguration struct {
 	PopupComponentID uint64     `json:"popupComponentID"`
 	CampaignName     string     `json:"campaignName"`
 	ActionType       string     `json:"actionType"`
@@ -85,7 +85,7 @@ type PopupDraft struct {
 }
 
 type PopupInput struct {
-	PopupDraft
+	PopupConfiguration
 	Reason string `json:"reason"`
 }
 
@@ -97,37 +97,30 @@ type PopupReorderInput struct {
 type SitePopupRecord struct {
 	ID uint64 `gorm:"column:id;primaryKey" json:"id"`
 
-	SiteID                 uint64                `gorm:"column:site_id" json:"siteID"`
-	PopupComponentID       uint64                `gorm:"column:popup_component_id" json:"popupComponentID"`
-	PopupComponentIDDraft  uint64                `gorm:"column:popup_component_id_draft" json:"popupComponentIDDraft"`
-	CampaignName           string                `gorm:"column:campaign_name" json:"campaignName"`
-	ActionType             string                `gorm:"column:action_type" json:"actionType"`
-	ActionTarget           string                `gorm:"column:action_target" json:"actionTarget"`
-	TriggerType            string                `gorm:"column:trigger_type" json:"triggerType"`
-	TriggerValue           string                `gorm:"column:trigger_value" json:"triggerValue"`
-	FrequencyType          string                `gorm:"column:frequency_type" json:"frequencyType"`
-	DisplayLimit           int                   `gorm:"column:display_limit" json:"displayLimit"`
-	CooldownMinutes        int                   `gorm:"column:cooldown_minutes" json:"cooldownMinutes"`
-	VisibilityScope        string                `gorm:"column:visibility_scope" json:"visibilityScope"`
-	StartAt                *time.Time            `gorm:"column:start_at" json:"startAt"`
-	EndAt                  *time.Time            `gorm:"column:end_at" json:"endAt"`
-	Priority               int                   `gorm:"column:priority" json:"priority"`
-	Enabled                bool                  `gorm:"column:enabled" json:"enabled"`
-	DraftPayload           string                `gorm:"column:draft_payload" json:"-"`
-	PublishedPayload       string                `gorm:"column:published_payload" json:"-"`
-	PublishStatus          string                `gorm:"column:publish_status" json:"publishStatus"`
-	ConfigVersion          uint64                `gorm:"column:config_version" json:"configVersion"`
-	CreatedBy              uint64                `gorm:"column:created_by" json:"createdBy"`
-	UpdatedBy              uint64                `gorm:"column:updated_by" json:"updatedBy"`
-	DraftUpdatedAt         *time.Time            `gorm:"column:draft_updated_at" json:"draftUpdatedAt"`
-	PublishedAt            *time.Time            `gorm:"column:published_at" json:"publishedAt"`
-	PublishedBy            uint64                `gorm:"column:published_by" json:"publishedBy"`
-	CreatedAt              time.Time             `gorm:"column:created_at" json:"createdAt"`
-	UpdatedAt              time.Time             `gorm:"column:updated_at" json:"updatedAt"`
-	DeletedAt              *time.Time            `gorm:"column:deleted_at" json:"-"`
-	DraftConfiguration     PopupDraft            `gorm:"-" json:"draftConfiguration"`
-	PublishedConfiguration PopupDraft            `gorm:"-" json:"publishedConfiguration"`
-	Component              *PopupComponentRecord `gorm:"-" json:"component"`
+	SiteID               uint64                `gorm:"column:site_id" json:"siteID"`
+	PopupComponentID     uint64                `gorm:"column:popup_component_id" json:"popupComponentID"`
+	CampaignName         string                `gorm:"column:campaign_name" json:"campaignName"`
+	ActionType           string                `gorm:"column:action_type" json:"actionType"`
+	ActionTarget         string                `gorm:"column:action_target" json:"actionTarget"`
+	TriggerType          string                `gorm:"column:trigger_type" json:"triggerType"`
+	TriggerValue         string                `gorm:"column:trigger_value" json:"triggerValue"`
+	FrequencyType        string                `gorm:"column:frequency_type" json:"frequencyType"`
+	DisplayLimit         int                   `gorm:"column:display_limit" json:"displayLimit"`
+	CooldownMinutes      int                   `gorm:"column:cooldown_minutes" json:"cooldownMinutes"`
+	VisibilityScope      string                `gorm:"column:visibility_scope" json:"visibilityScope"`
+	StartAt              *time.Time            `gorm:"column:start_at" json:"startAt"`
+	EndAt                *time.Time            `gorm:"column:end_at" json:"endAt"`
+	Priority             int                   `gorm:"column:priority" json:"priority"`
+	Enabled              bool                  `gorm:"column:enabled" json:"enabled"`
+	ConfigurationPayload string                `gorm:"column:configuration_json" json:"-"`
+	ConfigVersion        uint64                `gorm:"column:config_version" json:"configVersion"`
+	CreatedBy            uint64                `gorm:"column:created_by" json:"createdBy"`
+	UpdatedBy            uint64                `gorm:"column:updated_by" json:"updatedBy"`
+	CreatedAt            time.Time             `gorm:"column:created_at" json:"createdAt"`
+	UpdatedAt            time.Time             `gorm:"column:updated_at" json:"updatedAt"`
+	DeletedAt            *time.Time            `gorm:"column:deleted_at" json:"-"`
+	Configuration        PopupConfiguration    `gorm:"-" json:"configuration"`
+	Component            *PopupComponentRecord `gorm:"-" json:"component"`
 }
 
 func (SitePopupRecord) TableName() string { return "game_popup_campaigns" }
@@ -286,7 +279,7 @@ func (s *Service) SavePopupComponent(id uint64, input PopupComponentInput, actor
 
 func (s *Service) DeletePopupComponent(id uint64, reason string, actor Actor) error {
 	var count int64
-	if err := s.db.Table("game_popup_campaigns").Where("(popup_component_id=? OR popup_component_id_draft=?) AND deleted_at IS NULL", id, id).Count(&count).Error; err != nil {
+	if err := s.db.Table("game_popup_campaigns").Where("popup_component_id=? AND deleted_at IS NULL", id).Count(&count).Error; err != nil {
 		return err
 	}
 	if count > 0 {
@@ -312,7 +305,6 @@ func (s *Service) ListSitePopups(siteID uint64, q Query, actor Actor) (Result, e
 	rows := []SitePopupRecord{}
 	db := s.db.Model(&SitePopupRecord{}).Where("site_id = ? AND deleted_at IS NULL", scope.SiteID)
 	db = like(db, "campaign_name", value(q, "keyword"))
-	db = exact(db, "publish_status", strings.ToUpper(value(q, "publishStatus")))
 	if err := db.Order("priority DESC,id ASC").Find(&rows).Error; err != nil {
 		return Result{}, err
 	}
@@ -336,7 +328,7 @@ func (s *Service) GetSitePopup(siteID uint64, id uint64, actor Actor) (map[strin
 		return nil, err
 	}
 	hydratePopup(&row)
-	component, _ := s.popupComponent(row.DraftConfiguration.PopupComponentID, false)
+	component, _ := s.popupComponent(row.Configuration.PopupComponentID, false)
 	row.Component = &component
 	return map[string]any{"overview": row}, nil
 }
@@ -346,37 +338,37 @@ func (s *Service) SaveSitePopup(siteID uint64, id uint64, input PopupInput, acto
 	if err != nil {
 		return 0, err
 	}
-	draft, err := s.normalizePopupDraft(input.PopupDraft)
+
+	configuration, err := s.normalizePopupConfiguration(input.PopupConfiguration)
 	if err != nil {
 		return 0, err
 	}
 	err = s.db.Transaction(func(tx *gorm.DB) error {
 		var before SitePopupRecord
 		if id > 0 {
+			var err error
 			before, err = s.popupByID(tx, scope, id, true)
 			if err != nil {
 				return err
 			}
-		}
-		nowValue := now()
-		if id == 0 {
-			row := SitePopupRecord{SiteID: scope.SiteID, PopupComponentIDDraft: draft.PopupComponentID,
-				CampaignName: draft.CampaignName, DraftPayload: marshal(draft), PublishedPayload: "{}", PublishStatus: siteContentDraft,
-				CreatedBy: actor.ID, UpdatedBy: actor.ID, DraftUpdatedAt: &nowValue, CreatedAt: nowValue, UpdatedAt: nowValue}
+		} else {
+			row := SitePopupRecord{ConfigurationPayload: "{}", SiteID: scope.SiteID, CampaignName: configuration.CampaignName, CreatedBy: actor.ID, UpdatedBy: actor.ID, CreatedAt: now(), UpdatedAt: now()}
 			if err := tx.Create(&row).Error; err != nil {
 				return err
 			}
 			id = row.ID
-		} else if err := tx.Model(&SitePopupRecord{}).Where("id = ? AND site_id = ?", id, scope.SiteID).
-			Updates(map[string]any{"popup_component_id_draft": draft.PopupComponentID, "campaign_name": draft.CampaignName,
-				"draft_payload": marshal(draft), "publish_status": siteContentDraft, "draft_updated_at": nowValue,
-				"updated_by": actor.ID, "updated_at": nowValue}).Error; err != nil {
+		}
+		values, err := popupValues(configuration, actor.ID)
+		if err != nil {
 			return err
 		}
-		if err := markSiteContentDraft(tx, scope, actor.ID); err != nil {
+		if err := tx.Table("game_popup_campaigns").Where("id=? AND site_id=?", id, scope.SiteID).Updates(values).Error; err != nil {
 			return err
 		}
-		return audit(tx, actor, "operations:popup:edit", "save_draft", "popup_campaign", id, before, draft, input.Reason)
+		if err := touchSiteConfiguration(tx, scope.SiteID, actor.ID); err != nil {
+			return err
+		}
+		return audit(tx, actor, "operations:popup:edit", "save", "game_popup_campaigns", id, before, configuration, input.Reason)
 	})
 	return id, err
 }
@@ -390,10 +382,10 @@ func (s *Service) CopySitePopup(siteID uint64, id uint64, actor Actor) (uint64, 
 	if err != nil {
 		return 0, err
 	}
-	draft := currentPopupDraft(row)
-	draft.CampaignName += " Copy"
-	draft.Enabled = false
-	return s.SaveSitePopup(siteID, 0, PopupInput{PopupDraft: draft, Reason: "copy popup campaign draft"}, actor)
+	configuration := currentPopupConfiguration(row)
+	configuration.CampaignName += " Copy"
+	configuration.Enabled = false
+	return s.SaveSitePopup(siteID, 0, PopupInput{PopupConfiguration: configuration, Reason: "copy popup campaign configuration"}, actor)
 }
 
 func (s *Service) DeleteSitePopup(siteID uint64, id uint64, actor Actor) error {
@@ -401,22 +393,18 @@ func (s *Service) DeleteSitePopup(siteID uint64, id uint64, actor Actor) error {
 	if err != nil {
 		return err
 	}
-	row, err := s.popupByID(s.db, scope, id, false)
-	if err != nil {
-		return err
-	}
-	draft := currentPopupDraft(row)
-	draft.Deleted = true
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		nowValue := now()
-		if err := tx.Model(&SitePopupRecord{}).Where("id = ? AND site_id = ?", id, scope.SiteID).
-			Updates(map[string]any{"draft_payload": marshal(draft), "publish_status": siteContentDraft, "draft_updated_at": nowValue, "updated_by": actor.ID, "updated_at": nowValue}).Error; err != nil {
+		before, err := s.popupByID(tx, scope, id, true)
+		if err != nil {
 			return err
 		}
-		if err := markSiteContentDraft(tx, scope, actor.ID); err != nil {
+		if err := tx.Table("game_popup_campaigns").Where("id=? AND site_id=?", id, scope.SiteID).Updates(map[string]any{"deleted_at": now(), "updated_at": now(), "enabled": 0}).Error; err != nil {
 			return err
 		}
-		return audit(tx, actor, "operations:popup:delete", "delete_draft", "popup_campaign", id, row, draft, "")
+		if err := touchSiteConfiguration(tx, scope.SiteID, actor.ID); err != nil {
+			return err
+		}
+		return audit(tx, actor, "operations:popup:edit", "delete", "game_popup_campaigns", id, before, nil, "")
 	})
 }
 
@@ -425,26 +413,26 @@ func (s *Service) ReorderSitePopups(siteID uint64, input PopupReorderInput, acto
 	if err != nil {
 		return err
 	}
-	if len(input.IDs) == 0 {
-		return NewError("INVALID_REQUEST", "popup campaign IDs are required")
-	}
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		for index, id := range input.IDs {
 			row, err := s.popupByID(tx, scope, id, true)
 			if err != nil {
 				return err
 			}
-			draft := currentPopupDraft(row)
-			draft.Priority = len(input.IDs) - index
-			if err := tx.Model(&SitePopupRecord{}).Where("id = ? AND site_id = ?", id, scope.SiteID).
-				Updates(map[string]any{"draft_payload": marshal(draft), "publish_status": siteContentDraft, "draft_updated_at": now(), "updated_by": actor.ID, "updated_at": now()}).Error; err != nil {
+			configuration := currentPopupConfiguration(row)
+			configuration.Priority = len(input.IDs) - index
+			values, err := popupValues(configuration, actor.ID)
+			if err != nil {
+				return err
+			}
+			if err := tx.Table("game_popup_campaigns").Where("site_id=? AND id=?", scope.SiteID, id).Updates(values).Error; err != nil {
 				return err
 			}
 		}
-		if err := markSiteContentDraft(tx, scope, actor.ID); err != nil {
+		if err := touchSiteConfiguration(tx, scope.SiteID, actor.ID); err != nil {
 			return err
 		}
-		return audit(tx, actor, "operations:popup:edit", "reorder_draft", "popup_campaign", 0, nil, input.IDs, input.Reason)
+		return audit(tx, actor, "operations:popup:edit", "sort", "game_popup_campaigns", 0, nil, input.IDs, input.Reason)
 	})
 }
 
@@ -469,7 +457,7 @@ func (s *Service) PublicPopups(scope content.Scope, _ string, _ string, _ string
 	query := s.db.Table("game_popup_campaigns p").
 		Select("p.id,c.component_code,p.action_type,p.action_target,p.trigger_type,p.trigger_value,p.frequency_type,p.display_limit,p.cooldown_minutes,p.priority,p.config_version").
 		Joins("JOIN game_popup_components c ON c.id=p.popup_component_id AND c.status=1 AND c.deleted_at IS NULL").
-		Where("p.site_id = ? AND p.config_version > 0 AND p.enabled = 1 AND p.deleted_at IS NULL", scope.SiteID).
+		Where("p.site_id = ? AND p.enabled = 1 AND p.deleted_at IS NULL", scope.SiteID).
 		Where("p.visibility_scope IN ?", contentVisibilityValues(loggedIn)).
 		Where("(p.start_at IS NULL OR p.start_at<=?) AND (p.end_at IS NULL OR p.end_at>=?)", at, at)
 	if loggedIn && viewer.RegisteredAt != nil && !viewer.RegisteredAt.IsZero() {
@@ -503,7 +491,7 @@ func (s *Service) TrackPopupEvent(scope content.Scope, campaignID uint64, eventT
 	}
 	var count int64
 	err := s.db.Table("game_popup_campaigns p").Joins("JOIN game_popup_components c ON c.id=p.popup_component_id AND c.status=1 AND c.deleted_at IS NULL").
-		Where("p.id = ? AND p.site_id = ? AND p.config_version > 0 AND p.enabled = 1 AND p.deleted_at IS NULL", campaignID, scope.SiteID).Count(&count).Error
+		Where("p.id = ? AND p.site_id = ? AND p.enabled = 1 AND p.deleted_at IS NULL", campaignID, scope.SiteID).Count(&count).Error
 	if err != nil {
 		return false, err
 	}
@@ -529,49 +517,49 @@ func (s *Service) TrackPopupEvent(scope content.Scope, campaignID uint64, eventT
 	return result.RowsAffected > 0, result.Error
 }
 
-func (s *Service) normalizePopupDraft(input PopupDraft) (PopupDraft, error) {
+func (s *Service) normalizePopupConfiguration(input PopupConfiguration) (PopupConfiguration, error) {
 	input.CampaignName = strings.TrimSpace(input.CampaignName)
 	input.TriggerType = strings.ToUpper(strings.TrimSpace(input.TriggerType))
 	input.TriggerValue = strings.TrimSpace(input.TriggerValue)
 	input.FrequencyType = strings.ToUpper(strings.TrimSpace(input.FrequencyType))
 	if input.PopupComponentID == 0 || input.CampaignName == "" {
-		return PopupDraft{}, NewError("POPUP_CAMPAIGN_FIELDS_REQUIRED", "popup component and campaign name are required")
+		return PopupConfiguration{}, NewError("POPUP_CAMPAIGN_FIELDS_REQUIRED", "popup component and campaign name are required")
 	}
 	component, err := s.popupComponent(input.PopupComponentID, true)
 	if err != nil {
-		return PopupDraft{}, err
+		return PopupConfiguration{}, err
 	}
 	if !popupTriggers[input.TriggerType] {
-		return PopupDraft{}, NewError("INVALID_POPUP_TRIGGER", "invalid popup trigger")
+		return PopupConfiguration{}, NewError("INVALID_POPUP_TRIGGER", "invalid popup trigger")
 	}
 	if input.TriggerType == "PAGE_ENTER" && !isSafeInternalContentPath(input.TriggerValue) {
-		return PopupDraft{}, NewError("INVALID_POPUP_TRIGGER_TARGET", "page trigger must be an absolute site path")
+		return PopupConfiguration{}, NewError("INVALID_POPUP_TRIGGER_TARGET", "page trigger must be an absolute site path")
 	}
 	if input.TriggerType == "HOME_ENTER" {
 		input.TriggerValue = ""
 	}
 	if !popupFrequencies[input.FrequencyType] {
-		return PopupDraft{}, NewError("INVALID_POPUP_FREQUENCY", "invalid popup display frequency")
+		return PopupConfiguration{}, NewError("INVALID_POPUP_FREQUENCY", "invalid popup display frequency")
 	}
 	visibility, err := normalizeContentVisibility(input.VisibilityScope)
 	if err != nil {
-		return PopupDraft{}, err
+		return PopupConfiguration{}, err
 	}
 	if input.FrequencyType == "ONCE_PER_USER" && visibility == "GUEST" {
-		return PopupDraft{}, NewError("POPUP_LOGIN_REQUIRED", "once per user campaigns require logged-in visibility")
+		return PopupConfiguration{}, NewError("POPUP_LOGIN_REQUIRED", "once per user campaigns require logged-in visibility")
 	}
 	if input.DisplayLimit < 0 || input.CooldownMinutes < 0 {
-		return PopupDraft{}, NewError("INVALID_POPUP_LIMIT", "popup limits must be non-negative")
+		return PopupConfiguration{}, NewError("INVALID_POPUP_LIMIT", "popup limits must be non-negative")
 	}
 	if err := validateContentTime(input.StartAt, input.EndAt); err != nil {
-		return PopupDraft{}, err
+		return PopupConfiguration{}, err
 	}
 	action, target, err := validateSiteContentAction(input.ActionType, input.ActionTarget)
 	if err != nil {
-		return PopupDraft{}, err
+		return PopupConfiguration{}, err
 	}
 	if !popupContainsString(component.AllowedActionTypes, action) {
-		return PopupDraft{}, NewError("POPUP_ACTION_NOT_ALLOWED", "action is not allowed by this popup component")
+		return PopupConfiguration{}, NewError("POPUP_ACTION_NOT_ALLOWED", "action is not allowed by this popup component")
 	}
 	input.ActionType, input.ActionTarget, input.VisibilityScope = action, target, visibility
 	return input, nil
@@ -606,7 +594,7 @@ func (s *Service) hydratePopupCampaigns(rows []SitePopupRecord) error {
 	ids := make([]uint64, 0, len(rows)*2)
 	for i := range rows {
 		hydratePopup(&rows[i])
-		ids = append(ids, rows[i].DraftConfiguration.PopupComponentID, rows[i].PublishedConfiguration.PopupComponentID)
+		ids = append(ids, rows[i].Configuration.PopupComponentID, rows[i].Configuration.PopupComponentID)
 	}
 	components := []PopupComponentRecord{}
 	if len(ids) > 0 {
@@ -620,28 +608,25 @@ func (s *Service) hydratePopupCampaigns(rows []SitePopupRecord) error {
 		byID[components[i].ID] = &components[i]
 	}
 	for i := range rows {
-		rows[i].Component = byID[rows[i].DraftConfiguration.PopupComponentID]
+		rows[i].Component = byID[rows[i].Configuration.PopupComponentID]
 	}
 	return nil
 }
 
-func hydratePopup(row *SitePopupRecord) {
-	row.DraftConfiguration = decodePopup(row.DraftPayload)
-	row.PublishedConfiguration = decodePopup(row.PublishedPayload)
-}
+func hydratePopup(row *SitePopupRecord) { row.Configuration = decodePopup(row.ConfigurationPayload) }
 
-func decodePopup(raw string) PopupDraft {
-	var value PopupDraft
+func decodePopup(raw string) PopupConfiguration {
+	var value PopupConfiguration
 	_ = json.Unmarshal([]byte(raw), &value)
 	return value
 }
 
-func currentPopupDraft(row SitePopupRecord) PopupDraft {
-	draft := decodePopup(row.DraftPayload)
-	if strings.TrimSpace(row.DraftPayload) == "" || draft.PopupComponentID == 0 {
-		draft = decodePopup(row.PublishedPayload)
+func currentPopupConfiguration(row SitePopupRecord) PopupConfiguration {
+	configuration := decodePopup(row.ConfigurationPayload)
+	if strings.TrimSpace(row.ConfigurationPayload) == "" || configuration.PopupComponentID == 0 {
+		configuration = decodePopup(row.ConfigurationPayload)
 	}
-	return draft
+	return configuration
 }
 
 func hydratePopupComponent(row *PopupComponentRecord) {

@@ -5,6 +5,7 @@ import (
 
 	"casino/internal/content"
 	"casino/internal/model"
+
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"

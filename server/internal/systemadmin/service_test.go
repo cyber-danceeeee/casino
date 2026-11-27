@@ -120,7 +120,7 @@ func newSystemAdminScopeTestService(t *testing.T) (*Service, *gorm.DB) {
 	})
 	for _, statement := range []string{
 
-		`CREATE TABLE game_site_config (id INTEGER PRIMARY KEY, site_code TEXT, site_name TEXT, primary_domain TEXT, admin_domain TEXT, h5_domain TEXT, android_package_name TEXT, ios_bundle_id TEXT, country_code TEXT, currency_code TEXT, default_language TEXT, timezone TEXT, brand_config TEXT, theme_config TEXT, feature_config TEXT, maintenance_config TEXT, seo_config TEXT, site_name_draft TEXT, country_code_draft TEXT, currency_code_draft TEXT, default_language_draft TEXT, timezone_draft TEXT, brand_config_draft TEXT, theme_config_draft TEXT, feature_config_draft TEXT, maintenance_config_draft TEXT, seo_config_draft TEXT, config_status TEXT, config_version INTEGER, config_published_at DATETIME, config_draft_updated_at DATETIME, is_initialized INTEGER, enabled INTEGER, status TEXT, remark TEXT, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME)`,
+		`CREATE TABLE game_site_config (id INTEGER PRIMARY KEY, site_code TEXT, site_name TEXT, primary_domain TEXT, admin_domain TEXT, h5_domain TEXT, android_package_name TEXT, ios_bundle_id TEXT, country_code TEXT, currency_code TEXT, default_language TEXT, timezone TEXT, brand_config TEXT, theme_config TEXT, feature_config TEXT, maintenance_config TEXT, seo_config TEXT, config_version INTEGER, is_initialized INTEGER, enabled INTEGER, status TEXT, remark TEXT, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME)`,
 	} {
 		if err := db.Exec(statement).Error; err != nil {
 			t.Fatal(err)
@@ -135,7 +135,7 @@ func newSystemAdminScopeTestService(t *testing.T) (*Service, *gorm.DB) {
 		{id: 101, code: "site-a"},
 		{id: 202, code: "site-b"},
 	} {
-		if err := db.Exec("INSERT INTO game_site_config (id, site_code, site_name, primary_domain, admin_domain, h5_domain, android_package_name, ios_bundle_id, country_code, currency_code, default_language, timezone, brand_config, theme_config, feature_config, maintenance_config, seo_config, site_name_draft, country_code_draft, currency_code_draft, default_language_draft, timezone_draft, brand_config_draft, theme_config_draft, feature_config_draft, maintenance_config_draft, seo_config_draft, config_status, config_version, is_initialized, enabled, status, remark, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, '', '', 'MX', 'MXN', 'es', 'America/Mexico_City', '{}', '{}', '{}', '{}', '{}', '', '', '', '', '', '', '', '', '', '', 'PUBLISHED', 1, 1, 1, 'ONLINE', '', ?, ?)", item.id, item.code, item.code, item.code+".example.com", "admin."+item.code+".example.com", "h5."+item.code+".example.com", nowValue, nowValue).Error; err != nil {
+		if err := db.Exec("INSERT INTO game_site_config (id,site_code,site_name,primary_domain,admin_domain,h5_domain,android_package_name,ios_bundle_id,country_code,currency_code,default_language,timezone,brand_config,theme_config,feature_config,maintenance_config,seo_config,config_version,is_initialized,enabled,status,remark,created_at,updated_at) VALUES (?,?,?,?,?,?,'','','MX','MXN','es','America/Mexico_City','{}','{}','{}','{}','{}',1,1,1,'ONLINE','',?,?)", item.id, item.code, item.code, item.code+".example.com", "admin."+item.code+".example.com", "h5."+item.code+".example.com", nowValue, nowValue).Error; err != nil {
 			t.Fatal(err)
 		}
 	}

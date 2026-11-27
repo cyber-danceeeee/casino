@@ -20,12 +20,14 @@ x-api: &api
     CASINO_REDIS_DSN: "default:@redis:6379/0"
     CASINO_MFA_ENCRYPTION_KEY: ${CASINO_MFA_ENCRYPTION_KEY:?请先生成环境配置}
     CASINO_RABBITMQ_ENABLED: "true"
+    CASINO_BACKUP_DIR: /app/backups
     CASINO_RABBITMQ_REQUIRED: "true"
     CASINO_RABBITMQ_HOST: rabbitmq
     CASINO_RABBITMQ_USERNAME: casino
     CASINO_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?请先生成环境配置}
   volumes:
     - uploads:/app/static
+    - backup-data:/app/backups
   init: true
 
 services:
@@ -140,6 +142,7 @@ services:
 
 volumes:
   migration_backups:
+  backup-data:
   mysql-data:
   redis-data:
   rabbitmq-data:

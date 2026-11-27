@@ -61,18 +61,14 @@ func (s *Service) SaveLobbySection(id uint64, in LobbySectionInput, actor Actor)
 			Take(&dimensions).Error; err != nil {
 			return 0, newError("SITE_NOT_FOUND", "H5 was not found")
 		}
-		in.SupportedCountries = strings.ToUpper(strings.TrimSpace(dimensions.CountryCode))
-		in.SupportedCurrencies = strings.ToUpper(strings.TrimSpace(dimensions.CurrencyCode))
-	}
-	draftPayload, err := lobbySectionDraftPayload(code, in)
-	if err != nil {
-		return 0, err
+		in.SupportedCountries = ""
+		in.SupportedCurrencies = ""
 	}
 	configJSON := lobbySectionConfigJSON(in)
 	if in.MaxItems <= 0 {
 		in.MaxItems = 12
 	}
-	err = s.db.Transaction(func(tx *gorm.DB) error {
+	err := s.db.Transaction(func(tx *gorm.DB) error {
 		var before model.GameLobbySections
 		action := "create"
 		if id > 0 {
@@ -99,8 +95,6 @@ func (s *Service) SaveLobbySection(id uint64, in LobbySectionInput, actor Actor)
 			SupportedCountries:  strings.TrimSpace(in.SupportedCountries),
 			SupportedCurrencies: strings.TrimSpace(in.SupportedCurrencies),
 			ConfigJSON:          configJSON,
-			DraftPayload:        draftPayload,
-			PublishStatus:       "DRAFT",
 		}
 		if id == 0 {
 			if err := tx.Create(&row).Error; err != nil {
@@ -108,17 +102,11 @@ func (s *Service) SaveLobbySection(id uint64, in LobbySectionInput, actor Actor)
 			}
 			id = row.ID
 		} else {
-			if err := content.ApplySite(tx.Model(&model.GameLobbySections{}), "", actor.Scope).Where("id = ?", id).Updates(map[string]any{
-				"draft_payload":    draftPayload,
-				"publish_status":   "DRAFT",
-				"draft_updated_at": time.Now(),
-				"draft_updated_by": actor.ID,
-				"updated_at":       time.Now(),
-			}).Error; err != nil {
+			if err := content.ApplySite(tx.Model(&model.GameLobbySections{}), "", actor.Scope).Where("id = ?", id).Updates(map[string]any{"section_code": row.SectionCode, "section_type": row.SectionType, "title_zh": row.TitleZh, "title_en": row.TitleEn, "display_style": row.DisplayStyle, "source_type": row.SourceType, "source_ref": row.SourceRef, "max_items": row.MaxItems, "sort_order": row.SortOrder, "enabled": row.Enabled, "supported_countries": "", "supported_currencies": "", "config_json": row.ConfigJSON, "config_version": gorm.Expr("config_version+1"), "updated_at": time.Now()}).Error; err != nil {
 				return duplicateCode(err, "LOBBY_SECTION_CODE_EXISTS", "lobby section code already exists")
 			}
 		}
-		return audit(tx, actor, "lobby:update", action+"_draft", "game_lobby_section", id, before, row, in.Reason)
+		return audit(tx, actor, "lobby:update", action, "game_lobby_section", id, before, row, in.Reason)
 	})
 	return id, err
 }
@@ -132,35 +120,6 @@ func lobbySectionConfigJSON(in LobbySectionInput) string {
 		return "{}"
 	}
 	return string(encoded)
-}
-
-func lobbySectionDraftPayload(code string, in LobbySectionInput) (string, error) {
-	if in.Config == nil {
-		in.Config = map[string]any{}
-	}
-	if in.MaxItems <= 0 {
-		in.MaxItems = 12
-	}
-	payload := map[string]any{
-		"sectionCode":         code,
-		"sectionType":         strings.TrimSpace(in.SectionType),
-		"titleZh":             strings.TrimSpace(in.TitleZh),
-		"titleEn":             strings.TrimSpace(in.TitleEn),
-		"displayStyle":        strings.TrimSpace(in.DisplayStyle),
-		"sourceType":          strings.TrimSpace(in.SourceType),
-		"sourceRef":           strings.TrimSpace(in.SourceRef),
-		"maxItems":            in.MaxItems,
-		"sortOrder":           in.SortOrder,
-		"enabled":             in.Enabled,
-		"supportedCountries":  strings.TrimSpace(in.SupportedCountries),
-		"supportedCurrencies": strings.TrimSpace(in.SupportedCurrencies),
-		"config":              in.Config,
-	}
-	encoded, err := json.Marshal(payload)
-	if err != nil {
-		return "", newError("INVALID_REQUEST", "invalid section config")
-	}
-	return string(encoded), nil
 }
 
 func (s *Service) DeleteLobbySection(id uint64, reason string, actor Actor) error {

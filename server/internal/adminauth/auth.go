@@ -332,8 +332,6 @@ const (
 	PermissionSystemSiteView           = "system:site:view"
 	PermissionSystemSiteUpdate         = "system:site:update"
 	PermissionSystemSiteStatus         = "system:site:status"
-	PermissionSystemSiteConfigPreview  = "system:site:config:preview"
-	PermissionSystemSiteConfigPublish  = "system:site:config:publish"
 	PermissionSupportPlayerRead        = "support:player:read"
 	PermissionSupportTimelineRead      = "support:timeline:read"
 	PermissionSupportCaseRead          = "support:case:read"
@@ -360,9 +358,6 @@ const (
 	PermissionBackupCreate             = "backup:create"
 	PermissionBackupRestore            = "backup:restore"
 	PermissionBackupDelete             = "backup:delete"
-	PermissionReleaseRead              = "release:read"
-	PermissionReleasePublish           = "release:publish"
-	PermissionReleaseRollback          = "release:rollback"
 )
 
 var userCenterPermissions = []string{
@@ -706,9 +701,6 @@ var userCenterPermissions = []string{
 	PermissionBackupCreate,
 	PermissionBackupRestore,
 	PermissionBackupDelete,
-	PermissionReleaseRead,
-	PermissionReleasePublish,
-	PermissionReleaseRollback,
 }
 
 type Actor struct {

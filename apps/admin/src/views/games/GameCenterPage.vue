@@ -3,7 +3,6 @@ import { computed, onMounted, reactive, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { UploadFilled } from "@element-plus/icons-vue";
 import type { UploadRequestOptions } from "element-plus";
 import UserCenterCard from "@/components/users/UserCenterCard.vue";
 import UserStatusTag from "@/components/users/UserStatusTag.vue";
@@ -74,7 +73,6 @@ import {
   type AdminOptions,
 } from "@/api/adminOptions";
 import { gameConfigs } from "./config";
-import { systemAPI, type BrandOverview } from "@/api/adminSystem";
 
 type RecordValue = Record<string, unknown>;
 type RelationKind = "categories" | "tags" | "collections";
@@ -90,11 +88,6 @@ const isGameListPage = computed(() => moduleKey.value === "game-list");
 const isGameCategoriesPage = computed(() => moduleKey.value === "game-categories");
 const isGameSyncPage = computed(() => moduleKey.value === "game-sync");
 const isProviderModule = computed(() => moduleKey.value === "provider-management" || moduleKey.value === "game-sync");
-const usesDraftWorkflow = computed(
-  () =>
-    !isPlatform.value &&
-    ["game-list", "game-categories", "lobby-sections"].includes(moduleKey.value),
-);
 const visibleColumns = computed(() => {
   const columns = config.value?.columns.filter((item) => !isInternalIdentifierKey(item.key)) || [];
   if (moduleKey.value === "game-categories") {
@@ -112,8 +105,8 @@ const visibleColumns = computed(() => {
       ...categoryColumns.slice(insertIndex),
     ];
   }
-  if (!isPlatform.value || moduleKey.value !== "game-list") return columns;
-  const hidden = new Set(["publishedState", "draftState", "hasChanges", "draftUpdatedAt"]);
+if(moduleKey.value!=="game-list")return columns;
+  const hidden = new Set<string>();
   const directLabels: Record<string, string> = {
     platformEnabled: "gameCenter.fields.platformEnabled",
     isHot: "gameCenter.fields.hot",
@@ -272,12 +265,10 @@ const lobbyForm = reactive<LobbySectionInput>({
   reason: "",
 });
 const lobbyConfigText = ref("{}");
-const publishingLobby = ref(false);
-const brandOverview = ref<BrandOverview | null>(null);
 const detailTabs = computed(() => {
   let tabs = config.value?.detailTabs || [];
   if (isPlatform.value && moduleKey.value === "game-list")
-    tabs = tabs.filter((tab) => tab.key !== "draftConfiguration");
+    tabs = tabs.filter((tab) => tab.key !== "configuration");
   if (
     moduleKey.value === "game-sync" ||
     moduleKey.value === "game-categories" ||
@@ -365,118 +356,20 @@ function optionLabel(value: string) {
 function hasExplicitValue(value: unknown) {
   return value !== null && value !== undefined && value !== "";
 }
-function gameDraftColumn(key: string) {
-  return (
-    {
-      platformEnabled: "platformEnabledDraft",
-      isHot: "isHotDraft",
-      isFeatured: "isFeaturedDraft",
-      isNew: "isNewDraft",
-      sortOrder: "sortDraft",
-      status: "statusDraft",
-    } as Record<string, string>
-  )[key];
+function gameValue(row:GameCenterRecord,key:string){return row[key];}
+
+function gameBoolean(row: GameCenterRecord, key: string) {
+  return Boolean(gameValue(row, key));
 }
-function gameDraftValue(row: GameCenterRecord, key: string) {
-  if (isPlatform.value) return row[key];
-  const draftKey = gameDraftColumn(key);
-  if (draftKey && hasExplicitValue(row[draftKey])) return row[draftKey];
-  return row[key];
-}
-function gameDraftBoolean(row: GameCenterRecord, key: string) {
-  return Boolean(gameDraftValue(row, key));
-}
-function gameDraftNumber(row: GameCenterRecord, key: string) {
-  return Number(gameDraftValue(row, key) || 0);
-}
+function gameNumber(row:GameCenterRecord,key:string){return Number(gameValue(row,key)||0);}
+
 function gameBooleanCellValue(row: GameCenterRecord, key: string) {
   if (
     moduleKey.value === "game-list" &&
     ["platformEnabled", "isHot", "isFeatured", "isNew"].includes(key)
   )
-    return gameDraftBoolean(row, key);
+    return gameBoolean(row, key);
   return Boolean(row[key]);
-}
-function parseDraftCategoryIDs(row: GameCenterRecord) {
-  const raw = row.categoryIDsDraft;
-  if (!hasExplicitValue(raw)) return null;
-  if (Array.isArray(raw)) {
-    return raw
-      .map((item) => {
-        if (isObject(item)) return Number(item.categoryId || item.categoryID || item.id);
-        return Number(item);
-      })
-      .filter((id) => id > 0);
-  }
-  const text = String(raw).trim();
-  if (!text) return null;
-  try {
-    const parsed = JSON.parse(text);
-    if (Array.isArray(parsed))
-      return parsed
-        .map((item) => {
-          if (isObject(item)) return Number(item.categoryId || item.categoryID || item.id);
-          return Number(item);
-        })
-        .filter((id) => id > 0);
-  } catch {
-    return text
-      .split(",")
-      .map((item) => Number(item.trim()))
-      .filter((id) => id > 0);
-  }
-  return [];
-}
-function valueChanged(published: unknown, draft: unknown) {
-  return JSON.stringify(published ?? null) !== JSON.stringify(draft ?? null);
-}
-function gameDraftChangeCount(row: GameCenterRecord) {
-  let count = 0;
-  for (const key of ["platformEnabled", "isHot", "isFeatured", "isNew", "sortOrder"]) {
-    const draftKey = gameDraftColumn(key);
-    if (draftKey && hasExplicitValue(row[draftKey]) && valueChanged(row[key], row[draftKey]))
-      count += 1;
-  }
-  const draftCategoryIDs = parseDraftCategoryIDs(row);
-  if (
-    String(row.configStatus || "").toUpperCase() === "DRAFT" &&
-    draftCategoryIDs &&
-    valueChanged(publishedCategoryIDs(row), draftCategoryIDs)
-  )
-    count += 1;
-  return count;
-}
-function gameHasUnpublishedChanges(row: GameCenterRecord) {
-  return (
-    String(row.configStatus || "").toUpperCase() === "DRAFT" ||
-    gameDraftChangeCount(row) > 0
-  );
-}
-function gamePublishedState(row: GameCenterRecord) {
-  return {
-    enabled: Boolean(row.platformEnabled),
-    sortOrder: Number(row.sortOrder || 0),
-  };
-}
-function gameDraftState(row: GameCenterRecord) {
-  return {
-    enabled: gameDraftBoolean(row, "platformEnabled"),
-    sortOrder: gameDraftNumber(row, "sortOrder"),
-  };
-}
-function gameEnabledLabel(enabled: boolean) {
-  return enabled ? t("common.enable") : t("common.disable");
-}
-function gameStateTagType(enabled: boolean) {
-  return enabled ? "success" : "danger";
-}
-function gameConfigStatusType(row: GameCenterRecord) {
-  return gameHasUnpublishedChanges(row) ? "warning" : "success";
-}
-function gameConfigStatusLabel(row: GameCenterRecord) {
-  return gameHasUnpublishedChanges(row)
-    ? t("gameCenter.values.unpublished_changes")
-    : t("gameCenter.values.published");
 }
 const enumKeys = new Set([
   "apiStatus",
@@ -513,12 +406,8 @@ function publishedCategoryIDs(row: GameCenterRecord) {
     .filter((item) => selected.has(String(item.code || "")))
     .map((item) => Number(item.id));
 }
-function categoryIDs(row: GameCenterRecord) {
-  if (isPlatform.value) return publishedCategoryIDs(row);
-  const draftIDs = parseDraftCategoryIDs(row);
-  if (draftIDs) return draftIDs;
-  return publishedCategoryIDs(row);
-}
+function categoryIDs(row:GameCenterRecord){return publishedCategoryIDs(row);}
+
 function imageSource(row: GameCenterRecord, key: string) {
   if (moduleKey.value === "game-list")
     return String(row.localThumbnailUrl || row.thumbnailUrl || "");
@@ -612,47 +501,6 @@ const siteCategoryOptions = computed(() =>
 const assignableCategoryOptions = computed(() =>
   isPlatform.value ? categories.value : siteCategoryOptions.value,
 );
-function gameDetailConfigObject(key: string) {
-  const value = detail.value[key];
-  return isObject(value) ? value : {};
-}
-function gameDetailDraftDiffs() {
-  const published = gameDetailConfigObject("platformConfiguration");
-  const draft = gameDetailConfigObject("draftConfiguration");
-  return [
-    "platformEnabled",
-    "isHot",
-    "isFeatured",
-    "isNew",
-    "sortOrder",
-    "localThumbnailUrl",
-    "statusValue",
-    "categoryDraft",
-  ].map((key) => {
-    const publishedValue =
-      key === "statusValue"
-        ? gameDetailConfigObject("overview").status
-        : key === "categoryDraft"
-          ? gameDetailConfigObject("categoriesAndTags").categories
-          : published[key];
-    const draftValue = draft[key] ?? publishedValue;
-    return {
-      key,
-      published: publishedValue,
-      draft: draftValue,
-      changed: valueChanged(publishedValue, draftValue),
-    };
-  });
-}
-function gameDetailDraftMeta() {
-  const draft = gameDetailConfigObject("draftConfiguration");
-  return {
-    status: String(draft.status || "PUBLISHED"),
-    version: Number(draft.configVersion || 0),
-    publishedAt: String(draft.publishedAt || ""),
-    draftUpdatedAt: String(draft.draftUpdatedAt || ""),
-  };
-}
 function isTimelineTab(key: string) {
   return key === "sessionTimeline";
 }
@@ -830,7 +678,7 @@ async function changeExpandedCategoryGamePageSize(row: GameCenterRecord, pageSiz
 }
 function editableCategoryGamePayload(row: GameCenterRecord): GameInput {
   return {
-    ...gamePayload(row, "save_category_game_inline_draft"),
+    ...gamePayload(row, "save_category_game_inline"),
     name: String(row.name || "").trim(),
     platformEnabled: Boolean(row.platformEnabled),
     sortOrder: Number(row.sortOrder || 0),
@@ -846,8 +694,8 @@ async function saveExpandedCategoryGame(category: GameCenterRecord, row: GameCen
       row.id,
       Math.max(0, Number(row.categorySortOrder || 0)),
     );
-    ElMessage.success(t(isPlatform.value ? "gameCenter.messages.savedImmediate" : "gameCenter.messages.draftSaved"));
-    notifyBrandDraftChanged();
+    ElMessage.success(t(isPlatform.value ? "gameCenter.messages.savedImmediate" : "gameCenter.messages.savedImmediate"));
+    notifyConfigurationChanged();
     await loadExpandedCategoryGames(category);
     await load();
   } catch (error) {
@@ -869,8 +717,8 @@ async function removeExpandedCategoryGame(category: GameCenterRecord, row: GameC
     );
     await removeCategoryGame(category.id, row.id);
     if (state.list.length === 1 && state.page > 1) state.page -= 1;
-    ElMessage.success(t(isPlatform.value ? "gameCenter.messages.savedImmediate" : "gameCenter.messages.categoryDraftSaved"));
-    notifyBrandDraftChanged();
+    ElMessage.success(t(isPlatform.value ? "gameCenter.messages.savedImmediate" : "gameCenter.messages.savedImmediate"));
+    notifyConfigurationChanged();
     await loadExpandedCategoryGames(category);
     await load();
   } catch (error) {
@@ -1131,7 +979,7 @@ function ask(
   pendingAction.value = () => action(reason.value.trim());
   reasonVisible.value = true;
 }
-function notifyBrandDraftChanged() {
+function notifyConfigurationChanged() {
   if (isPlatform.value) return;
   window.dispatchEvent(new Event("brand-config-refresh"));
 }
@@ -1142,7 +990,7 @@ async function confirmReason() {
     await pendingAction.value();
     reasonVisible.value = false;
     ElMessage.success(t(reasonSuccessMessage.value));
-    notifyBrandDraftChanged();
+    notifyConfigurationChanged();
     await load();
   } catch (error) {
     ElMessage.error(
@@ -1165,12 +1013,12 @@ function toggleProvider(row: GameCenterRecord) {
 }
 function toggleGame(row: GameCenterRecord) {
   updateGame(row.id, {
-    ...gamePayload(row, isPlatform.value ? "toggle_display_status" : "toggle_display_status_draft"),
-    platformEnabled: !gameDraftBoolean(row, "platformEnabled"),
+    ...gamePayload(row, isPlatform.value ? "toggle_display_status" : "toggle_display_status"),
+    platformEnabled: !gameBoolean(row, "platformEnabled"),
   })
     .then(async () => {
-      ElMessage.success(t(isPlatform.value ? "gameCenter.messages.savedImmediate" : "gameCenter.messages.draftSaved"));
-      notifyBrandDraftChanged();
+      ElMessage.success(t(isPlatform.value ? "gameCenter.messages.savedImmediate" : "gameCenter.messages.savedImmediate"));
+      notifyConfigurationChanged();
       await load();
     })
     .catch((error) => {
@@ -1185,11 +1033,11 @@ function gamePayload(row: GameCenterRecord, reasonValue: string): GameInput {
   return {
     name: String(row.name || ""),
     localThumbnailUrl: String(row.localThumbnailUrl || ""),
-    platformEnabled: gameDraftBoolean(row, "platformEnabled"),
-    isHot: gameDraftBoolean(row, "isHot"),
-    isFeatured: gameDraftBoolean(row, "isFeatured"),
-    isNew: gameDraftBoolean(row, "isNew"),
-    sortOrder: gameDraftNumber(row, "sortOrder"),
+    platformEnabled: gameBoolean(row, "platformEnabled"),
+    isHot: gameBoolean(row, "isHot"),
+    isFeatured: gameBoolean(row, "isFeatured"),
+    isNew: gameBoolean(row, "isNew"),
+    sortOrder: gameNumber(row, "sortOrder"),
     supportedCountries: String(row.supportedCountries || ""),
     supportedCurrencies: String(row.supportedCurrencies || ""),
     supportedDevices: String(row.supportedDevices || ""),
@@ -1207,7 +1055,7 @@ function toggleGameFlag(
       payload[key] = !payload[key];
       await updateGame(row.id, payload);
     },
-    isPlatform.value ? "gameCenter.messages.savedImmediate" : "gameCenter.messages.draftSaved",
+    isPlatform.value ? "gameCenter.messages.savedImmediate" : "gameCenter.messages.savedImmediate",
   );
 }
 function changeBoolean(row: GameCenterRecord, key: string) {
@@ -1263,11 +1111,11 @@ async function runBatchGameUpdate(
       reason: `batch_${field}_${value ? "on" : "off"}`,
     });
     ElMessage.success(
-      t(isPlatform.value ? "gameCenter.messages.batchUpdatedImmediate" : "gameCenter.messages.batchDraftUpdated", {
+      t(isPlatform.value ? "gameCenter.messages.batchUpdatedImmediate" : "gameCenter.messages.savedImmediate", {
         count: Number(result.updatedCount || selectedGameIDs.value.length),
       }),
     );
-    notifyBrandDraftChanged();
+    notifyConfigurationChanged();
     selectedRows.value = [];
     await load();
   } catch (error) {
@@ -1295,12 +1143,12 @@ async function saveBatchCategory() {
       reason: batchCategoryForm.reason.trim(),
     });
     ElMessage.success(
-      t(isPlatform.value ? "gameCenter.messages.batchCategoryImmediate" : "gameCenter.messages.batchCategoryDraft", {
+      t(isPlatform.value ? "gameCenter.messages.batchCategoryImmediate" : "gameCenter.messages.savedImmediate", {
         count: Number(result.updatedCount || selectedGameIDs.value.length),
       }),
     );
     batchCategoryVisible.value = false;
-    notifyBrandDraftChanged();
+    notifyConfigurationChanged();
     selectedRows.value = [];
     await load();
   } catch (error) {
@@ -1314,8 +1162,8 @@ function updateInlineCategories(row: GameCenterRecord, value: unknown) {
   const ids = value.map(Number).filter((id) => id > 0);
   setGameCategories(row.id, ids)
     .then(async () => {
-      ElMessage.success(t(isPlatform.value ? "gameCenter.messages.savedImmediate" : "gameCenter.messages.draftSaved"));
-      notifyBrandDraftChanged();
+      ElMessage.success(t(isPlatform.value ? "gameCenter.messages.savedImmediate" : "gameCenter.messages.savedImmediate"));
+      notifyConfigurationChanged();
       await load();
     })
     .catch((error) => {
@@ -1407,7 +1255,7 @@ async function saveCategoryMapping() {
     });
     mappingVisible.value = false;
     ElMessage.success(
-      t(isPlatform.value ? "gameCenter.messages.categoryMappingImmediate" : "gameCenter.messages.categoryMappingDraftSaved", {
+      t(isPlatform.value ? "gameCenter.messages.categoryMappingImmediate" : "gameCenter.messages.savedImmediate", {
         count: Number(result.updatedCount || 0),
       }),
     );
@@ -1496,8 +1344,8 @@ async function openEdit(row?: GameCenterRecord) {
     editLoading.value = true;
     try {
       const data = await config.value.detailLoader(row.id);
-      const draft = isObject(data.draftConfiguration)
-        ? data.draftConfiguration
+      const configuration = isObject(data.configuration)
+        ? data.configuration
         : {};
       const published = isObject(data.platformConfiguration)
         ? data.platformConfiguration
@@ -1505,7 +1353,7 @@ async function openEdit(row?: GameCenterRecord) {
       const rules = isObject(data.countryAndCurrencyRules)
         ? data.countryAndCurrencyRules
         : {};
-      const editable = isPlatform.value ? published : draft;
+      const editable = isPlatform.value ? published : configuration;
       Object.assign(gameForm, {
         name: String(editable.name || row.name || ""),
         localThumbnailUrl: String(
@@ -1517,23 +1365,23 @@ async function openEdit(row?: GameCenterRecord) {
         platformEnabled: Boolean(
           hasExplicitValue(editable.platformEnabled)
             ? editable.platformEnabled
-            : gameDraftValue(row, "platformEnabled"),
+            : gameValue(row, "platformEnabled"),
         ),
         isHot: Boolean(
-          hasExplicitValue(editable.isHot) ? editable.isHot : gameDraftValue(row, "isHot"),
+          hasExplicitValue(editable.isHot) ? editable.isHot : gameValue(row, "isHot"),
         ),
         isFeatured: Boolean(
           hasExplicitValue(editable.isFeatured)
             ? editable.isFeatured
-            : gameDraftValue(row, "isFeatured"),
+            : gameValue(row, "isFeatured"),
         ),
         isNew: Boolean(
-          hasExplicitValue(editable.isNew) ? editable.isNew : gameDraftValue(row, "isNew"),
+          hasExplicitValue(editable.isNew) ? editable.isNew : gameValue(row, "isNew"),
         ),
         sortOrder: Number(
           hasExplicitValue(editable.sortOrder)
             ? editable.sortOrder
-            : gameDraftValue(row, "sortOrder") || 0,
+            : gameValue(row, "sortOrder") || 0,
         ),
         supportedCountries: String(rules.countries || row.supportedCountries || ""),
         supportedCurrencies: String(rules.currencies || row.supportedCurrencies || ""),
@@ -1671,34 +1519,6 @@ function lobbyPayload(reasonValue: string): LobbySectionInput {
     reason: reasonValue,
   };
 }
-
-async function publishLobbyConfiguration() {
-  try {
-    publishingLobby.value = true;
-    brandOverview.value = await systemAPI.brand.overview();
-    if (!brandOverview.value?.siteID) throw new Error(t("brandPortal.messages.previewFailed"));
-    const result = await ElMessageBox.prompt(
-      t("brandPortal.prompts.publishReason"),
-      t("brandPortal.dialogs.publishTitle"),
-      {
-        confirmButtonText: t("brandPortal.actions.publish"),
-        cancelButtonText: t("brandPortal.actions.cancel"),
-        inputValue: t("brandPortal.defaults.publishBrandConfig"),
-        inputValidator: (value) => Boolean(value.trim()) || t("brandPortal.validation.reasonRequired"),
-      },
-    );
-    await systemAPI.sites.publish(brandOverview.value.siteID, result.value.trim());
-    ElMessage.success(t("brandPortal.messages.publishedToH5"));
-    window.dispatchEvent(new Event("brand-config-refresh"));
-    await load();
-  } catch (error) {
-    if (error !== "cancel" && error !== "close") {
-      ElMessage.error(error instanceof Error ? error.message : t("brandPortal.messages.publishFailed"));
-    }
-  } finally {
-    publishingLobby.value = false;
-  }
-}
 function warnRequired(labelKey: string) {
   ElMessage.warning(
     t("gameCenter.validation.required", { field: t(labelKey) }),
@@ -1752,7 +1572,7 @@ function toggleManaged(row: GameCenterRecord) {
           supportedCountries: String(row.supportedCountries || ""),
           supportedCurrencies: String(row.supportedCurrencies || ""),
           config: parseConfigValue(row.configJSON || row.configJson || "{}"),
-          reason: "toggle_lobby_section_draft",
+          reason: "toggle_lobby_section",
         })
       : moduleKey.value === "game-tags"
       ? updateTag(row.id, taxonomyPayload(row, "toggle_tag_status", enabled))
@@ -1766,13 +1586,13 @@ function toggleManaged(row: GameCenterRecord) {
           moduleKey.value === "game-categories"
             ? isPlatform.value
               ? "gameCenter.messages.savedImmediate"
-              : "gameCenter.messages.categoryDraftSaved"
+              : "gameCenter.messages.savedImmediate"
             : moduleKey.value === "lobby-sections"
-              ? "gameCenter.messages.lobbyDraftSaved"
+              ? "gameCenter.messages.savedImmediate"
             : "gameCenter.messages.saved",
         ),
       );
-      notifyBrandDraftChanged();
+      notifyConfigurationChanged();
       await load();
     })
     .catch((error) => {
@@ -1813,7 +1633,7 @@ async function saveEdit() {
       if (editing.value) await updateCollection(editing.value.id, payload);
       else await createCollection(payload);
     } else if (moduleKey.value === "lobby-sections") {
-      const payload = lobbyPayload(lobbyForm.reason || "save_lobby_section_draft");
+      const payload = lobbyPayload(lobbyForm.reason || "save_lobby_section");
       if (editing.value) await updateLobbySection(editing.value.id, payload);
       else await createLobbySection(payload);
     }
@@ -1823,17 +1643,17 @@ async function saveEdit() {
           moduleKey.value === "game-list"
           ? isPlatform.value
             ? "gameCenter.messages.savedImmediate"
-            : "gameCenter.messages.draftSaved"
+            : "gameCenter.messages.savedImmediate"
           : moduleKey.value === "game-categories"
             ? isPlatform.value
               ? "gameCenter.messages.savedImmediate"
-              : "gameCenter.messages.categoryDraftSaved"
+              : "gameCenter.messages.savedImmediate"
             : moduleKey.value === "lobby-sections"
-              ? "gameCenter.messages.lobbyDraftSaved"
+              ? "gameCenter.messages.savedImmediate"
             : "gameCenter.messages.saved",
       ),
     );
-    notifyBrandDraftChanged();
+    notifyConfigurationChanged();
     await load();
   } catch (error) {
     ElMessage.error(
@@ -1901,7 +1721,7 @@ async function removeRow(row: GameCenterRecord) {
     else if (moduleKey.value === "lobby-sections") await deleteLobbySection(row.id, result.value);
     else await deleteCategory(row.id, result.value);
     ElMessage.success(t("gameCenter.messages.deleted"));
-    notifyBrandDraftChanged();
+    notifyConfigurationChanged();
     await load();
   } catch (error) {
     if (error !== "cancel" && error !== "close")
@@ -2068,8 +1888,8 @@ async function saveAddedCategoryGames() {
       selectedCandidateGames.value.map((game) => Number(game.id)),
     );
     addCategoryGamesVisible.value = false;
-    ElMessage.success(t(isPlatform.value ? "gameCenter.messages.savedImmediate" : "gameCenter.messages.categoryDraftSaved"));
-    notifyBrandDraftChanged();
+    ElMessage.success(t(isPlatform.value ? "gameCenter.messages.savedImmediate" : "gameCenter.messages.savedImmediate"));
+    notifyConfigurationChanged();
     await loadDetailTab("games");
     await load();
   } catch (error) {
@@ -2186,13 +2006,13 @@ async function saveImportedGames() {
       reason: importReason.value.trim() || t("gameCenter.defaults.importGamesReason"),
     });
     ElMessage.success(
-      t("gameCenter.messages.importDraftSaved", {
+      t("gameCenter.messages.savedImmediate", {
         count: Number(result.importedCount || 0),
         skipped: Number(result.skippedCount || 0),
       }),
     );
     importGamesVisible.value = false;
-    notifyBrandDraftChanged();
+    notifyConfigurationChanged();
     await load();
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : t("gameCenter.messages.saveFailed"));
@@ -2220,8 +2040,8 @@ async function removeGameFromCategory(row: RecordValue) {
       state.page -= 1;
     await loadDetailTab("games");
     await load();
-    ElMessage.success(t(isPlatform.value ? "gameCenter.messages.savedImmediate" : "gameCenter.messages.categoryDraftSaved"));
-    notifyBrandDraftChanged();
+    ElMessage.success(t(isPlatform.value ? "gameCenter.messages.savedImmediate" : "gameCenter.messages.savedImmediate"));
+    notifyConfigurationChanged();
   } catch (error) {
     if (error !== "cancel" && error !== "close")
       ElMessage.error(
@@ -2292,11 +2112,11 @@ async function saveRelations() {
         relationKind.value === "categories"
           ? isPlatform.value
             ? "gameCenter.messages.savedImmediate"
-            : "gameCenter.messages.draftSaved"
+            : "gameCenter.messages.savedImmediate"
           : "gameCenter.messages.saved",
       ),
     );
-    notifyBrandDraftChanged();
+    notifyConfigurationChanged();
     await load();
   } catch (error) {
     ElMessage.error(
@@ -2453,17 +2273,7 @@ onMounted(async () => {
             @click="openImportGames"
             >{{ t("gameCenter.actions.importGames") }}</el-button
           >
-          <el-button
-            v-if="
-              !isPlatform &&
-              ['game-list', 'game-categories', 'lobby-sections'].includes(moduleKey) &&
-              can('system:site:config:publish')
-            "
-            type="success"
-            :icon="UploadFilled"
-            :loading="publishingLobby"
-            @click="publishLobbyConfiguration"
-          >{{ t("brandPortal.actions.publish") }}</el-button>
+
           <template v-if="isGameListPage">
             <el-divider direction="vertical" />
             <span class="batch-count">{{
@@ -2532,19 +2342,13 @@ onMounted(async () => {
           </template>
         </div></template
       >
-      <el-alert
-        v-if="usesDraftWorkflow"
-        class="draft-page-alert"
-        type="warning"
-        :title="t('gameCenter.messages.draftModeHint')"
-        :closable="false"
-        show-icon
-      />
-      <el-alert
-        v-else-if="isPlatform && (isGameListPage || isGameCategoriesPage)"
-        class="draft-page-alert"
+
+      <el-alert v-if="moduleKey === 'lobby-sections'" :title="t('liveConfig.lobbyHelp')" type="info" :closable="false" show-icon />
+<el-alert
+        v-if="isGameListPage || isGameCategoriesPage"
+        class="configuration-help"
         type="info"
-        :title="t('gameCenter.messages.platformImmediateHint')"
+        :title="t('liveConfig.immediate')"
         :closable="false"
         show-icon
       />
@@ -2713,59 +2517,7 @@ onMounted(async () => {
               :model-value="Number(row.status) === 1"
               :disabled="!can('game:provider:update')"
               @change="changeBoolean(row, 'status')"
-            /><div
-              v-else-if="
-                isGameListPage &&
-                (column.key === 'publishedState' || column.key === 'draftState')
-              "
-              class="game-state-cell"
-            >
-              <div class="game-state-cell__row">
-                <span>{{ t("gameCenter.fields.platformEnabled") }}</span>
-                <el-tag
-                  :type="
-                    gameStateTagType(
-                      column.key === 'publishedState'
-                        ? gamePublishedState(row).enabled
-                        : gameDraftState(row).enabled,
-                    )
-                  "
-                  size="small"
-                >
-                  {{
-                    gameEnabledLabel(
-                      column.key === 'publishedState'
-                        ? gamePublishedState(row).enabled
-                        : gameDraftState(row).enabled,
-                    )
-                  }}
-                </el-tag>
-              </div>
-              <div class="game-state-cell__row">
-                <span>{{ t("gameCenter.fields.sortOrder") }}</span>
-                <strong>{{
-                  column.key === 'publishedState'
-                    ? gamePublishedState(row).sortOrder
-                    : gameDraftState(row).sortOrder
-                }}</strong>
-              </div>
-            </div
-            ><div
-              v-else-if="isGameListPage && column.key === 'hasChanges'"
-              class="game-change-cell"
-            >
-              <el-tag :type="gameConfigStatusType(row)" size="small">
-                {{ gameConfigStatusLabel(row) }}
-              </el-tag>
-              <span v-if="gameDraftChangeCount(row)" class="game-change-cell__count">
-                {{
-                  t("gameCenter.messages.changeCount", {
-                    count: gameDraftChangeCount(row),
-                  })
-                }}
-              </span>
-            </div
-            ><UserStatusTag
+            /><UserStatusTag
               v-else-if="column.status || column.tag || isEnumKey(column.key)"
               :value="String(row[column.key] ?? '')"
               :label="optionLabel(String(row[column.key] ?? ''))"
@@ -2787,7 +2539,7 @@ onMounted(async () => {
               @change="changeBoolean(row, column.key)"
             /><span
               v-else-if="isGameListPage && column.key === 'sortOrder'"
-            >{{ gameDraftNumber(row, "sortOrder") }}</span
+            >{{ gameNumber(row, "sortOrder") }}</span
             ><span v-else-if="column.time">{{
               formatBackendTime(String(row[column.key] || ""))
             }}</span
@@ -2947,7 +2699,7 @@ onMounted(async () => {
               class="detail-tab-actions"
             >
               <el-button type="primary" @click="openAddCategoryGames">
-                {{ t(isPlatform ? "gameCenter.actions.addGame" : "gameCenter.actions.addCategoryGamesDraft") }}
+                {{ t(isPlatform ? "gameCenter.actions.addGame" : "gameCenter.actions.addGame") }}
               </el-button>
             </div
             ><el-timeline
@@ -2989,100 +2741,6 @@ onMounted(async () => {
             ><el-card v-else-if="isTraceTab(tab.key)" shadow="never">
               <pre class="json-value trace-json">{{ traceDisplay(detail[tab.key]) }}</pre>
             </el-card
-            ><div
-              v-else-if="isGameListPage && tab.key === 'draftConfiguration'"
-              class="draft-compare-panel"
-            >
-              <el-alert
-                type="warning"
-                :title="t('gameCenter.messages.editingDraftHint')"
-                :closable="false"
-                show-icon
-              />
-              <div class="draft-meta-row">
-                <el-tag
-                  :type="
-                    String(gameDetailDraftMeta().status).toUpperCase() === 'DRAFT'
-                      ? 'warning'
-                      : 'success'
-                  "
-                  effect="plain"
-                >
-                  {{ optionLabel(gameDetailDraftMeta().status) }}
-                </el-tag>
-                <span>{{
-                  t("gameCenter.messages.configVersion", {
-                    version: gameDetailDraftMeta().version || "-",
-                  })
-                }}</span>
-                <span>{{
-                  t("gameCenter.messages.publishedAt", {
-                    time: formatBackendTime(gameDetailDraftMeta().publishedAt),
-                  })
-                }}</span>
-                <span>{{
-                  t("gameCenter.messages.draftUpdatedAt", {
-                    time: formatBackendTime(gameDetailDraftMeta().draftUpdatedAt),
-                  })
-                }}</span>
-              </div>
-              <el-table
-                :data="gameDetailDraftDiffs()"
-                border
-                :empty-text="t('gameCenter.messages.empty')"
-              >
-                <el-table-column
-                  prop="key"
-                  :label="t('gameCenter.fields.configField')"
-                  min-width="150"
-                >
-                  <template #default="{ row }">{{ detailLabel(row.key) }}</template>
-                </el-table-column>
-                <el-table-column
-                  prop="published"
-                  :label="t('gameCenter.fields.publishedValue')"
-                  min-width="220"
-                  show-overflow-tooltip
-                >
-                  <template #default="{ row }">
-                    <pre
-                      v-if="isObject(row.published) || Array.isArray(row.published)"
-                      class="json-value"
-                    >{{ displayValue(row.key, row.published) }}</pre>
-                    <span v-else>{{ displayValue(row.key, row.published) }}</span>
-                  </template>
-                </el-table-column>
-                <el-table-column
-                  prop="draft"
-                  :label="t('gameCenter.fields.draftValue')"
-                  min-width="220"
-                  show-overflow-tooltip
-                >
-                  <template #default="{ row }">
-                    <pre
-                      v-if="isObject(row.draft) || Array.isArray(row.draft)"
-                      class="json-value"
-                    >{{ displayValue(row.key, row.draft) }}</pre>
-                    <span v-else>{{ displayValue(row.key, row.draft) }}</span>
-                  </template>
-                </el-table-column>
-                <el-table-column
-                  prop="changed"
-                  :label="t('gameCenter.fields.hasChanges')"
-                  width="140"
-                >
-                  <template #default="{ row }">
-                    <el-tag :type="row.changed ? 'warning' : 'success'" size="small">
-                      {{
-                        row.changed
-                          ? t("gameCenter.values.unpublished_changes")
-                          : t("gameCenter.values.no_changes")
-                      }}
-                    </el-tag>
-                  </template>
-                </el-table-column>
-              </el-table>
-            </div
             ><template v-else-if="Array.isArray(detail[tab.key])">
               <el-table
                 :data="detail[tab.key] as RecordValue[]"
@@ -3322,14 +2980,7 @@ onMounted(async () => {
       "
       width="min(760px,94vw)"
       destroy-on-close
-      ><el-alert
-        v-if="usesDraftWorkflow"
-        class="draft-dialog-alert"
-        type="warning"
-        :title="t('gameCenter.messages.draftModeHint')"
-        :closable="false"
-        show-icon
-      />
+      >
       <el-form
         v-if="isGameListPage"
         v-loading="editLoading"
@@ -3563,13 +3214,13 @@ onMounted(async () => {
             isGameListPage
               ? isPlatform
                 ? 'common.save'
-                : 'gameCenter.actions.saveDraft'
+                : 'common.save'
               : isGameCategoriesPage
                 ? isPlatform
                   ? 'common.save'
-                  : 'gameCenter.actions.saveCategoryDraft'
+                  : 'common.save'
                 : moduleKey === 'lobby-sections'
-                  ? 'gameCenter.actions.saveLobbyDraft'
+                  ? 'common.save'
                 : 'common.save',
           )
         }}</el-button></template
@@ -3668,7 +3319,7 @@ onMounted(async () => {
           type="primary"
           :loading="mappingLoading"
           @click="saveCategoryMapping"
-          >{{ t(isPlatform ? "common.save" : "gameCenter.actions.saveCategoryDraft") }}</el-button
+          >{{ t(isPlatform ? "common.save" : "common.save") }}</el-button
         ></template
       ></el-dialog
     >
@@ -3704,7 +3355,7 @@ onMounted(async () => {
               relationKind === 'categories'
                 ? isPlatform
                   ? 'common.save'
-                  : 'gameCenter.actions.saveCategoryDraft'
+                  : 'common.save'
                 : 'common.save',
             )
           }}</el-button
@@ -3831,7 +3482,7 @@ onMounted(async () => {
           :disabled="selectedCandidateGames.length === 0"
           @click="saveAddedCategoryGames"
         >
-          {{ t(isPlatform ? "gameCenter.actions.addSelectedGames" : "gameCenter.actions.addSelectedGamesDraft") }}
+          {{ t(isPlatform ? "gameCenter.actions.addSelectedGames" : "gameCenter.actions.addSelectedGames") }}
         </el-button>
       </template>
     </el-dialog>
@@ -3843,7 +3494,7 @@ onMounted(async () => {
       destroy-on-close
     >
       <el-alert
-        class="draft-dialog-alert"
+        class="configuration-help"
         type="warning"
         :closable="false"
         show-icon
@@ -4020,7 +3671,7 @@ onMounted(async () => {
           :loading="batchCategoryLoading"
           :disabled="!batchCategoryForm.ids.length || !batchCategoryForm.reason.trim()"
           @click="saveBatchCategory"
-        >{{ t(isPlatform ? "common.confirm" : "gameCenter.actions.saveCategoryDraft") }}</el-button>
+        >{{ t(isPlatform ? "common.confirm" : "common.save") }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -4050,16 +3701,6 @@ onMounted(async () => {
   color: var(--el-text-color-secondary);
   font-size: 13px;
 }
-.draft-page-alert,
-.draft-dialog-alert {
-  margin-bottom: 12px;
-}
-.game-state-cell,
-.game-change-cell,
-.draft-compare-panel {
-  display: grid;
-  gap: 8px;
-}
 .game-state-cell__row {
   display: flex;
   align-items: center;
@@ -4070,13 +3711,6 @@ onMounted(async () => {
 .game-change-cell__count {
   color: var(--el-text-color-secondary);
   font-size: 12px;
-}
-.draft-meta-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px 16px;
-  color: var(--el-text-color-secondary);
 }
 .pagination-row {
   padding-top: 18px;

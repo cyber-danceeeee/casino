@@ -27,18 +27,10 @@ func (s *Service) BrandOverview(actor Actor) (map[string]any, error) {
 	_ = s.db.Table("game_game_providers").
 		Where("site_id = ? AND deleted_at IS NULL AND status = 1", row.ID).
 		Count(&providersEnabled).Error
-	var gamesConfigured int64
-	_ = s.db.Table("game_games").
-		Where("site_id = ? AND deleted_at IS NULL AND COALESCE(platform_enabled_draft, platform_enabled) = 1", row.ID).
-		Count(&gamesConfigured).Error
 	meta := siteConfigMeta(row)
-	draft := siteDraftConfig(row)
-	maintenance := parseJSONMap(firstDraft(row.MaintenanceDraft, row.MaintenanceConfig))
-	modules := []string{}
-	if pending, _, pendingErr := pendingReleaseModulesIfAvailable(s, row); pendingErr == nil {
-		modules = pending
-	}
-	setup := s.brandSetupChecklist(row, draft, gamesEnabled, providersEnabled)
+	configuration := siteConfiguration(row)
+	maintenance := parseJSONMap(row.MaintenanceConfig)
+	setup := s.brandSetupChecklist(row, configuration, gamesEnabled, providersEnabled)
 	completed := 0
 	for _, item := range setup {
 		if item.Status == "COMPLETED" {
@@ -47,22 +39,13 @@ func (s *Service) BrandOverview(actor Actor) (map[string]any, error) {
 	}
 	updatedBy := ""
 	_ = s.db.Table("game_admin_operation_logs").Where("site_id = ? AND deleted_at IS NULL", row.ID).Order("created_at DESC").Limit(1).Pluck("operator_username", &updatedBy).Error
-	changes := make([]map[string]any, 0, len(modules))
-	for _, module := range modules {
-		change := map[string]any{"module": module, "summary": module + " draft updated", "updatedBy": updatedBy, "updatedAt": row.ConfigDraftUpdatedAt}
-		if module == "BRAND" {
-			change["before"] = businessConfig(sitePublishedConfig(row))
-			change["after"] = businessConfig(draft)
-		}
-		changes = append(changes, change)
-	}
 	return map[string]any{
 		"siteID":             row.ID,
-		"brandName":          firstNonEmpty(stringFromMap(draft, "siteName"), row.SiteName),
-		"countryCode":        stringFromMap(draft, "countryCode"),
-		"currencyCode":       stringFromMap(draft, "currencyCode"),
-		"defaultLanguage":    stringFromMap(draft, "defaultLanguage"),
-		"timezone":           stringFromMap(draft, "timezone"),
+		"brandName":          firstNonEmpty(stringFromMap(configuration, "siteName"), row.SiteName),
+		"countryCode":        stringFromMap(configuration, "countryCode"),
+		"currencyCode":       stringFromMap(configuration, "currencyCode"),
+		"defaultLanguage":    stringFromMap(configuration, "defaultLanguage"),
+		"timezone":           stringFromMap(configuration, "timezone"),
 		"currentSite":        row.SiteName,
 		"siteCode":           row.SiteCode,
 		"primaryDomain":      row.PrimaryDomain,
@@ -71,54 +54,23 @@ func (s *Service) BrandOverview(actor Actor) (map[string]any, error) {
 		"maintenance":        maintenance,
 		"maintenanceEnabled": truthyValue(maintenance["enabled"]) || strings.EqualFold(row.Status, "MAINTENANCE"),
 		"gamesEnabled":       gamesEnabled,
-		"gamesConfigured":    gamesConfigured,
+		"gamesConfigured":    gamesEnabled,
 		"providersEnabled":   providersEnabled,
-		"publishStatus":      meta["status"],
-		"publishedVersion":   meta["configVersion"],
-		"draftVersion":       draftVersion(meta),
-		"publishedAt":        row.ConfigPublishedAt,
-		"draftUpdatedAt":     row.ConfigDraftUpdatedAt,
-		"hasUnpublished":     strings.EqualFold(stringFromAny(meta["status"]), "DRAFT"),
-		"unpublishedChanges": len(modules),
-		"unpublishedModules": modules,
-		"pendingChanges":     changes,
 		"lastUpdatedBy":      updatedBy,
 		"isInitialized":      row.IsInitialized,
 		"setupChecklist":     setup,
 		"setupCompleted":     completed,
 		"setupTotal":         len(setup),
 		"setupPercent":       setupPercent(completed, len(setup)),
-		"publishedConfig":    sitePublishedConfig(row),
-		"draftConfig":        draft,
-		"configMeta":         meta,
+		"configuration":      configuration, "configMeta": meta,
 	}, nil
 }
 
-func pendingReleaseModulesIfAvailable(s *Service, row SiteRow) ([]string, bool, error) {
-	if !s.db.Migrator().HasTable("game_config_releases") {
-		if strings.EqualFold(row.ConfigStatus, "DRAFT") {
-			return []string{"BRAND"}, true, nil
-		}
-		return []string{}, false, nil
-	}
-	checks := []string{"game_lobby_sections", "game_games", "game_site_banners", "game_site_announcements", "game_popup_campaigns", "game_h5_navigation_items"}
-	for _, table := range checks {
-		if !s.db.Migrator().HasTable(table) {
-			if strings.EqualFold(row.ConfigStatus, "DRAFT") {
-				return []string{"BRAND"}, true, nil
-			}
-			return []string{}, false, nil
-		}
-	}
-	return pendingReleaseModules(s.db, row)
-}
-
-func (s *Service) brandSetupChecklist(row SiteRow, draft map[string]any, gamesEnabled int64, providersEnabled int64) []brandSetupItem {
-	brand := configMap(draft["brandConfig"])
-	theme := configMap(draft["themeConfig"])
-	country := firstNonEmpty(stringFromMap(draft, "countryCode"), row.CountryCode)
-	currency := firstNonEmpty(stringFromMap(draft, "currencyCode"), row.CurrencyCode)
-	language := firstNonEmpty(stringFromMap(draft, "defaultLanguage"), row.DefaultLanguage)
+func (s *Service) brandSetupChecklist(row SiteRow, configuration map[string]any, gamesEnabled int64, providersEnabled int64) []brandSetupItem {
+	brand := configMap(configuration["brandConfig"])
+	country := firstNonEmpty(stringFromMap(configuration, "countryCode"), row.CountryCode)
+	currency := firstNonEmpty(stringFromMap(configuration, "currencyCode"), row.CurrencyCode)
+	language := firstNonEmpty(stringFromMap(configuration, "defaultLanguage"), row.DefaultLanguage)
 
 	var domainCount, paymentCount, lobbyCount, bannerCount, supportCount int64
 	if s.db.Migrator().HasTable("game_payment_channels") {
@@ -144,9 +96,7 @@ func (s *Service) brandSetupChecklist(row SiteRow, draft map[string]any, gamesEn
 		return "INCOMPLETE"
 	}
 	return []brandSetupItem{
-		{Key: "brandInformation", Status: status(firstNonEmpty(stringFromMap(brand, "name"), stringFromMap(draft, "siteName"), row.SiteName) != ""), Path: "/system/brand"},
-		{Key: "logo", Status: status(stringFromMap(brand, "logo") != ""), Path: "/system/brand"},
-		{Key: "theme", Status: status(stringFromMap(theme, "primary") != ""), Path: "/system/brand"},
+		{Key: "brandInformation", Status: status(firstNonEmpty(stringFromMap(brand, "name"), stringFromMap(configuration, "siteName"), row.SiteName) != ""), Path: "/system/brand"},
 		{Key: "country", Status: status(country != ""), Path: "/system/brand"},
 		{Key: "currency", Status: status(currency != ""), Path: "/system/brand"},
 		{Key: "language", Status: status(language != ""), Path: "/system/brand"},
@@ -157,8 +107,6 @@ func (s *Service) brandSetupChecklist(row SiteRow, draft map[string]any, gamesEn
 		{Key: "lobby", Status: status(lobbyCount > 0), Path: "/games/lobby-sections"},
 		{Key: "banner", Status: status(bannerCount > 0), Path: "/operations/banners"},
 		{Key: "customerSupport", Status: status(supportCount > 0), Path: "/operations/social-links"},
-		{Key: "preview", Status: status(row.ConfigDraftUpdatedAt != nil || row.ConfigPublishedAt != nil), Path: "/system/brand"},
-		{Key: "firstPublish", Status: status(row.ConfigPublishedAt != nil), Path: "/system/brand"},
 	}
 }
 
@@ -216,25 +164,6 @@ func (s *Service) brandSiteRow(actor Actor) (SiteRow, error) {
 		return row, rowNotFound("site")
 	}
 	return row, nil
-}
-
-func draftVersion(meta map[string]any) uint64 {
-	version := uint64(0)
-	switch value := meta["configVersion"].(type) {
-	case uint64:
-		version = value
-	case int:
-		version = uint64(value)
-	case int64:
-		version = uint64(value)
-	}
-	if version == 0 {
-		version = 1
-	}
-	if strings.EqualFold(stringFromAny(meta["status"]), "DRAFT") {
-		return version + 1
-	}
-	return version
 }
 
 func stringFromMap(values map[string]any, key string) string {

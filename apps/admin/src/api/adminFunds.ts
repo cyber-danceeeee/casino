@@ -1,3 +1,4 @@
+import { requestID } from '@/utils/requestID'
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut, http, type ApiResponse } from './http'
 import type { PageResult } from './adminUsers'
 
@@ -73,7 +74,7 @@ export const fetchTransaction = (id: number) => apiGet<FundDetail>(`/admin/funds
 export const fetchAdjustments = (params: FundQuery) => apiGet<PageResult<AdjustmentRow>>('/admin/funds/adjustments', params)
 export const fetchAdjustment = (id: number) => apiGet<FundDetail>(`/admin/funds/adjustments/${id}`)
 export async function createAdjustment(payload: Record<string, unknown>) {
-  const key = crypto.randomUUID()
+  const key = requestID()
   const { data } = await http.post<ApiResponse<{ id: number }>>('/admin/funds/adjustments', payload, { headers: { 'Idempotency-Key': key } })
   if (data.code !== 0) throw new Error(data.msg)
   return data.data

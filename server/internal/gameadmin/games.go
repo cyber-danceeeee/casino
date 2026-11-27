@@ -32,9 +32,9 @@ func (s *Service) ListGames(q ListQuery) (PageResult, error) {
 
 func gameListSelect(scope content.Scope) string {
 	return `g.id,g.game_code,g.provider_id,p.provider_code,g.provider_game_code,g.name,g.name_i18n,g.slug,g.game_type,g.rtp,g.volatility,g.category,
-		g.cover_url,g.local_thumbnail_url,g.background_url,g.launch_image_url,g.maintenance_message,g.maintenance_message_draft,g.supports_demo,g.supports_free_spins,
-		g.provider_enabled,g.platform_enabled,g.platform_enabled_draft,g.is_hot,g.is_hot_draft,g.is_featured,g.is_featured_draft,g.is_new,g.is_new_draft,
-		g.status,g.status_draft,g.sort,g.sort_draft,g.category_ids_draft,g.config_status,g.config_version,g.config_published_at,g.config_published_by,g.draft_updated_at,g.draft_updated_by,
+		g.cover_url,g.local_thumbnail_url,g.background_url,g.launch_image_url,g.maintenance_message,g.supports_demo,g.supports_free_spins,
+		g.provider_enabled,g.platform_enabled,g.is_hot,g.is_featured,g.is_new,
+		g.status,g.sort,g.config_version,
 		g.supported_countries,g.supported_currencies,g.supported_devices,g.last_synced_at,g.created_at,g.updated_at,
 		(SELECT GROUP_CONCAT(c.category_key ORDER BY r.sort,r.id SEPARATOR ',') FROM game_game_category_relations r JOIN game_game_categories c ON c.id=r.category_id AND c.deleted_at IS NULL WHERE r.game_id=g.id AND r.deleted_at IS NULL AND ` + categoryRelationScopePredicate("r", scope) + ` AND ` + categoryRelationScopePredicate("c", scope) + `) platform_category_codes,
 		(SELECT GROUP_CONCAT(t.code ORDER BY t.sort_order,t.id SEPARATOR ',') FROM game_game_tag_relations tr JOIN game_game_tags t ON t.id=tr.tag_id AND t.deleted_at IS NULL WHERE tr.game_id=g.id AND tr.deleted_at IS NULL) tag_codes`
@@ -216,58 +216,46 @@ func (s *Service) ImportGames(in GameImportInput, actor Actor) (map[string]any, 
 			}
 			rows = append(rows, map[string]any{
 
-				"site_id":                   actor.Scope.SiteID,
-				"game_code":                 src.GameCode,
-				"provider_id":               siteProvider.ID,
-				"provider_game_code":        src.ProviderGameCode,
-				"name":                      src.Name,
-				"name_i18n":                 jsonObjectOrDefault(src.NameI18n),
-				"slug":                      src.Slug,
-				"category":                  src.Category,
-				"game_type":                 src.GameType,
-				"rtp":                       src.RTP,
-				"volatility":                src.Volatility,
-				"cover_url":                 src.CoverURL,
-				"local_thumbnail_url":       src.LocalThumbnailURL,
-				"background_url":            src.BackgroundURL,
-				"launch_image_url":          src.LaunchImageURL,
-				"maintenance_message":       src.MaintenanceMessage,
-				"maintenance_message_draft": src.MaintenanceMessage,
-				"supports_demo":             src.SupportsDemo,
-				"supports_free_spins":       src.SupportsFreeSpins,
-				"provider_enabled":          src.ProviderEnabled && siteProvider.Status == 1,
-				"platform_enabled":          false,
-				"platform_enabled_draft":    false,
-				"is_hot":                    false,
-				"is_hot_draft":              false,
-				"is_featured":               false,
-				"is_featured_draft":         false,
-				"is_new":                    false,
-				"is_new_draft":              false,
-				"supported_countries":       src.SupportedCountries,
-				"supported_currencies":      src.SupportedCurrencies,
-				"supported_devices":         src.SupportedDevices,
-				"raw_metadata":              jsonObjectOrDefault(src.RawMetadata),
-				"metadata_hash":             src.MetadataHash,
-				"last_synced_at":            src.LastSyncedAt,
-				"badge":                     src.Badge,
-				"player_count":              0,
-				"hot_score":                 src.HotScore,
-				"launch_url":                src.LaunchURL,
-				"status":                    3,
-				"status_draft":              3,
-				"sort":                      src.Sort,
-				"sort_draft":                src.Sort,
-				"platform_category_id":      0,
-				"platform_category_code":    "",
-				"category_ids_draft":        "[]",
-				"config_status":             "DRAFT",
-				"config_version":            0,
-				"config_published_by":       0,
-				"draft_updated_at":          nowValue,
-				"draft_updated_by":          actor.ID,
-				"created_at":                nowValue,
-				"updated_at":                nowValue,
+				"site_id":                actor.Scope.SiteID,
+				"game_code":              src.GameCode,
+				"provider_id":            siteProvider.ID,
+				"provider_game_code":     src.ProviderGameCode,
+				"name":                   src.Name,
+				"name_i18n":              jsonObjectOrDefault(src.NameI18n),
+				"slug":                   src.Slug,
+				"category":               src.Category,
+				"game_type":              src.GameType,
+				"rtp":                    src.RTP,
+				"volatility":             src.Volatility,
+				"cover_url":              src.CoverURL,
+				"local_thumbnail_url":    src.LocalThumbnailURL,
+				"background_url":         src.BackgroundURL,
+				"launch_image_url":       src.LaunchImageURL,
+				"maintenance_message":    src.MaintenanceMessage,
+				"supports_demo":          src.SupportsDemo,
+				"supports_free_spins":    src.SupportsFreeSpins,
+				"provider_enabled":       src.ProviderEnabled && siteProvider.Status == 1,
+				"platform_enabled":       false,
+				"is_hot":                 false,
+				"is_featured":            false,
+				"is_new":                 false,
+				"supported_countries":    src.SupportedCountries,
+				"supported_currencies":   src.SupportedCurrencies,
+				"supported_devices":      src.SupportedDevices,
+				"raw_metadata":           jsonObjectOrDefault(src.RawMetadata),
+				"metadata_hash":          src.MetadataHash,
+				"last_synced_at":         src.LastSyncedAt,
+				"badge":                  src.Badge,
+				"player_count":           0,
+				"hot_score":              src.HotScore,
+				"launch_url":             src.LaunchURL,
+				"status":                 3,
+				"sort":                   src.Sort,
+				"platform_category_id":   0,
+				"platform_category_code": "",
+				"config_version":         0,
+				"created_at":             nowValue,
+				"updated_at":             nowValue,
 			})
 			importedIDs = append(importedIDs, src.ID)
 			existingKeys[gameImportKey(providerCode, src.ProviderGameCode)] = true
@@ -379,14 +367,12 @@ func (s *Service) ApplyProviderCategoryMapping(in ProviderCategoryMappingInput, 
 			return err
 		}
 		if len(gameIDs) > 0 {
-			items := categoryDraftFromIDs(categoryIDs)
+			items := categoriesFromIDs(categoryIDs)
 			for _, gameID := range gameIDs {
 				var err error
-				if actor.Scope.Platform {
-					err = s.savePublishedGameCategories(tx, actor, gameID, items)
-				} else {
-					err = s.saveGameCategoryDraft(tx, actor, gameID, items)
-				}
+
+				err = s.saveGameCategories(tx, actor, gameID, items)
+
 				if err != nil {
 					return err
 				}
@@ -394,10 +380,10 @@ func (s *Service) ApplyProviderCategoryMapping(in ProviderCategoryMappingInput, 
 		}
 		before := map[string]any{"providerCode": providerCode, "source": source, "code": code}
 		after := map[string]any{"categoryIds": categoryIDs, "matchedCount": len(gameIDs), "updatedCount": len(gameIDs)}
-		action := "provider_category_mapping_draft"
-		if actor.Scope.Platform {
-			action = "provider_category_mapping"
-		}
+		action := "provider_category_mapping"
+
+		action = "provider_category_mapping"
+
 		if err := audit(tx, actor, "game:category:assign", action, "game_category_mapping", 0, before, after, in.Reason); err != nil {
 			return err
 		}
@@ -449,27 +435,13 @@ func (s *Service) GameDetail(id uint64, scope content.Scope) (map[string]any, er
 		signCollectionAsset(&collections[i])
 	}
 	providerData := map[string]any{"providerCode": row.ProviderCode, "providerGameId": row.ProviderGameID, "providerCategoryCode": row.ProviderCategoryCode, "providerEnabled": row.ProviderEnabled, "rawMetadata": redactJSON(row.RawMetadata)}
-	draftConfiguration := map[string]any{
-		"status":             strings.ToUpper(firstNonEmpty(row.ConfigStatus, "PUBLISHED")),
-		"configVersion":      row.ConfigVersion,
-		"publishedAt":        row.ConfigPublishedAt,
-		"publishedBy":        row.ConfigPublishedBy,
-		"draftUpdatedAt":     row.DraftUpdatedAt,
-		"draftUpdatedBy":     row.DraftUpdatedBy,
-		"platformEnabled":    draftBool(row.PlatformEnabledDraft, row.PlatformEnabled),
-		"isHot":              draftBool(row.IsHotDraft, row.IsHot),
-		"isFeatured":         draftBool(row.IsFeaturedDraft, row.IsFeatured),
-		"isNew":              draftBool(row.IsNewDraft, row.IsNew),
-		"sortOrder":          draftInt(row.SortDraft, row.SortOrder),
-		"statusValue":        draftInt(row.StatusDraft, row.Status),
-		"maintenanceMessage": draftString(row.MaintenanceMessageDraft, row.MaintenanceMessage),
-		"categoryDraft":      parseGameCategoryDraftItems(row.CategoryIDsDraft),
-	}
+	configuration := map[string]any{"configVersion": row.ConfigVersion, "platformEnabled": row.PlatformEnabled, "isHot": row.IsHot, "isFeatured": row.IsFeatured, "isNew": row.IsNew, "sortOrder": row.SortOrder, "statusValue": row.Status, "maintenanceMessage": row.MaintenanceMessage}
+
 	return map[string]any{
 		"overview":                row,
 		"providerData":            providerData,
 		"platformConfiguration":   map[string]any{"platformEnabled": row.PlatformEnabled, "isHot": row.IsHot, "isFeatured": row.IsFeatured, "isNew": row.IsNew, "sortOrder": row.SortOrder, "localThumbnailUrl": row.LocalThumbnailURL},
-		"draftConfiguration":      draftConfiguration,
+		"configuration":           configuration,
 		"categoriesAndTags":       map[string]any{"categories": categories, "tags": tags, "collections": collections},
 		"countryAndCurrencyRules": map[string]any{"countries": row.SupportedCountries, "currencies": row.SupportedCurrencies, "devices": row.SupportedDevices},
 		"launchConfiguration":     map[string]any{"supportsDemo": row.SupportsDemo, "supportsFreeSpins": row.SupportsFreeSpins, "effectiveEnabled": row.ProviderEnabled && row.PlatformEnabled},
@@ -509,39 +481,20 @@ func (s *Service) UpdateGame(id uint64, in GameInput, actor Actor) error {
 		if in.SupportsFreeSpins != nil {
 			updates["supports_free_spins"] = *in.SupportsFreeSpins
 		}
-		if actor.Scope.Platform {
-			updates["platform_enabled"] = in.PlatformEnabled
-			updates["platform_enabled_draft"] = in.PlatformEnabled
-			updates["is_hot"] = in.IsHot
-			updates["is_hot_draft"] = in.IsHot
-			updates["is_featured"] = in.IsFeatured
-			updates["is_featured_draft"] = in.IsFeatured
-			updates["is_new"] = in.IsNew
-			updates["is_new_draft"] = in.IsNew
-			updates["sort"] = in.SortOrder
-			updates["sort_draft"] = in.SortOrder
-			updates["status"] = effectiveStatus(row.ProviderEnabled, in.PlatformEnabled)
-			updates["status_draft"] = effectiveStatus(row.ProviderEnabled, in.PlatformEnabled)
-			updates["maintenance_message"] = strings.TrimSpace(in.MaintenanceMessage)
-			updates["maintenance_message_draft"] = strings.TrimSpace(in.MaintenanceMessage)
-			updates = gamePublishedUpdate(actor, updates)
-			if err := tx.Table("game_games").Where("id=? AND deleted_at IS NULL", id).Updates(updates).Error; err != nil {
-				return err
-			}
-			return audit(tx, actor, "game:update", "update", "game", id, row, updates, in.Reason)
-		}
-		updates = gameDraftUpdate(actor, updates)
-		updates["platform_enabled_draft"] = in.PlatformEnabled
-		updates["is_hot_draft"] = in.IsHot
-		updates["is_featured_draft"] = in.IsFeatured
-		updates["is_new_draft"] = in.IsNew
-		updates["sort_draft"] = in.SortOrder
-		updates["status_draft"] = effectiveStatus(row.ProviderEnabled, in.PlatformEnabled)
-		updates["maintenance_message_draft"] = strings.TrimSpace(in.MaintenanceMessage)
-		if err := content.ApplySite(tx.Table("game_games"), "", actor.Scope).Where("id=?", id).Updates(updates).Error; err != nil {
+
+		updates["platform_enabled"] = in.PlatformEnabled
+		updates["is_hot"] = in.IsHot
+		updates["is_featured"] = in.IsFeatured
+		updates["is_new"] = in.IsNew
+		updates["sort"] = in.SortOrder
+		updates["status"] = effectiveStatus(row.ProviderEnabled, in.PlatformEnabled)
+		updates["maintenance_message"] = strings.TrimSpace(in.MaintenanceMessage)
+		updates = gameConfigurationUpdate(actor, updates)
+		if err := tx.Table("game_games").Where("id=? AND deleted_at IS NULL", id).Updates(updates).Error; err != nil {
 			return err
 		}
-		return audit(tx, actor, "game:update", "update_draft", "game", id, row, updates, in.Reason)
+		return audit(tx, actor, "game:update", "update", "game", id, row, updates, in.Reason)
+
 	})
 }
 
@@ -584,62 +537,50 @@ func (s *Service) BatchUpdateGames(in GameBatchInput, actor Actor) (map[string]a
 	updates := map[string]any{}
 	auditUpdates := map[string]any{}
 	if in.PlatformEnabled != nil {
-		if actor.Scope.Platform {
-			updates["platform_enabled"] = *in.PlatformEnabled
-			updates["platform_enabled_draft"] = *in.PlatformEnabled
-			updates["status"] = gorm.Expr("CASE WHEN provider_enabled = 1 AND ? THEN 1 ELSE 3 END", *in.PlatformEnabled)
-			updates["status_draft"] = gorm.Expr("CASE WHEN provider_enabled = 1 AND ? THEN 1 ELSE 3 END", *in.PlatformEnabled)
-		} else {
-			updates["platform_enabled_draft"] = *in.PlatformEnabled
-			updates["status_draft"] = gorm.Expr("CASE WHEN provider_enabled = 1 AND ? THEN 1 ELSE 3 END", *in.PlatformEnabled)
-		}
+
+		updates["platform_enabled"] = *in.PlatformEnabled
+		updates["status"] = gorm.Expr("CASE WHEN provider_enabled = 1 AND ? THEN 1 ELSE 3 END", *in.PlatformEnabled)
+
 		auditUpdates["platformEnabled"] = *in.PlatformEnabled
 	}
 	if in.IsHot != nil {
-		if actor.Scope.Platform {
-			updates["is_hot"] = *in.IsHot
-		}
-		updates["is_hot_draft"] = *in.IsHot
+
+		updates["is_hot"] = *in.IsHot
+
 		auditUpdates["isHot"] = *in.IsHot
 	}
 	if in.IsFeatured != nil {
-		if actor.Scope.Platform {
-			updates["is_featured"] = *in.IsFeatured
-		}
-		updates["is_featured_draft"] = *in.IsFeatured
+
+		updates["is_featured"] = *in.IsFeatured
+
 		auditUpdates["isFeatured"] = *in.IsFeatured
 	}
 	if in.IsNew != nil {
-		if actor.Scope.Platform {
-			updates["is_new"] = *in.IsNew
-		}
-		updates["is_new_draft"] = *in.IsNew
+
+		updates["is_new"] = *in.IsNew
+
 		auditUpdates["isNew"] = *in.IsNew
 	}
 	if in.Maintenance != nil {
 		if *in.Maintenance {
-			updates["status_draft"] = 2
-			if actor.Scope.Platform {
-				updates["status"] = 2
-			}
+
+			updates["status"] = 2
+
 		} else if in.PlatformEnabled != nil {
-			updates["status_draft"] = gorm.Expr("CASE WHEN provider_enabled = 1 AND ? THEN 1 ELSE 3 END", *in.PlatformEnabled)
-			if actor.Scope.Platform {
-				updates["status"] = gorm.Expr("CASE WHEN provider_enabled = 1 AND ? THEN 1 ELSE 3 END", *in.PlatformEnabled)
-			}
+
+			updates["status"] = gorm.Expr("CASE WHEN provider_enabled = 1 AND ? THEN 1 ELSE 3 END", *in.PlatformEnabled)
+
 		} else {
-			updates["status_draft"] = gorm.Expr("CASE WHEN provider_enabled = 1 AND COALESCE(platform_enabled_draft,platform_enabled) = 1 THEN 1 ELSE 3 END")
-			if actor.Scope.Platform {
-				updates["status"] = gorm.Expr("CASE WHEN provider_enabled = 1 AND platform_enabled = 1 THEN 1 ELSE 3 END")
-			}
+
+			updates["status"] = gorm.Expr("CASE WHEN provider_enabled = 1 AND platform_enabled = 1 THEN 1 ELSE 3 END")
+
 		}
 		auditUpdates["maintenance"] = *in.Maintenance
 	}
 	if in.MaintenanceMessage != nil {
-		updates["maintenance_message_draft"] = strings.TrimSpace(*in.MaintenanceMessage)
-		if actor.Scope.Platform {
-			updates["maintenance_message"] = strings.TrimSpace(*in.MaintenanceMessage)
-		}
+
+		updates["maintenance_message"] = strings.TrimSpace(*in.MaintenanceMessage)
+
 		auditUpdates["maintenanceMessage"] = strings.TrimSpace(*in.MaintenanceMessage)
 	}
 	sortUpdates := map[uint64]int{}
@@ -682,11 +623,9 @@ func (s *Service) BatchUpdateGames(in GameBatchInput, actor Actor) (map[string]a
 		var affected int64
 		if len(updates) > 0 {
 			values := updates
-			if actor.Scope.Platform {
-				values["updated_at"] = time.Now()
-			} else {
-				values = gameDraftUpdate(actor, updates)
-			}
+
+			values["updated_at"] = time.Now()
+
 			db := content.ApplySite(tx.Table("game_games"), "", actor.Scope).Where("id IN ? AND deleted_at IS NULL", gameIDs).Updates(values)
 			if db.Error != nil {
 				return db.Error
@@ -694,12 +633,8 @@ func (s *Service) BatchUpdateGames(in GameBatchInput, actor Actor) (map[string]a
 			affected = db.RowsAffected
 		}
 		for gameID, sortOrder := range sortUpdates {
-			values := map[string]any{"sort_draft": sortOrder}
-			if actor.Scope.Platform {
-				values = map[string]any{"sort": sortOrder, "sort_draft": sortOrder, "updated_at": time.Now()}
-			} else {
-				values = gameDraftUpdate(actor, values)
-			}
+			values := map[string]any{"sort": sortOrder, "updated_at": time.Now()}
+
 			db := content.ApplySite(tx.Table("game_games"), "", actor.Scope).Where("id=? AND deleted_at IS NULL", gameID).Updates(values)
 			if db.Error != nil {
 				return db.Error
@@ -707,50 +642,34 @@ func (s *Service) BatchUpdateGames(in GameBatchInput, actor Actor) (map[string]a
 			affected += db.RowsAffected
 		}
 		if in.CategoryIDs != nil {
-			items := categoryDraftFromIDs(*in.CategoryIDs)
+			items := categoriesFromIDs(*in.CategoryIDs)
 			for _, gameID := range gameIDs {
-				if actor.Scope.Platform {
-					normalized, err := s.normalizeGameCategoryDraft(tx, actor, items)
-					if err != nil {
-						return err
-					}
-					ids := make([]uint64, 0, len(normalized))
-					for _, item := range normalized {
-						ids = append(ids, item.CategoryID)
-					}
-					if err := s.batchReplaceRelations(tx, actor, []uint64{gameID}, ids, "category"); err != nil {
-						return err
-					}
-					encoded, err := json.Marshal(normalized)
-					if err != nil {
-						return newError("INVALID_REQUEST", "invalid category configuration")
-					}
-					if err := content.ApplySite(tx.Table("game_games"), "", actor.Scope).
-						Where("id=? AND deleted_at IS NULL", gameID).
-						Updates(map[string]any{"category_ids_draft": string(encoded), "updated_at": time.Now()}).Error; err != nil {
-						return err
-					}
-				} else {
-					if err := s.saveGameCategoryDraft(tx, actor, gameID, items); err != nil {
-						return err
-					}
+
+				normalized, err := s.normalizeGameCategories(tx, actor, items)
+				if err != nil {
+					return err
+				}
+				ids := make([]uint64, 0, len(normalized))
+				for _, item := range normalized {
+					ids = append(ids, item.CategoryID)
+				}
+				if err := s.batchReplaceRelations(tx, actor, []uint64{gameID}, ids, "category"); err != nil {
+					return err
 				}
 			}
 			affected += int64(len(gameIDs))
 		}
 		if in.AddCategoryIDs != nil {
-			additions := categoryDraftFromIDs(*in.AddCategoryIDs)
+			additions := categoriesFromIDs(*in.AddCategoryIDs)
 			if len(additions) == 0 {
 				return newError("INVALID_REQUEST", "category ids are required")
 			}
 			for _, gameID := range gameIDs {
-				var items []gameCategoryDraftItem
+				var items []gameCategoryItem
 				var err error
-				if actor.Scope.Platform {
-					items, err = s.loadPublishedGameCategories(tx, actor, gameID)
-				} else {
-					items, err = s.loadGameCategoryDraft(tx, actor, gameID)
-				}
+
+				items, err = s.loadGameCategories(tx, actor, gameID)
+
 				if err != nil {
 					return err
 				}
@@ -766,11 +685,9 @@ func (s *Service) BatchUpdateGames(in GameBatchInput, actor Actor) (map[string]a
 					items = append(items, addition)
 					seen[addition.CategoryID] = true
 				}
-				if actor.Scope.Platform {
-					err = s.savePublishedGameCategories(tx, actor, gameID, items)
-				} else {
-					err = s.saveGameCategoryDraft(tx, actor, gameID, items)
-				}
+
+				err = s.saveGameCategories(tx, actor, gameID, items)
+
 				if err != nil {
 					return err
 				}
@@ -782,17 +699,17 @@ func (s *Service) BatchUpdateGames(in GameBatchInput, actor Actor) (map[string]a
 				return err
 			}
 		}
-		if actor.Scope.Platform {
-			if err := tx.Table("game_games").Where("id IN ? AND deleted_at IS NULL", gameIDs).
-				Updates(gamePublishedUpdate(actor, map[string]any{})).Error; err != nil {
-				return err
-			}
+
+		if err := tx.Table("game_games").Where("id IN ? AND deleted_at IS NULL", gameIDs).
+			Updates(gameConfigurationUpdate(actor, map[string]any{})).Error; err != nil {
+			return err
 		}
+
 		after := map[string]any{"ids": gameIDs, "updates": auditUpdates, "updatedCount": affected}
-		action := "batch_update_draft"
-		if actor.Scope.Platform {
-			action = "batch_update"
-		}
+		action := "batch_update"
+
+		action = "batch_update"
+
 		if err := audit(tx, actor, "game:update", action, "game", 0, before, after, reason); err != nil {
 			return err
 		}
@@ -910,26 +827,24 @@ func (s *Service) SetGameCategories(id uint64, in RelationInput, actor Actor) er
 		if count == 0 {
 			return newError("GAME_NOT_FOUND", "record not found")
 		}
-		before, err := s.loadGameCategoryDraft(tx, actor, id)
-		if actor.Scope.Platform {
-			before, err = s.loadPublishedGameCategories(tx, actor, id)
-		}
+		before, err := s.loadGameCategories(tx, actor, id)
+
+		before, err = s.loadGameCategories(tx, actor, id)
+
 		if err != nil {
 			return err
 		}
-		after := categoryDraftFromIDs(in.IDs)
-		if actor.Scope.Platform {
-			err = s.savePublishedGameCategories(tx, actor, id, after)
-		} else {
-			err = s.saveGameCategoryDraft(tx, actor, id, after)
-		}
+		after := categoriesFromIDs(in.IDs)
+
+		err = s.saveGameCategories(tx, actor, id, after)
+
 		if err != nil {
 			return err
 		}
-		action := "assign_category_draft"
-		if actor.Scope.Platform {
-			action = "assign_category"
-		}
+		action := "assign_category"
+
+		action = "assign_category"
+
 		return audit(tx, actor, "game:category:assign", action, "game", id, before, after, in.Reason)
 	})
 }

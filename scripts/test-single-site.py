@@ -103,7 +103,7 @@ for path in ['/admin/system/admins', '/admin/system/roles', '/admin/system/count
 assert call('/admin/system/h5/markets')['list']
 
 site = call('/admin/system/brand/overview')
-payload = dict(site['draftConfig'])
+payload = dict(site['configuration'])
 payload.update(siteName='Single H5 Acceptance', h5Domain=f'http://127.0.0.1:{h5_port}',
                reason='single-site integration test')
 payload['brandConfig'] = dict(payload['brandConfig'], appName='Single H5 Acceptance')
@@ -111,13 +111,11 @@ payload['themeConfig'] = dict(payload['themeConfig'], primary='#12ab34', button=
 payload['seoConfig'] = dict(payload.get('seoConfig') or {}, title='Single H5 Acceptance',
                             description='Single-site deployment verification')
 call('/admin/system/h5/settings', payload, method='PUT')
-assert call('/app/config', base=h5_base)['branding']['theme'].get('primaryColor') != '#12ab34'
-call(f'/admin/system/sites/{site["siteID"]}/config/publish', {'reason': 'single-site integration test'})
-published = call('/app/config', base=h5_base)
-assert published['siteId'] == site['siteID']
-assert published['branding']['theme']['primaryColor'] == '#12ab34'
-assert published['branding']['appName'] == 'Single H5 Acceptance'
-assert published['seo']['title'] == 'Single H5 Acceptance'
+current = call('/app/config', base=h5_base)
+assert current['siteId'] == site['siteID']
+assert current['branding']['theme']['primaryColor'] == '#12ab34'
+assert current['branding']['appName'] == 'Single H5 Acceptance'
+assert current['seo']['title'] == 'Single H5 Acceptance'
 # A real H5 registration creates a user session and its configured wallet.
 admin_token = token
 player_password = 'Player9!' + secrets.token_hex(8)

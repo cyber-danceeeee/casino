@@ -137,7 +137,7 @@ export function statusType(
       "PROCESSING",
       "REVIEW",
       "UNDER_REVIEW",
-      "DRAFT",
+      "READY",
       "SCHEDULED",
       "DEGRADED",
       "MAINTENANCE",

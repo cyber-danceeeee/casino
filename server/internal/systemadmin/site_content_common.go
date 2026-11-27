@@ -16,11 +16,6 @@ import (
 	"casino/internal/content"
 )
 
-const (
-	siteContentDraft     = "DRAFT"
-	siteContentPublished = "PUBLISHED"
-)
-
 var siteContentActions = map[string]bool{
 	"NONE": true, "CLOSE_ONLY": true, "OPEN_INTERNAL_PAGE": true, "OPEN_EXTERNAL_URL": true,
 	"OPEN_GAME": true, "OPEN_PROMOTION": true, "OPEN_DEPOSIT": true,
@@ -50,12 +45,6 @@ func loadSiteContentDimensions(db *gorm.DB, scope content.Scope) (siteContentDim
 		return row, rowNotFound("site")
 	}
 	return row, nil
-}
-
-func markSiteContentDraft(tx *gorm.DB, scope content.Scope, actorID uint64) error {
-	nowValue := now()
-	return tx.Table("game_site_config").Where("id = ? AND deleted_at IS NULL", scope.SiteID).
-		Updates(map[string]any{"config_status": siteContentDraft, "config_draft_updated_at": nowValue, "updated_by": actorID, "updated_at": nowValue}).Error
 }
 
 func normalizeContentDimension(value string) string {

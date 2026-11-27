@@ -59,7 +59,13 @@ func normalizeCSV(value string) string {
 	return strings.Join(result, ",")
 }
 
+func validPromotionStatus(status string) bool {
+	return map[string]bool{"ACTIVE": true, "PAUSED": true, "SCHEDULED": true, "ENDED": true, "CANCELLED": true}[status]
+}
 func validatePromotionInput(in PromotionInput) error {
+	if !validPromotionStatus(in.Status) {
+		return newError("PROMOTION_STATUS_INVALID", "unsupported promotion status")
+	}
 	if !promotionTriggers[in.TriggerType] {
 		return newError("PROMOTION_TRIGGER_INVALID", "unsupported promotion trigger")
 	}

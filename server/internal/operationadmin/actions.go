@@ -717,7 +717,7 @@ func (s *Service) SaveNotification(id uint64, in NotificationInput, actor Actor)
 		var before model.GameNotification
 		action := "create"
 		permission := "operation:notification:create"
-		status := "DRAFT"
+		status := "READY"
 		notificationID := generatedCode("NTF")
 		if id > 0 {
 			if err := content.ApplySite(tx.Model(&model.GameNotification{}), "", actor.Scope).Where("id=? AND deleted_at IS NULL", id).First(&before).Error; err != nil {
@@ -843,8 +843,8 @@ func (s *Service) DeleteNotification(id uint64, actor Actor) error {
 	if err := content.ApplySite(s.db.Model(&model.GameNotification{}), "", actor.Scope).Where("id=? AND deleted_at IS NULL", id).First(&row).Error; err != nil {
 		return notFound(err, "NOTIFICATION_NOT_FOUND")
 	}
-	if row.Status != "DRAFT" && row.Status != "CANCELLED" {
-		return newError("NOTIFICATION_NOT_DELETABLE", "only draft or cancelled notifications can be deleted")
+	if row.Status != "READY" && row.Status != "CANCELLED" {
+		return newError("NOTIFICATION_NOT_DELETABLE", "only ready or cancelled notifications can be deleted")
 	}
 	return s.softDelete("game_notifications", "notification", id, "operation:notification:update", actor)
 }

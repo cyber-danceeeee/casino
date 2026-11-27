@@ -85,7 +85,7 @@ onMounted(load);
         ><el-option
           v-for="status in [
             'ACTIVE',
-            'DRAFT',
+            'PAUSED',
             'SCHEDULED',
             'PUBLISHED',
             'EXPIRED',
@@ -136,10 +136,10 @@ onMounted(load);
           prop="placement"
           :label="t('siteExperience.fields.placement')"
           width="140" /><el-table-column
-          :label="t('siteExperience.fields.publishVersion')"
+          :label="t('liveConfig.version')"
           width="120"
           ><template #default="{ row }"
-            >v{{ row.publishedVersion }}</template
+            >v{{ row.configVersion }}</template
           ></el-table-column
         ><el-table-column
           prop="updatedBy"

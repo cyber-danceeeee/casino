@@ -628,7 +628,7 @@ function defaultValue(field: OperationField): unknown {
     currencies: "PKR",
     currency: "PKR",
     targetType: "NONE",
-    status: "DRAFT",
+    status: moduleKey.value === "push-messages" ? "READY" : "PAUSED",
     voucherType: "DEPOSIT_BONUS",
     showFrequency: "EVERY_LOGIN",
     totalBudget: "0",

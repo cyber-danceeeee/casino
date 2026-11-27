@@ -17,7 +17,6 @@ var supportQueryKeys = []string{"siteID", "query", "searchType", "playerID", "pl
 var supportExportQueryKeys = []string{"siteID", "status", "exportType", "page", "pageSize"}
 var monitorQueryKeys = []string{"siteID", "country", "currency", "providerCode", "channelCode", "methodCode", "status", "from", "to", "page", "pageSize"}
 var alertQueryKeys = []string{"severity", "status", "alertType", "source", "page", "pageSize"}
-var releaseQueryKeys = []string{"siteID", "environment", "status", "page", "pageSize"}
 var backupQueryKeys = []string{"siteID", "scopeType", "status", "page", "pageSize"}
 
 type adminRateBucket struct {
@@ -393,71 +392,6 @@ func (h *AdminSystemHandler) ResolveAlert(c *gin.Context) {
 		return
 	}
 	systemWrite(c, nil, h.service.ResolveAlert(id, input, systemActor(c)))
-}
-
-func (h *AdminSystemHandler) ListReleases(c *gin.Context) {
-	data, err := h.service.ListReleases(systemQuery(c, releaseQueryKeys), systemActor(c))
-	systemWrite(c, data, err)
-}
-
-func (h *AdminSystemHandler) ReleaseDetail(c *gin.Context) {
-	id, ok := systemID(c)
-	if !ok {
-		return
-	}
-	data, err := h.service.ReleaseDetail(id, systemActor(c))
-	systemWrite(c, data, err)
-}
-
-func (h *AdminSystemHandler) CompareReleases(c *gin.Context) {
-	fromID, err := strconv.ParseUint(c.Query("fromID"), 10, 64)
-	if err != nil || fromID == 0 {
-		systemError(c, systemadmin.NewError("INVALID_REQUEST", "from release is required"))
-		return
-	}
-	toID, err := strconv.ParseUint(c.Query("toID"), 10, 64)
-	if err != nil || toID == 0 {
-		systemError(c, systemadmin.NewError("INVALID_REQUEST", "to release is required"))
-		return
-	}
-	data, serviceErr := h.service.CompareReleases(fromID, toID, systemActor(c))
-	systemWrite(c, data, serviceErr)
-}
-
-func (h *AdminSystemHandler) ValidateRelease(c *gin.Context) {
-	siteID, ok := systemNamedID(c, "siteID")
-	if !ok {
-		return
-	}
-	data, err := h.service.ValidateRelease(siteID, systemActor(c))
-	systemWrite(c, data, err)
-}
-
-func (h *AdminSystemHandler) PublishRelease(c *gin.Context) {
-	siteID, ok := systemNamedID(c, "siteID")
-	if !ok {
-		return
-	}
-	var input systemadmin.ReasonInput
-	if !systemBind(c, &input) {
-		return
-	}
-	data, err := h.service.PublishSiteConfigWithKey(siteID, input.Reason, systemIdempotencyKey(c, ""), systemActor(c))
-	systemWrite(c, data, err)
-}
-
-func (h *AdminSystemHandler) RollbackRelease(c *gin.Context) {
-	id, ok := systemID(c)
-	if !ok {
-		return
-	}
-	var input systemadmin.ReleaseRollbackInput
-	if !systemBind(c, &input) {
-		return
-	}
-	input.IdempotencyKey = systemIdempotencyKey(c, input.IdempotencyKey)
-	data, err := h.service.RollbackRelease(id, input, systemActor(c))
-	systemWrite(c, data, err)
 }
 
 func (h *AdminSystemHandler) ListBackups(c *gin.Context) {

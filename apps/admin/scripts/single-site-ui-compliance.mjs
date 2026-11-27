@@ -40,11 +40,8 @@ assert.doesNotMatch(monitor, /Number\(diagnostic\.order/, "payment diagnostics m
 const routes = read("src/router/index.ts");
 assert.match(routes, /players\/:playerNo/, "business player route is missing");
 
-const publishBar = read("src/components/brand/BrandDraftStatusBar.vue");
-for (const field of ["unpublishedChanges", "publishedVersion", "draftVersion", "pendingChanges"]) {
-  assert.match(publishBar, new RegExp(field), `publish bar missing ${field}`);
-}
-
+assert.doesNotMatch(read("src/layouts/AdminLayout.vue"), /BrandDraftStatusBar/, "obsolete publication UI remains");
+assert.doesNotMatch(routes, /release-center|brand-publish|brand-preview/, "obsolete publication route remains");
 const dashboard = read("src/views/brand/BrandDashboard.vue");
 for (const field of ["depositAmount", "withdrawalAmount", "totalBet", "ggr", "onlineUsers"]) {
   assert.match(dashboard, new RegExp(field), `dashboard missing ${field}`);
@@ -65,12 +62,10 @@ assert.match(stability, /subTab\.value = 'retryRecords'/, "H5 jobs must default 
 
 const gameCenter = read("src/views/games/GameCenterPage.vue");
 assert.match(gameCenter, /const isPlatform = computed/, "game center must distinguish platform and H5 workflows");
-assert.match(gameCenter, /usesDraftWorkflow/, "H5 game changes must retain the draft workflow");
-assert.match(gameCenter, /savedImmediate/, "platform game changes must communicate immediate effect");
-assert.match(gameCenter, /"publishedState", "draftState", "hasChanges", "draftUpdatedAt"/, "platform game list must hide draft-only columns");
-
+assert.doesNotMatch(gameCenter, /usesDraftWorkflow|sites\.publish|draftConfiguration/, "game center still stages changes");
+assert.match(gameCenter, /savedImmediate/, "game saves must communicate immediate effect");
 const messages = read("src/i18n/messages.ts");
-for (const phrase of ["玩家编号", "Player Number", "游戏编码", "Game Code", "发布版本", "Published Version"]) {
+for (const phrase of ["玩家编号", "Player Number", "游戏编码", "Game Code"]) {
   assert.ok(messages.includes(phrase), `missing bilingual label: ${phrase}`);
 }
 

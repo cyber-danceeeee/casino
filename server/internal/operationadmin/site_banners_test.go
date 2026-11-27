@@ -1,7 +1,6 @@
 package operationadmin
 
 import (
-	"errors"
 	"testing"
 	"time"
 
@@ -13,53 +12,35 @@ import (
 	"casino/internal/model"
 )
 
-func TestSiteBannerDraftIsolationAndPublicVisibility(t *testing.T) {
+func TestSiteBannerSaveEditDeleteImmediatelyVisible(t *testing.T) {
 	db := newSiteBannerTestDB(t)
 	svc := New(db)
-	assetA := assetLibraryRecord{SiteID: 20, AssetScope: AssetScopeSite, AssetType: "IMAGE", UsageType: "BANNER", ObjectKey: "h5/10/banner-a.png", Status: AssetStatusActive}
-	assetB := assetLibraryRecord{SiteID: 21, AssetScope: AssetScopeSite, AssetType: "IMAGE", UsageType: "BANNER", ObjectKey: "h5/11/banner-b.png", Status: AssetStatusActive}
-	require.NoError(t, db.Create(&assetA).Error)
-	require.NoError(t, db.Create(&assetB).Error)
-	actorA := Actor{ID: 7, Username: "h5-a", Scope: content.Scope{SiteID: 20}}
-	id, err := svc.SaveSiteBanner(0, SiteBannerInput{Name: "Hero", Title: "Welcome", DesktopAssetID: assetA.ID,
-		ActionType: "NONE", VisibilityScope: "ALL", Enabled: true}, actorA)
+	asset := assetLibraryRecord{SiteID: 20, AssetScope: AssetScopeSite, AssetType: "IMAGE", ObjectKey: "banner.png", Status: AssetStatusActive}
+	require.NoError(t, db.Create(&asset).Error)
+	actor := Actor{ID: 7, Scope: content.Scope{SiteID: 20}}
+	in := SiteBannerInput{Name: "Hero", Title: "Welcome", DesktopAssetID: asset.ID, ActionType: "NONE", VisibilityScope: "ALL", Enabled: true}
+	id, err := svc.SaveSiteBanner(0, in, actor)
 	require.NoError(t, err)
-
-	rows, err := svc.PublicSiteBanners(actorA.Scope, "en", "MY", false, time.Now())
+	read := func() []PublicBanner {
+		rows, err := svc.PublicSiteBanners(actor.Scope, "en", "MY", false, time.Now())
+		require.NoError(t, err)
+		return rows
+	}
+	require.Len(t, read(), 1)
+	in.Title = "Updated"
+	_, err = svc.SaveSiteBanner(id, in, actor)
 	require.NoError(t, err)
-	require.Empty(t, rows, "draft banner must not be public")
-
+	require.Equal(t, "Updated", read()[0].Title)
 	_, err = svc.GetSiteBanner(id, content.Scope{SiteID: 21})
-	var domain *Error
-	require.True(t, errors.As(err, &domain))
-	require.Equal(t, "BANNER_NOT_FOUND", domain.Code)
-
-	err = db.Model(&siteBannerRecord{}).Where("id=?", id).Updates(map[string]any{
-		"title": "Welcome", "desktop_asset_id": assetA.ID, "action_type": "NONE", "visibility_scope": "ALL",
-		"language_code": "ALL", "country_code": "ALL", "enabled": true, "publish_status": BannerPublishPublished, "config_version": 1,
-	}).Error
-	require.NoError(t, err)
-	rows, err = svc.PublicSiteBanners(actorA.Scope, "en", "MY", false, time.Now())
-	require.NoError(t, err)
-	require.Len(t, rows, 1)
-	require.Equal(t, "Welcome", rows[0].Title)
-
-	_, err = svc.SaveSiteBanner(id, SiteBannerInput{Name: "Hero Draft", Title: "Draft Title", DesktopAssetID: assetA.ID,
-		ActionType: "NONE", VisibilityScope: "ALL", Enabled: true}, actorA)
-	require.NoError(t, err)
-	rows, err = svc.PublicSiteBanners(actorA.Scope, "en", "MY", false, time.Now())
-	require.NoError(t, err)
-	require.Len(t, rows, 1)
-	require.Equal(t, "Welcome", rows[0].Title, "published version must remain live while a draft exists")
-
-	err = svc.DeleteAsset(assetA.ID, "attempt deleting referenced banner asset", actorA)
 	require.Error(t, err)
-	require.True(t, errors.As(err, &domain))
-	require.Equal(t, "ASSET_IN_USE", domain.Code)
-
-	_, err = svc.SaveSiteBanner(id, SiteBannerInput{Name: "Attack", Title: "Attack", DesktopAssetID: assetB.ID,
-		ActionType: "NONE", VisibilityScope: "ALL", Enabled: true}, actorA)
-	require.Error(t, err, "h5 A must not use h5 B assets")
+	err = svc.DeleteAsset(asset.ID, "referenced", actor)
+	require.Error(t, err)
+	in.DesktopAssetID = 999
+	_, err = svc.SaveSiteBanner(id, in, actor)
+	require.Error(t, err)
+	require.Equal(t, "Updated", read()[0].Title)
+	require.NoError(t, svc.DeleteSiteBanner(id, actor))
+	require.Empty(t, read())
 }
 
 func TestPublicSiteBannersFiltersScheduleAndKeepsStableSort(t *testing.T) {
@@ -71,10 +52,10 @@ func TestPublicSiteBannersFiltersScheduleAndKeepsStableSort(t *testing.T) {
 	startFuture := nowValue.Add(time.Hour)
 	endPast := nowValue.Add(-time.Hour)
 	for _, row := range []siteBannerRecord{
-		{SiteID: 20, Name: "second", Title: "Second", DesktopAssetID: asset.ID, ActionType: "NONE", SortOrder: 5, LanguageCode: "ALL", CountryCode: "ALL", VisibilityScope: "ALL", Enabled: true, PublishStatus: BannerPublishPublished, ConfigVersion: 1},
-		{SiteID: 20, Name: "first", Title: "First", DesktopAssetID: asset.ID, ActionType: "NONE", SortOrder: 5, LanguageCode: "EN", CountryCode: "MY", VisibilityScope: "LOGGED_OUT", Enabled: true, PublishStatus: BannerPublishPublished, ConfigVersion: 1},
-		{SiteID: 20, Name: "future", Title: "Future", DesktopAssetID: asset.ID, SortOrder: 1, LanguageCode: "ALL", CountryCode: "ALL", VisibilityScope: "ALL", StartAt: &startFuture, Enabled: true, PublishStatus: BannerPublishPublished, ConfigVersion: 1},
-		{SiteID: 20, Name: "expired", Title: "Expired", DesktopAssetID: asset.ID, SortOrder: 1, LanguageCode: "ALL", CountryCode: "ALL", VisibilityScope: "ALL", EndAt: &endPast, Enabled: true, PublishStatus: BannerPublishPublished, ConfigVersion: 1},
+		{SiteID: 20, Name: "second", Title: "Second", DesktopAssetID: asset.ID, ActionType: "NONE", SortOrder: 5, LanguageCode: "ALL", CountryCode: "ALL", VisibilityScope: "ALL", Enabled: true, ConfigVersion: 1},
+		{SiteID: 20, Name: "first", Title: "First", DesktopAssetID: asset.ID, ActionType: "NONE", SortOrder: 5, LanguageCode: "EN", CountryCode: "MY", VisibilityScope: "LOGGED_OUT", Enabled: true, ConfigVersion: 1},
+		{SiteID: 20, Name: "future", Title: "Future", DesktopAssetID: asset.ID, SortOrder: 1, LanguageCode: "ALL", CountryCode: "ALL", VisibilityScope: "ALL", StartAt: &startFuture, Enabled: true, ConfigVersion: 1},
+		{SiteID: 20, Name: "expired", Title: "Expired", DesktopAssetID: asset.ID, SortOrder: 1, LanguageCode: "ALL", CountryCode: "ALL", VisibilityScope: "ALL", EndAt: &endPast, Enabled: true, ConfigVersion: 1},
 	} {
 		require.NoError(t, db.Create(&row).Error)
 	}
@@ -94,8 +75,8 @@ func newSiteBannerTestDB(t *testing.T) *gorm.DB {
 	sqlDB.SetMaxOpenConns(1)
 	t.Cleanup(func() { require.NoError(t, sqlDB.Close()) })
 	require.NoError(t, db.AutoMigrate(&assetLibraryRecord{}, &siteBannerRecord{}))
-	require.NoError(t, db.Exec("CREATE TABLE game_site_config (id INTEGER PRIMARY KEY, config_status TEXT, config_draft_updated_at DATETIME, country_code TEXT, currency_code TEXT, default_language TEXT, updated_by INTEGER, updated_at DATETIME, deleted_at DATETIME)").Error)
-	require.NoError(t, db.Exec("INSERT INTO game_site_config (id, config_status, country_code, currency_code, default_language) VALUES (20, 'PUBLISHED', 'MY', 'MYR', 'en'), (21, 'PUBLISHED', 'MY', 'MYR', 'en')").Error)
+	require.NoError(t, db.Exec("CREATE TABLE game_site_config (id INTEGER PRIMARY KEY, config_version INTEGER DEFAULT 0, country_code TEXT, currency_code TEXT, default_language TEXT, updated_by INTEGER, updated_at DATETIME, deleted_at DATETIME)").Error)
+	require.NoError(t, db.Exec("INSERT INTO game_site_config (id, country_code, currency_code, default_language) VALUES (20, 'MY', 'MYR', 'en'), (21, 'MY', 'MYR', 'en')").Error)
 	require.NoError(t, db.AutoMigrate(&model.GameAdminOperationLogs{}))
 	return db
 }

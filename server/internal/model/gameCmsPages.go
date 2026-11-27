@@ -15,7 +15,7 @@ type GameCmsPages struct {
 	Title       string     `gorm:"column:title;type:varchar(128);not null" json:"title"`
 	ContentHTML string     `gorm:"column:content_html;type:mediumtext" json:"contentHTML"`
 	VersionNo   uint       `gorm:"column:version_no;type:int(11) unsigned;default:1;not null" json:"versionNo"`
-	Status      int        `gorm:"column:status;type:tinyint(4);default:1;not null" json:"status"` // 1 published, 2 draft, 3 disabled
+	Status      int        `gorm:"column:status;type:tinyint(4);default:1;not null" json:"status"` // 1 enabled, 3 disabled
 	EffectiveAt *time.Time `gorm:"column:effective_at;type:datetime(3)" json:"effectiveAt"`
 }
 

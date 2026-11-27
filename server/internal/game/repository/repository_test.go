@@ -50,8 +50,7 @@ func TestReadableScopeSeparatesCatalogAndPublishedContent(t *testing.T) {
 
 func TestSyncedGameJSONDefaultsAreValid(t *testing.T) {
 	for field, value := range map[string]string{
-		"name_i18n":          syncedGameNameI18nDefault,
-		"category_ids_draft": syncedGameCategoryIDsDraftDefault,
+		"name_i18n": syncedGameNameI18nDefault,
 	} {
 		if !json.Valid([]byte(value)) {
 			t.Fatalf("%s default is invalid JSON: %q", field, value)

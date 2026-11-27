@@ -650,6 +650,9 @@ func replacePromotionRules(tx *gorm.DB, id uint64, in PromotionInput, scope cont
 }
 func (s *Service) SetPromotionStatus(id uint64, status string, reason string, actor Actor) error {
 	status = strings.ToUpper(strings.TrimSpace(status))
+	if !validPromotionStatus(status) {
+		return newError("PROMOTION_STATUS_INVALID", "unsupported promotion status")
+	}
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		var row promotionRecord
 		if err := content.ApplySite(tx.Model(&promotionRecord{}), "", actor.Scope).Clauses(clause.Locking{Strength: "UPDATE"}).Where("id=? AND deleted_at IS NULL", id).First(&row).Error; err != nil {

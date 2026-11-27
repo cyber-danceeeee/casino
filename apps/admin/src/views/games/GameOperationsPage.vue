@@ -2,7 +2,7 @@
 import { computed, onMounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { Refresh, Search, Setting, UploadFilled } from "@element-plus/icons-vue";
+import { Refresh, Search, Setting, } from "@element-plus/icons-vue";
 import { useI18n } from "vue-i18n";
 import {
   batchUpdateGames,
@@ -32,7 +32,6 @@ const filters = reactive({ keyword: "", providerCode: "", providerCategory: "", 
 const categoryDialogVisible = ref(false);
 const categorySaving = ref(false);
 const categoryForm = reactive({ ids: [] as number[], reason: "" });
-const publishing = ref(false);
 const brandOverview = ref<BrandOverview | null>(null);
 
 const selectedLabel = computed(() =>
@@ -43,14 +42,8 @@ const selectedLabel = computed(() =>
     )
     .join("\n"),
 );
-function draftValue(row: GameCenterRecord, key: string) {
-  const draft = (
-    row.draftConfiguration && typeof row.draftConfiguration === "object"
-      ? row.draftConfiguration
-      : {}
-  ) as Record<string, unknown>;
-  return draft[key] ?? row[`${key}Draft`] ?? row[key];
-}
+function configurationValue(row:GameCenterRecord,key:string){return row[key];}
+
 function categoryNames(row: GameCenterRecord) {
   return Array.isArray(row.platformCategories)
     ? row.platformCategories
@@ -169,33 +162,6 @@ async function saveCategories() {
     categorySaving.value = false;
   }
 }
-async function publish() {
-  try {
-    brandOverview.value = await systemAPI.brand.overview();
-    if (!brandOverview.value?.siteID) return;
-    const prompt = await ElMessageBox.prompt(
-      t("brandPortal.prompts.publishReason"),
-      t("brandPortal.dialogs.publishTitle"),
-      {
-        confirmButtonText: t("brandPortal.actions.publish"),
-        cancelButtonText: t("brandPortal.actions.cancel"),
-        inputValue: t("brandPortal.defaults.publishBrandConfig"),
-        inputValidator: (value) => Boolean(value.trim()) || t("brandPortal.validation.reasonRequired"),
-      },
-    );
-    publishing.value = true;
-    await systemAPI.sites.publish(brandOverview.value.siteID, prompt.value.trim());
-    ElMessage.success(t("brandPortal.messages.publishedToH5"));
-    window.dispatchEvent(new Event("brand-config-refresh"));
-    brandOverview.value = await systemAPI.brand.overview();
-    await load();
-  } catch (error) {
-    if (error !== "cancel" && error !== "close")
-      ElMessage.error(error instanceof Error ? error.message : t("brandPortal.messages.publishFailed"));
-  } finally {
-    publishing.value = false;
-  }
-}
 function reset() {
   Object.assign(filters, { keyword: "", providerCode: "", providerCategory: "", enabled: "" });
   providerCategoryOptions.value = [];
@@ -225,7 +191,7 @@ onMounted(async () => {
       <div class="header-actions">
 
         <el-button :icon="Refresh" @click="load">{{ t("common.refresh") }}</el-button>
-        <el-button v-if="can('system:site:config:publish')" type="primary" :icon="UploadFilled" :loading="publishing" @click="publish">{{ t("brandPortal.actions.publish") }}</el-button>
+
       </div>
     </header>
     <section class="filters">
@@ -349,30 +315,30 @@ onMounted(async () => {
           width="95"
           ><template #default="{ row }"
             ><el-switch
-              :model-value="Boolean(draftValue(row, 'platformEnabled'))"
+              :model-value="Boolean(configurationValue(row, 'platformEnabled'))"
               disabled /></template></el-table-column
         ><el-table-column
           :label="t('siteExperience.fields.popular')"
           width="90"
           ><template #default="{ row }"
             ><el-switch
-              :model-value="Boolean(draftValue(row, 'isHot'))"
+              :model-value="Boolean(configurationValue(row, 'isHot'))"
               disabled /></template></el-table-column
         ><el-table-column
           :label="t('siteExperience.fields.recommended')"
           width="115"
           ><template #default="{ row }"
             ><el-switch
-              :model-value="Boolean(draftValue(row, 'isFeatured'))"
+              :model-value="Boolean(configurationValue(row, 'isFeatured'))"
               disabled /></template></el-table-column
         ><el-table-column :label="t('siteExperience.fields.new')" width="80"
           ><template #default="{ row }"
             ><el-switch
-              :model-value="Boolean(draftValue(row, 'isNew'))"
+              :model-value="Boolean(configurationValue(row, 'isNew'))"
               disabled /></template></el-table-column
         ><el-table-column :label="t('siteExperience.fields.sort')" width="85"
           ><template #default="{ row }">{{
-            draftValue(row, "sortOrder") ?? "-"
+            configurationValue(row, "sortOrder") ?? "-"
           }}</template></el-table-column
         ><el-table-column fixed="right" width="80"
           ><template #default="{ row }"
@@ -414,7 +380,7 @@ onMounted(async () => {
       </el-form>
       <template #footer>
         <el-button @click="categoryDialogVisible = false">{{ t('common.cancel') }}</el-button>
-        <el-button type="primary" :loading="categorySaving" :disabled="!categoryForm.ids.length || !categoryForm.reason.trim()" @click="saveCategories">{{ t('gameCenter.actions.saveCategoryDraft') }}</el-button>
+        <el-button type="primary" :loading="categorySaving" :disabled="!categoryForm.ids.length || !categoryForm.reason.trim()" @click="saveCategories">{{ t('common.save') }}</el-button>
       </template>
     </el-dialog>
   </div>

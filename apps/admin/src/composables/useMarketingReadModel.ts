@@ -16,7 +16,7 @@ export type CampaignReadModel = {
   endAt: string;
   audience: string;
   placement: string;
-  publishedVersion: number | string;
+  configVersion: number | string;
   updatedBy: string;
   updatedAt: string;
   path: string;
@@ -29,7 +29,7 @@ function text(record: Record<string, unknown>, ...keys: string[]) {
   return "";
 }
 function configuration(record: Record<string, unknown>) {
-  const value = record.draftConfiguration || record.publishedConfiguration;
+  const value = record.configuration;
   return value && typeof value === "object"
     ? (value as Record<string, unknown>)
     : record;
@@ -38,14 +38,13 @@ function operationalStatus(
   record: Record<string, unknown>,
   config: Record<string, unknown>,
 ) {
-  if (text(record, "publishStatus") === "DRAFT") return "DRAFT";
   if (config.enabled === false || record.enabled === false) return "DISABLED";
   const now = Date.now();
   const start = Date.parse(text(config, "startAt", "startTime"));
   const end = Date.parse(text(config, "endAt", "endTime"));
   if (Number.isFinite(start) && start > now) return "SCHEDULED";
   if (Number.isFinite(end) && end < now) return "EXPIRED";
-  return text(record, "status", "publishStatus") || "ACTIVE";
+  return text(record, "status") || "ACTIVE";
 }
 function model(
   record: OperationRecord,
@@ -91,13 +90,13 @@ function model(
       text(config, "visibilityScope", "audienceType", "audience") || "ALL",
     placement:
       text(config, "position", "displayPosition", "triggerType") || "-",
-    publishedVersion:
+    configVersion:
       (record.configVersion as number) ||
-      text(record, "publishedVersion") ||
+      text(record, "configVersion") ||
       "-",
     updatedBy:
       text(record, "updatedByName", "operator", "createdByName") || "-",
-    updatedAt: text(record, "draftUpdatedAt", "updatedAt", "createdAt"),
+    updatedAt: text(record, "updatedAt", "createdAt"),
     path,
   };
 }

@@ -75,10 +75,7 @@ const loadMusic = async () => {
   try {
     const session = await loadMusicSession()
     const tracks = session.playlist
-    if (!tracks.length) {
-      scheduleRetry()
-      return
-    }
+    if (!tracks.length) return
 
     playlist.value = tracks
     await selectTrack(0)

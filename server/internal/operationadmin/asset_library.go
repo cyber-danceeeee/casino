@@ -322,7 +322,7 @@ func (s *Service) assetReferences(db *gorm.DB, row assetLibraryRecord) []AssetRe
 			})
 		}
 	}
-	for _, column := range []string{"desktop_asset_id", "mobile_asset_id", "desktop_asset_id_draft", "mobile_asset_id_draft"} {
+	for _, column := range []string{"desktop_asset_id", "mobile_asset_id"} {
 		var rows []struct {
 			ID uint64 `gorm:"column:id"`
 
@@ -343,7 +343,7 @@ func (s *Service) assetReferences(db *gorm.DB, row assetLibraryRecord) []AssetRe
 				SiteID: matched.SiteID, TargetType: "banner"})
 		}
 	}
-	for _, column := range []string{"icon_asset_id", "lottie_asset_id", "sound_asset_id", "icon_asset_id_draft", "lottie_asset_id_draft", "sound_asset_id_draft"} {
+	for _, column := range []string{"icon_asset_id", "lottie_asset_id", "sound_asset_id"} {
 		var rows []struct {
 			ID uint64 `gorm:"column:id"`
 

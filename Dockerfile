@@ -18,7 +18,7 @@ COPY server/configs/casino.yml /app/configs/casino.yml
 COPY --chown=casino:casino server/static/ /app/static/
 # Serve bundled H5 media from both portals through the API's /static/ route.
 COPY --chown=casino:casino apps/h5/public/static/ /app/static/
-RUN chown -R casino:casino /app/static
+RUN mkdir -p /app/backups && chown -R casino:casino /app/static /app/backups
 USER casino
 EXPOSE 1639
 CMD ["/app/casino", "-c", "/app/configs/casino.yml"]

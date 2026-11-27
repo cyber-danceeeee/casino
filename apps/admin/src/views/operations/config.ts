@@ -372,7 +372,7 @@ export const operationConfigs: Record<string, OperationConfig> = {
         labelKey: "operations.fields.status",
         type: "select",
         options: values(
-          "DRAFT",
+          "PAUSED",
           "SCHEDULED",
           "ACTIVE",
           "PAUSED",
@@ -538,7 +538,7 @@ export const operationConfigs: Record<string, OperationConfig> = {
         labelKey: "operations.fields.status",
         type: "select",
         options: values(
-          "DRAFT",
+          "PAUSED",
           "SCHEDULED",
           "ACTIVE",
           "PAUSED",
@@ -989,7 +989,7 @@ export const operationConfigs: Record<string, OperationConfig> = {
         labelKey: "operations.fields.status",
         type: "select",
         options: values(
-          "DRAFT",
+          "READY",
           "SCHEDULED",
           "SENDING",
           "SENT",

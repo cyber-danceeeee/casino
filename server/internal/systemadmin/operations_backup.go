@@ -23,12 +23,11 @@ import (
 )
 
 const (
-	backupScopeDatabaseConfig        = "DATABASE_CONFIGURATION"
-	backupScopeH5Config              = "H5_CONFIGURATION"
-	backupScopePublishedConfig       = "PUBLISHED_CONFIGURATION"
-	backupScopeAssetMetadata         = "ASSET_METADATA"
-	backupScopeAssetFiles            = "ASSET_FILES"
-	backupMaxArtifactBytes     int64 = 768 << 20
+	backupScopeDatabaseConfig       = "DATABASE_CONFIGURATION"
+	backupScopeH5Config             = "H5_CONFIGURATION"
+	backupScopeAssetMetadata        = "ASSET_METADATA"
+	backupScopeAssetFiles           = "ASSET_FILES"
+	backupMaxArtifactBytes    int64 = 768 << 20
 )
 
 type BackupTaskRow struct {
@@ -77,7 +76,7 @@ type backupManifest struct {
 }
 
 type h5ConfigurationBackup struct {
-	Sites map[string]releaseSnapshot `json:"sites"`
+	Sites map[string]configurationSnapshot `json:"sites"`
 }
 
 type backupAssetRow struct {
@@ -136,7 +135,10 @@ func (s *Service) CreateBackup(input BackupCreateInput, actor Actor) (BackupTask
 		return BackupTaskRow{}, NewError("INVALID_BACKUP_SCOPE", "invalid backup scope")
 	}
 	if scopeRequiresSite(scope) && input.SiteID == 0 {
-		return BackupTaskRow{}, NewError("SITE_REQUIRED", "H5 configuration is required for this backup scope")
+		input.SiteID = 1
+	}
+	if input.SiteID > 1 {
+		return BackupTaskRow{}, NewError("SITE_NOT_FOUND", "H5 configuration is not available")
 	}
 	if input.SiteID > 0 {
 		var count int64
@@ -253,22 +255,22 @@ func (s *Service) runBackupTask(ctx context.Context, id uint64) error {
 		return NewError("BACKUP_TOO_LARGE", "backup artifact exceeds configured limit")
 	}
 	key := path.Join("backups", started.Format("2006/01"), row.BackupNo+".tar.gz")
-	asset, err := storage.PutBytes(ctx, key, artifact, "application/gzip")
+	artifactKey, err := putBackupArtifact(ctx, key, artifact)
 	if err != nil {
 		return fmt.Errorf("write backup artifact: %w", err)
 	}
-	verified, err := storage.ReadBytes(ctx, asset.Key, backupMaxArtifactBytes)
+	verified, err := readBackupArtifact(ctx, artifactKey, backupMaxArtifactBytes)
 	if err != nil {
 		return fmt.Errorf("read backup artifact for verification: %w", err)
 	}
 	expected := sha256.Sum256(artifact)
 	actual := sha256.Sum256(verified)
 	if expected != actual {
-		_ = storage.Delete(ctx, asset.Key)
+		_ = deleteBackupArtifact(ctx, artifactKey)
 		return NewError("BACKUP_CHECKSUM_MISMATCH", "backup artifact checksum verification failed")
 	}
 	completed := now()
-	return s.db.Table("game_backup_tasks").Where("id=? AND status='RUNNING'", id).Updates(map[string]any{"status": "SUCCESS", "storage_location": "configured-object-storage", "artifact_key": asset.Key, "size_bytes": len(artifact), "checksum_sha256": hex.EncodeToString(actual[:]), "completed_at": completed, "failure_reason": "", "updated_at": completed}).Error
+	return s.db.Table("game_backup_tasks").Where("id=? AND status='RUNNING'", id).Updates(map[string]any{"status": "SUCCESS", "storage_location": "private-backup-volume", "artifact_key": artifactKey, "size_bytes": len(artifact), "checksum_sha256": hex.EncodeToString(actual[:]), "completed_at": completed, "failure_reason": "", "updated_at": completed}).Error
 }
 
 func (s *Service) buildBackupArtifact(ctx context.Context, row BackupTaskRow) ([]byte, error) {
@@ -276,7 +278,7 @@ func (s *Service) buildBackupArtifact(ctx context.Context, row BackupTaskRow) ([
 	if err != nil {
 		return nil, err
 	}
-	manifest := backupManifest{FormatVersion: 1, BackupNo: row.BackupNo, ScopeType: row.ScopeType, SiteID: row.SiteID, CreatedAt: now(), Data: data}
+	manifest := backupManifest{FormatVersion: 2, BackupNo: row.BackupNo, ScopeType: row.ScopeType, SiteID: row.SiteID, CreatedAt: now(), Data: data}
 	manifestBytes, err := json.MarshalIndent(manifest, "", "  ")
 	if err != nil {
 		return nil, err
@@ -319,7 +321,7 @@ func (s *Service) buildBackupArtifact(ctx context.Context, row BackupTaskRow) ([
 func (s *Service) backupData(row BackupTaskRow) (json.RawMessage, []backupAssetRow, error) {
 	switch row.ScopeType {
 	case backupScopeH5Config:
-		data := h5ConfigurationBackup{Sites: map[string]releaseSnapshot{}}
+		data := h5ConfigurationBackup{Sites: map[string]configurationSnapshot{}}
 		sites := []uint64{}
 		db := s.db.Table("game_site_config").Where("deleted_at IS NULL")
 		if row.SiteID > 0 {
@@ -332,26 +334,13 @@ func (s *Service) backupData(row BackupTaskRow) (json.RawMessage, []backupAssetR
 			return nil, nil, rowNotFound("site")
 		}
 		for _, siteID := range sites {
-			snapshot, err := captureReleaseSnapshot(s.db, siteID)
+			snapshot, err := captureConfigurationSnapshot(s.db, siteID)
 			if err != nil {
 				return nil, nil, err
 			}
 			data.Sites[fmt.Sprint(siteID)] = snapshot
 		}
 		return marshalRaw(data), nil, nil
-	case backupScopePublishedConfig:
-		rows := []map[string]any{}
-		db := s.db.Table("game_config_releases").Select("id, site_id, environment, version, status, modules, snapshot, rollback_source_id, created_by, published_by, created_at, published_at").Where("deleted_at IS NULL AND status IN ('PUBLISHED','ROLLED_BACK')")
-		if row.SiteID > 0 {
-			db = db
-		}
-		if row.SiteID > 0 {
-			db = db.Where("site_id=?", row.SiteID)
-		}
-		if err := db.Order("site_id, version").Find(&rows).Error; err != nil {
-			return nil, nil, err
-		}
-		return marshalRaw(map[string]any{"releases": rows}), nil, nil
 	case backupScopeAssetMetadata, backupScopeAssetFiles:
 		assets := []backupAssetRow{}
 		db := s.db.Table("game_asset_library").Where("deleted_at IS NULL")
@@ -441,24 +430,8 @@ func (s *Service) RestoreBackup(id uint64, input BackupRestoreInput, actor Actor
 			if err := tx.Table("game_site_config").Where("id = ? AND deleted_at IS NULL", siteID).Take(&site).Error; err != nil {
 				return rowNotFound("site")
 			}
-			version, err := nextReleaseVersion(tx, siteID, site.ConfigVersion)
-			if err != nil {
-				return err
-			}
-			if err := restoreReleaseSnapshot(tx, siteID, version, actor.ID, snapshot); err != nil {
-				return err
-			}
-			fresh, err := captureReleaseSnapshot(tx, siteID)
-			if err != nil {
-				return err
-			}
-			key := releaseIdempotencyKey(siteID, fmt.Sprintf("backup-restore:%d:%d", row.ID, version))
-			releaseID, err := createPublishingRelease(tx, siteID, version, []string{"BACKUP_RESTORE"}, key, 0, actor.ID)
-			if err != nil {
-				return err
-			}
-			publishedAt := now()
-			if err := tx.Table("game_config_releases").Where("id=?", releaseID).Updates(map[string]any{"status": "PUBLISHED", "snapshot": marshal(fresh), "validation_result": marshal(map[string]any{"valid": true, "backupID": row.ID}), "published_by": actor.ID, "published_at": publishedAt, "updated_at": publishedAt}).Error; err != nil {
+			version := site.ConfigVersion + 1
+			if err := restoreConfigurationSnapshot(tx, siteID, version, actor.ID, snapshot); err != nil {
 				return err
 			}
 			if err := clearWhiteLabelConfigCache(tx, siteID); err != nil {
@@ -491,7 +464,7 @@ func (s *Service) DeleteBackup(id uint64, reason string, actor Actor) error {
 		return NewError("BACKUP_RUNNING", "running backup cannot be deleted")
 	}
 	if row.ArtifactKey != "" {
-		if err := storage.Delete(context.Background(), row.ArtifactKey); err != nil {
+		if err := deleteBackupArtifact(context.Background(), row.ArtifactKey); err != nil {
 			return fmt.Errorf("delete backup artifact: %w", err)
 		}
 	}
@@ -529,7 +502,7 @@ func (s *Service) verifiedBackupManifest(id uint64) (BackupTaskRow, backupManife
 	if err := s.db.Table("game_backup_tasks").Where("id=? AND status='SUCCESS' AND deleted_at IS NULL", id).Take(&row).Error; err != nil {
 		return row, backupManifest{}, rowNotFound("verified backup")
 	}
-	artifact, err := storage.ReadBytes(context.Background(), row.ArtifactKey, backupMaxArtifactBytes)
+	artifact, err := readBackupArtifact(context.Background(), row.ArtifactKey, backupMaxArtifactBytes)
 	if err != nil {
 		return row, backupManifest{}, err
 	}
@@ -564,7 +537,7 @@ func verifyBackupArtifact(row BackupTaskRow, artifact []byte) (backupManifest, e
 			return backupManifest{}, NewError("INVALID_BACKUP_ARTIFACT", "backup manifest cannot be read")
 		}
 		var manifest backupManifest
-		if err := json.Unmarshal(contents, &manifest); err != nil || manifest.FormatVersion != 1 || manifest.BackupNo != row.BackupNo || manifest.SiteID != row.SiteID || manifest.ScopeType != row.ScopeType {
+		if err := json.Unmarshal(contents, &manifest); err != nil || manifest.FormatVersion != 2 || manifest.BackupNo != row.BackupNo || manifest.SiteID != row.SiteID || manifest.ScopeType != row.ScopeType {
 			return backupManifest{}, NewError("INVALID_BACKUP_ARTIFACT", "backup manifest metadata does not match")
 		}
 		return manifest, nil
@@ -580,7 +553,7 @@ func (s *Service) validateH5BackupPayload(row BackupTaskRow, manifest backupMani
 	validated := []uint64{}
 	for siteKey, snapshot := range payload.Sites {
 		siteID := parseID(siteKey)
-		if siteID == 0 || len(snapshot.Site) == 0 {
+		if siteID != 1 || siteID != row.SiteID || len(snapshot.Site) == 0 {
 			return nil, NewError("INVALID_BACKUP_ARTIFACT", "site snapshot is invalid")
 		}
 		var count int64
@@ -594,7 +567,7 @@ func (s *Service) validateH5BackupPayload(row BackupTaskRow, manifest backupMani
 
 func validBackupScope(scope string) bool {
 	switch scope {
-	case backupScopeDatabaseConfig, backupScopeH5Config, backupScopePublishedConfig, backupScopeAssetMetadata, backupScopeAssetFiles:
+	case backupScopeDatabaseConfig, backupScopeH5Config, backupScopeAssetMetadata, backupScopeAssetFiles:
 		return true
 	default:
 		return false
@@ -644,5 +617,5 @@ func maskBackupLocation(value string) string {
 	if strings.TrimSpace(value) == "" {
 		return ""
 	}
-	return "managed-object-storage"
+	return "private-backup-volume"
 }

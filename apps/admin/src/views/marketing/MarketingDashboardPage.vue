@@ -21,8 +21,8 @@ const metrics = computed(() => [
       .length,
   },
   {
-    key: "draft",
-    value: items.value.filter((i) => statusKey(i.status) === "DRAFT").length,
+    key: "disabled",
+    value: items.value.filter((i) => statusKey(i.status) === "DISABLED").length,
   },
   {
     key: "expired",
