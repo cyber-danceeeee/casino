@@ -13,6 +13,8 @@ const { can, loadPermissions } = useAdminPermissions()
 const tr = (zh: string, en: string) => locale.value.startsWith('zh') ? zh : en
 const loading = ref(false)
 const saving = ref(false)
+const switching = ref(false)
+const selectedCountryID = ref<number | null>(null)
 const visible = ref(false)
 const advanced = ref<string[]>([])
 const rows = ref<SystemRecord[]>([])
@@ -25,7 +27,7 @@ const displayNames = {
   en: new Intl.DisplayNames(['en'], { type: 'region' }),
 }
 const options = countryCodes.map(code => ({ code, label: `${displayNames.zh.of(code)} / ${displayNames.en.of(code)} · ${code}` }))
-const fields = ['countryCode', 'countryNameZh', 'countryNameEn', 'currencyCode', 'currencyNameZh', 'currencyNameEn', 'currencySymbol', 'currencyDecimalPlaces', 'timezone', 'defaultLanguage', 'supportedLanguages', 'phoneCountryCode', 'phoneLength', 'enabled', 'reason']
+const fields = ['countryCode', 'countryNameZh', 'countryNameEn', 'currencyCode', 'currencyNameZh', 'currencyNameEn', 'currencySymbol', 'currencyDecimalPlaces', 'timezone', 'defaultLanguage', 'supportedLanguages', 'phoneCountryCode', 'phoneLength', 'reason']
 const filtered = computed(() => {
   const value = search.value.trim().toLowerCase()
   return rows.value.filter(row => [row.countryCode, row.countryNameZh, row.countryNameEn, row.currencyCode].some(item => String(item || '').toLowerCase().includes(value)))
@@ -42,13 +44,14 @@ async function load() {
       all.push(...more.list)
     }
     rows.value = all
+    selectedCountryID.value = all.find(row => row.enabled)?.id || null
     presets.value = defaults
   } catch { ElMessage.error(tr('国家配置加载失败', 'Could not load countries')) }
   finally { loading.value = false }
 }
 function reset() {
   Object.keys(form).forEach(key => delete form[key])
-  Object.assign(form, { countryCode: '', enabled: true, currencyDecimalPlaces: 2, timezone: 'UTC', defaultLanguage: 'en', supportedLanguages: 'en', phoneLength: 0, reason: '' })
+  Object.assign(form, { countryCode: '', currencyDecimalPlaces: 2, timezone: 'UTC', defaultLanguage: 'en', supportedLanguages: 'en', phoneLength: 0, reason: '' })
   advanced.value = []
 }
 function create() { editing.value = 0; reset(); visible.value = true }
@@ -74,7 +77,6 @@ async function chooseCountry(code: string) {
   const preset = presets.value.find(row => row.countryCode === code)
   reset()
   Object.assign(form, { countryCode: code, countryNameZh: displayNames.zh.of(code), countryNameEn: displayNames.en.of(code) }, preset || {})
-  form.enabled = true
   if (!preset) advanced.value = ['details']
 }
 function changeCurrency() {
@@ -93,6 +95,7 @@ async function save() {
     return
   }
   const body = Object.fromEntries(fields.map(key => [key, form[key]]))
+  if (!editing.value) body.enabled = false
   body.isoCountryCode = form.countryCode
   body.currencyCode = String(form.currencyCode).trim().toUpperCase()
   body.supportedLanguages = [...new Set([form.defaultLanguage, ...String(form.supportedLanguages || '').split(',')].map(value => String(value).trim()).filter(Boolean))].join(',')
@@ -106,13 +109,29 @@ async function save() {
   } catch (error) { ElMessage.error(error instanceof Error ? error.message : tr('保存失败', 'Save failed')) }
   finally { saving.value = false }
 }
-async function status(row: SystemRecord) {
-  try {
-    const reason = await ElMessageBox.prompt(tr('请输入变更原因', 'Enter a change reason'), tr('启用／停用国家', 'Change Country Status'), { inputValidator: value => Boolean(value?.trim()) || tr('请填写原因', 'Reason required') })
-    await systemAPI.countries.status(rowID(row), !Boolean(row.enabled), reason.value)
-    await load()
-  } catch (error) { if (error !== 'cancel' && error !== 'close') ElMessage.error(tr('状态修改失败', 'Could not change status')) }
+function countryLabel(row: SystemRecord) {
+  const name = locale.value.startsWith('zh') ? row.countryNameZh || row.countryNameEn : row.countryNameEn
+  return `${name} · ${row.countryCode} / ${row.currencyCode} / ${row.phoneCountryCode}`
 }
+async function activateCountry(id: number) {
+  const currentID = rows.value.find(row => row.enabled)?.id || null
+  if (switching.value || id === currentID) return
+  const country = rows.value.find(row => rowID(row) === id)
+  if (!country) { selectedCountryID.value = currentID; return }
+  switching.value = true
+  try {
+    await systemAPI.countries.status(id, true, `Apply H5 country ${country.countryCode}`)
+    rows.value = rows.value.map(row => ({ ...row, enabled: rowID(row) === id }))
+    selectedCountryID.value = id
+    window.dispatchEvent(new Event('brand-config-refresh'))
+    ElMessage.success(tr('已切换启用国家，H5 配置已生效', 'Active country changed and applied to H5'))
+    await load()
+  } catch (error) {
+    selectedCountryID.value = currentID
+    ElMessage.error(error instanceof Error ? error.message : tr('国家切换失败，仍使用原国家配置', 'Could not switch country; the previous configuration remains active'))
+  } finally { switching.value = false }
+}
+
 async function remove(row: SystemRecord) {
   try {
     const reason = await ElMessageBox.prompt(tr('请输入删除原因；正在使用的国家无法删除', 'Enter a reason; countries in use cannot be deleted'), tr('删除国家', 'Delete Country'), { inputValidator: value => Boolean(value?.trim()) || tr('请填写原因', 'Reason required') })
@@ -124,22 +143,28 @@ onMounted(async () => { await loadPermissions(); if (can('system:country:list'))
 </script>
 
 <template>
-  <div v-loading="loading" class="country-page">
+  <div v-loading="loading || switching" class="country-page">
     <header class="country-heading"><div><h1>{{ tr('国家配置', 'Countries') }}</h1><p>{{ tr('每次部署只启用一个国家。启用后自动停用其他国家，并立即应用到 H5 的国家、币种、语言、时区和注册电话区号。', 'One country is active per installation. Enabling it immediately applies its country, currency, language, timezone and registration dialing code to H5.') }} <RouterLink v-if="can('system:site:view')" to="/system/brand">{{ tr('打开 H5 配置', 'Open H5 Settings') }}</RouterLink></p></div><div><el-button :icon="Refresh" @click="load">{{ tr('刷新', 'Refresh') }}</el-button><el-button v-if="can('system:country:create')" type="primary" :icon="Plus" @click="create">{{ tr('新增国家', 'Add Country') }}</el-button></div></header>
+    <section class="country-activation" aria-labelledby="active-country-label">
+      <div><h2 id="active-country-label">{{ tr('当前启用国家', 'Active Country') }}</h2><p>{{ tr('选择后立即应用到 H5；其他国家自动设为备用配置。', 'Your selection applies to H5 immediately; other countries remain available as alternatives.') }}</p></div>
+      <el-select v-model="selectedCountryID" class="active-country-select" :aria-label="tr('当前启用国家', 'Active Country')" filterable :loading="loading || switching" :disabled="loading || switching || !can('system:country:status') || !rows.length" :placeholder="tr('请选择已配置的国家', 'Select a configured country')" @change="activateCountry">
+        <el-option v-for="country in rows" :key="rowID(country)" :label="countryLabel(country)" :value="rowID(country)" />
+      </el-select>
+    </section>
     <el-input v-model="search" class="country-search" clearable :placeholder="tr('搜索国家名称、代码或币种，例如：印度尼西亚 / ID / IDR', 'Search name, country code or currency: Indonesia / ID / IDR')" />
     <el-table :data="filtered" row-key="id">
       <el-table-column :label="tr('国家', 'Country')" min-width="225"><template #default="{ row }"><strong>{{ locale.startsWith('zh') ? row.countryNameZh || row.countryNameEn : row.countryNameEn }}</strong><div class="muted">{{ row.countryCode }} · {{ row.countryNameEn }}</div></template></el-table-column>
       <el-table-column :label="tr('币种', 'Currency')" min-width="130"><template #default="{ row }">{{ row.currencyCode }} · {{ row.currencySymbol }}</template></el-table-column>
       <el-table-column prop="phoneCountryCode" :label="tr('电话区号', 'Dialing Code')" width="125" />
       <el-table-column prop="timezone" :label="tr('时区', 'Timezone')" min-width="180" />
-      <el-table-column :label="tr('状态', 'Status')" width="110"><template #default="{ row }"><el-tag :type="row.enabled ? 'success' : 'info'">{{ row.enabled ? tr('已启用', 'Enabled') : tr('已停用', 'Disabled') }}</el-tag></template></el-table-column>
-      <el-table-column :label="tr('操作', 'Actions')" min-width="230"><template #default="{ row }"><el-button v-if="can('system:country:update')" link type="primary" :icon="Edit" @click="edit(row)">{{ tr('编辑', 'Edit') }}</el-button><el-button v-if="can('system:country:status')" link :disabled="Boolean(row.enabled)" @click="status(row)">{{ row.enabled ? tr('当前使用', 'Current') : tr('启用并应用', 'Activate') }}</el-button><el-button v-if="can('system:country:delete')" link type="danger" :icon="Delete" @click="remove(row)">{{ tr('删除', 'Delete') }}</el-button></template></el-table-column>
+      <el-table-column :label="tr('状态', 'Status')" width="110"><template #default="{ row }"><el-tag :type="row.enabled ? 'success' : 'info'">{{ row.enabled ? tr('当前使用', 'Current') : tr('备用配置', 'Available') }}</el-tag></template></el-table-column>
+      <el-table-column :label="tr('操作', 'Actions')" min-width="160"><template #default="{ row }"><el-button v-if="can('system:country:update')" link type="primary" :icon="Edit" @click="edit(row)">{{ tr('编辑', 'Edit') }}</el-button><el-button v-if="can('system:country:delete')" link type="danger" :icon="Delete" @click="remove(row)">{{ tr('删除', 'Delete') }}</el-button></template></el-table-column>
     </el-table>
     <el-dialog v-model="visible" :title="editing ? tr('编辑国家', 'Edit Country') : tr('新增国家', 'Add Country')" width="min(660px,94vw)" destroy-on-close>
       <el-form v-loading="saving" label-position="top" @submit.prevent="save">
         <el-form-item :label="tr('国家／地区', 'Country / Region')" required><el-select v-model="form.countryCode" filterable :disabled="Boolean(editing)" :placeholder="tr('搜索中文、英文名称或代码', 'Search country name or code')" @change="chooseCountry"><el-option v-for="option in options" :key="option.code" :label="option.label" :value="option.code" /></el-select></el-form-item>
         <div v-if="form.countryCode" class="country-summary"><strong>{{ form.currencyCode || '—' }} · {{ form.currencySymbol || '—' }}</strong><span>{{ form.timezone }}</span><span>{{ form.phoneCountryCode || '—' }}</span></div>
-        <el-form-item :label="tr('应用到当前 H5', 'Apply to H5')"><el-switch v-model="form.enabled" /></el-form-item>
+        <el-alert v-if="!editing" :title="tr('新增国家只保存配置，请通过页面顶部下拉框启用。', 'New countries are saved as available configurations. Activate one using the selector at the top of this page.')" type="info" :closable="false" show-icon />
         <el-collapse v-model="advanced"><el-collapse-item name="details" :title="tr('高级设置（通常无需修改）', 'Advanced settings (usually unchanged)')"><div class="country-grid">
           <el-form-item :label="tr('币种代码', 'Currency Code')"><el-input v-model="form.currencyCode" maxlength="3" @change="changeCurrency" /></el-form-item>
           <el-form-item :label="tr('币种符号', 'Currency Symbol')"><el-input v-model="form.currencySymbol" maxlength="16" /></el-form-item>
@@ -164,10 +189,13 @@ onMounted(async () => { await loadPermissions(); if (can('system:country:list'))
 .country-heading p,.muted { color: var(--el-text-color-secondary); }
 .country-heading p { margin: 0; line-height: 1.6; }
 .muted { margin-top: 5px; font-size: 12px; }
+.country-activation { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 440px); align-items: center; gap: 20px; padding: 20px; border: 1px solid var(--el-border-color-light); border-radius: 8px; background: var(--el-bg-color); }
+.country-activation h2 { margin: 0 0 8px; font-size: 16px; }
+.country-activation p { margin: 0; color: var(--el-text-color-secondary); line-height: 1.6; }
 .country-search { max-width: 580px; }
 .country-summary { display: flex; flex-wrap: wrap; gap: 12px; margin: 0 0 20px; padding: 14px; border-radius: 8px; background: var(--el-fill-color-light); }
 .country-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; }
 .country-page :deep(.el-select) { width: 100%; }
 .country-reason { margin-top: 20px; }
-@media(max-width:700px) { .country-heading { align-items: flex-start; flex-direction: column; } .country-grid { grid-template-columns: 1fr; } }
+@media(max-width:700px) { .country-activation { grid-template-columns: 1fr; } .country-heading { align-items: flex-start; flex-direction: column; } .country-grid { grid-template-columns: 1fr; } }
 </style>
