@@ -406,7 +406,7 @@ onBeforeUnmount(() => { ++loadVersion; dialog.value?.close() })
 
 .benefit-row {
   display: grid;
-  grid-template-columns: 36fr 49fr;
+  grid-template-columns: minmax(0, 34fr) minmax(0, 66fr);
   gap: 1px;
   min-height: 33px;
   font-size: 12px;
@@ -425,9 +425,10 @@ onBeforeUnmount(() => { ++loadVersion; dialog.value?.close() })
 .benefit-row__value {
   display: flex;
   align-items: center;
-  gap: 4px;
+  flex-wrap: wrap;
+  gap: 2px 4px;
   min-width: 0;
-  padding: 0 6px 0 15px;
+  padding: 4px 6px;
   background: linear-gradient(90deg,#795fef,#4c33db);
 }
 
