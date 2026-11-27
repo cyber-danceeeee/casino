@@ -379,7 +379,7 @@ func (s *Service) DeleteCategory(id uint64, reason string, actor Actor) error {
 						FROM game_game_category_relations AS r
 						JOIN game_game_categories AS c ON c.id = r.category_id AND c.deleted_at IS NULL
 						WHERE r.game_id = g.id AND r.deleted_at IS NULL
-						ORDER BY r.sort ASC, r.id ASC
+						ORDER BY r.category_priority ASC, r.id ASC
 						LIMIT 1
 					), 0),
 					platform_category_code = COALESCE((
@@ -387,7 +387,7 @@ func (s *Service) DeleteCategory(id uint64, reason string, actor Actor) error {
 						FROM game_game_category_relations AS r
 						JOIN game_game_categories AS c ON c.id = r.category_id AND c.deleted_at IS NULL
 						WHERE r.game_id = g.id AND r.deleted_at IS NULL
-						ORDER BY r.sort ASC, r.id ASC
+						ORDER BY r.category_priority ASC, r.id ASC
 						LIMIT 1
 					), ''),
 					updated_at = ?

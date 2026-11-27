@@ -36,7 +36,7 @@ def verify_provider_market(call, h5_base, admin_token, player_token):
     assert 'list' not in (forbidden.get('data') or {})
     before = call('/admin/game-provider-connections')
     assert before['market'] == {'countryCode': 'PK', 'currencyCode': 'PKR'}
-    assert before['countries'] and len(before['adapters']) == 2
+    assert before['countries'] and {'ag', 'softaggregator', 'allintop'} <= {row['type'] for row in before['adapters']}
     initial_policy = call('/app/config', base=h5_base)['resourceVersion']
     connections = {}
     for code, country, currency in [('accept-pk', 'PK', 'PKR'), ('accept-ca', 'CA', 'CAD')]:
@@ -83,8 +83,8 @@ def verify_provider_market(call, h5_base, admin_token, player_token):
     assert [row['id'] for row in forged['list']] == [950001]
     assert not call('/games?provider=accept-ca&country=CA&currency=CAD', base=h5_base)['list']
     assert not call('/game/providers/accept-ca/gamelist?enabled=false', base=h5_base)['list']
-    lobby = call('/lobby?country=CA&currency=CAD', base=h5_base)
-    assert 'accept-ca' not in json.dumps(lobby) and 'accept-pk' in json.dumps(lobby)
+    home = call('/home?country=CA&currency=CAD', base=h5_base)
+    assert [row['providerCode'] for row in home['providers']] == ['accept-pk']
     for game_id in [950002, 950003, 950004]:
         _, detail = request('/games/' + str(game_id))
         assert detail['code'] != 0
