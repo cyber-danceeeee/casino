@@ -1,3 +1,4 @@
+import { brandLogo } from '../config/branding'
 import type { PreloadAsset } from '../utils/preloadAssets'
 import { localDialogImage, localHomeImage, localRegisterRewardImage } from '../utils/localAssets'
 import { h5Audio } from '../utils/staticAssets'
@@ -102,7 +103,7 @@ const floatEntryImages = [
 ]
 
 const criticalImages = [
-  image('brand-56mvp.avif'),
+  brandLogo,
   authCustomer,
   authHeaderBackground,
   localDialogImage('mini-gift.webp'),

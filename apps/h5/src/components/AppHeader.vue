@@ -4,13 +4,11 @@ import { useRouter } from 'vue-router'
 import { isLoggedIn, mockUser } from '../mock/session'
 import { h5Api } from '../services/h5Api'
 import { localDialogImage } from '../utils/localAssets'
-import { formatCurrency, runtimeConfig, toRuntimeAssetUrl } from '../services/runtimeConfig'
+import { formatCurrency, runtimeConfig } from '../services/runtimeConfig'
+import { brandLogo } from '../config/branding'
 
 const gift = localDialogImage('mini-gift.webp')
 const router = useRouter()
-const logo = computed(() =>
-  toRuntimeAssetUrl(runtimeConfig.value.branding.headerLogoUrl || runtimeConfig.value.branding.logoUrl),
-)
 const appName = computed(() => runtimeConfig.value.branding.appName || runtimeConfig.value.branding.siteName || 'Casino')
 const cashLabel = computed(() => formatCurrency(String(mockUser.value.cash || '0').replace(/[^\d.]/g, '') || 0))
 const unreadNotifications = ref(0)
@@ -63,7 +61,7 @@ watch(isLoggedIn, () => {
 <template>
   <header class="app-header">
     <div class="brand">
-      <img v-if="logo" :src="logo" :alt="appName" /><strong v-else class="brand-name">{{ appName }}</strong>
+      <img :src="brandLogo" :alt="appName" />
     </div>
 
     <template v-if="isLoggedIn">
@@ -109,7 +107,6 @@ watch(isLoggedIn, () => {
 </template>
 
 <style scoped lang="scss">
-.brand-name { display:block; max-width:130px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:18px; font-weight:800; color:var(--runtime-text-color,#fff); }
 .app-header {
   position: sticky;
   top: 0;

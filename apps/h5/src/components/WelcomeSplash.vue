@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import LottiePlayer from './LottiePlayer.vue'
-import { runtimeConfig, toRuntimeAssetUrl } from '../services/runtimeConfig'
+import { brandLogo, startupBackground } from '../config/branding'
 
 const props = withDefaults(
   defineProps<{
@@ -28,17 +27,6 @@ const isLeaving = ref(false)
 const progressStyle = computed(() => ({
   width: `${visibleProgress.value}%`,
 }))
-const logo = computed(() =>
-  toRuntimeAssetUrl(runtimeConfig.value.branding.loadingLogoUrl || runtimeConfig.value.branding.logoUrl),
-)
-const loadingAnimation = computed(() => toRuntimeAssetUrl(runtimeConfig.value.branding.loadingAnimationUrl))
-const splashStyle = computed(() => ({
-  backgroundColor: runtimeConfig.value.branding.theme?.backgroundColor || '#003f77',
-  backgroundImage: runtimeConfig.value.branding.loadingBackgroundUrl
-    ? `url("${toRuntimeAssetUrl(runtimeConfig.value.branding.loadingBackgroundUrl)}")`
-    : '',
-}))
-
 const ariaProgress = computed(() => Math.round(visibleProgress.value))
 
 const clampProgress = (value: number) => Math.max(0, Math.min(100, value))
@@ -86,12 +74,8 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="welcome-splash" :class="{ 'is-leaving': isLeaving }" :style="splashStyle" aria-label="Loading">
-    <div v-if="loadingAnimation" class="welcome-splash__lottie">
-      <LottiePlayer :src="loadingAnimation" :loop="true" :autoplay="true" />
-    </div>
-    <img v-else-if="logo" class="welcome-splash__logo" :src="logo" :alt="runtimeConfig.branding.appName || 'Casino'" />
-    <strong v-else class="welcome-brand-name">{{ runtimeConfig.branding.appName || runtimeConfig.branding.siteName || 'Casino' }}</strong>
+  <section class="welcome-splash" :class="{ 'is-leaving': isLeaving }" :style="{ backgroundColor: startupBackground }" aria-label="Loading">
+    <img class="welcome-splash__logo" :src="brandLogo" alt="56MVP" />
 
     <div
       class="welcome-splash__progress"
@@ -110,7 +94,6 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped lang="scss">
-.welcome-brand-name { color:var(--runtime-text-color,#fff); font-size:32px; font-weight:800; text-align:center; }
 .welcome-splash {
   position: fixed;
   inset: 0;
@@ -130,7 +113,7 @@ onBeforeUnmount(() => {
 
 .welcome-splash__logo {
   position: absolute;
-  top: 39.2%;
+  top: 50%;
   left: 50%;
   width: min(240px, 62vw);
   height: auto;
@@ -138,15 +121,6 @@ onBeforeUnmount(() => {
   transform: translate(-50%, -50%);
   filter: drop-shadow(0 5px 0 rgba(0, 38, 78, 0.75)) drop-shadow(0 10px 5px rgba(0, 0, 0, 0.32));
   animation: splash-logo-in 620ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.welcome-splash__lottie {
-  position: absolute;
-  top: 32%;
-  left: 50%;
-  width: min(240px, 62vw);
-  height: min(180px, 48vw);
-  transform: translate(-50%, -50%);
 }
 
 .welcome-splash__progress {
@@ -216,12 +190,12 @@ onBeforeUnmount(() => {
 @keyframes splash-logo-in {
   from {
     opacity: 0;
-    transform: translate(-50%, -45%) skewX(-7deg) scale(0.92);
+    transform: translate(-50%, -45%) scale(0.92);
   }
 
   to {
     opacity: 1;
-    transform: translate(-50%, -50%) skewX(-7deg) scale(1);
+    transform: translate(-50%, -50%) scale(1);
   }
 }
 

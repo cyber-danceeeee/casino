@@ -17,9 +17,14 @@
     <link rel="icon" type="image/png" sizes="192x192" href="/pwa/icon-192.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/pwa/apple-touch-icon.png" />
     <title>56MVP</title>
+    <link rel="preload" as="image" href="/src/assets/images/brand-logo.png" />
+    <style>
+      #initial-splash { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; background: #003f77; }
+      #initial-splash img { width: min(240px, 62vw); height: auto; }
+    </style>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app"><div id="initial-splash" role="status" aria-label="Loading"><img src="/src/assets/images/brand-logo.png" alt="56MVP" /></div></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
