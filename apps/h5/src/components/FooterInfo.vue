@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { HomeProvider } from '../services/h5Api'
-import { runtimeConfig, toRuntimeAssetUrl } from '../services/runtimeConfig'
+import { runtimeConfig } from '../services/runtimeConfig'
 import { useRouter } from 'vue-router'
 import type { SocialLink } from '../mock/games'
 import { buildShareUrl, resolveShareText } from '../utils/shareLinks'
@@ -9,7 +8,6 @@ import { isLoggedIn } from '../mock/session'
 
 const props = defineProps<{
   socials: SocialLink[]
-  providers: HomeProvider[]
 }>()
 const router = useRouter()
 const brandName = computed(() => runtimeConfig.value.branding.appName || runtimeConfig.value.branding.siteName || '56MVP')
@@ -19,16 +17,6 @@ const visibleSocials = computed(() => {
   const seen = new Set<string>()
   return props.socials.filter((social) => {
     const key = social.id.trim().toLowerCase()
-    if (!key || seen.has(key)) return false
-    seen.add(key)
-    return true
-  })
-})
-
-const visibleProviders = computed(() => {
-  const seen = new Set<string>()
-  return props.providers.filter((provider) => {
-    const key = provider.providerCode.trim().toLowerCase()
     if (!key || seen.has(key)) return false
     seen.add(key)
     return true
@@ -56,16 +44,6 @@ const openSocial = async (social: SocialLink) => {
     <button class="quick-register" type="button" aria-label="Quick Registration" v-if="!isLoggedIn" @click="router.push('/auth/register')">
       <img :src="quickRegister" alt="Quick Registration" loading="lazy" />
     </button>
-
-    <div v-if="visibleProviders.length" class="provider-logos" aria-label="Game providers">
-      <div
-        v-for="provider in visibleProviders"
-        :key="provider.providerCode"
-        class="provider-logo"
-      >
-        <img v-if="provider.logoUrl" :src="toRuntimeAssetUrl(provider.logoUrl)" :alt="provider.name" loading="lazy" /><span v-else>{{ provider.name }}</span>
-      </div>
-    </div>
 
     <div v-if="visibleSocials.length" class="social-links" aria-label="Social links">
       <button v-for="social in visibleSocials" :key="social.id" type="button" :aria-label="social.label" @click="openSocial(social)">
@@ -103,31 +81,6 @@ const openSocial = async (social: SocialLink) => {
     width: 100%;
     aspect-ratio: 347 / 142;
     object-fit: contain;
-  }
-}
-
-.provider-logos {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  margin-top: 16px;
-}
-
-.provider-logo {
-  flex: 0 1 112px;
-  max-width: 100%;
-  text-align: center;
-  overflow-wrap: anywhere;
-
-  img {
-    width: 112px;
-    height: 44px;
-    border-radius: 4px;
-    object-fit: contain;
-    background: rgba(255, 255, 255, 0.04);
-    opacity: 0.82;
   }
 }
 

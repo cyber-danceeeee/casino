@@ -92,7 +92,7 @@ func (h *gameGamesHandler) PublicList(c *gin.Context) {
 
 	queryScope := scope
 	q, categoryKey := h5BuildPublicGameQuery(c, db, queryScope, filters)
-	if categoryKey == "hot" {
+	if categoryKey == "hot" && !h5CategoryConfigured(db, queryScope, "hot") {
 		// HOT must only use games already visible to this site. Redis is only
 		// the ranking source; it must never expand the site's game catalogue.
 		h5RespondHotGames(c, db, q, queryScope, scope, page, pageSize)
@@ -101,10 +101,10 @@ func (h *gameGamesHandler) PublicList(c *gin.Context) {
 
 	var total int64
 	_ = q.Count(&total).Error
-	if total == 0 && scope.SiteScoped() && !filters.FavoriteOnly {
+	if total == 0 && scope.SiteScoped() && scope.SiteID != 1 && !filters.FavoriteOnly {
 		queryScope = h5PlatformCatalogScope()
 		q, categoryKey = h5BuildPublicGameQuery(c, db, queryScope, filters)
-		if categoryKey == "hot" {
+		if categoryKey == "hot" && !h5CategoryConfigured(db, queryScope, "hot") {
 			h5RespondHotGames(c, db, q, queryScope, scope, page, pageSize)
 			return
 		}
@@ -113,6 +113,12 @@ func (h *gameGamesHandler) PublicList(c *gin.Context) {
 
 	var games []model.GameGames
 	orderExpr := "game_games.hot_score DESC, game_games.sort ASC, game_games.id ASC"
+	if categoryKey != "" && h5CategoryConfigured(db, queryScope, categoryKey) {
+		orderExpr = "display_relation.sort ASC,game_games.sort ASC,game_games.id ASC"
+	}
+	if categoryKey == "hot" {
+		page, pageSize = 1, 12
+	}
 	switch filters.SortMode {
 	case "name-asc":
 		orderExpr = "game_games.name ASC, game_games.id ASC"
@@ -174,30 +180,22 @@ func h5BuildPublicGameQuery(c *gin.Context, db *gorm.DB, scope content.Scope, fi
 	categoryKey := ""
 	if filters.Category != "" {
 		categoryKey = h5NormalizeCategoryKey(filters.Category)
-		if categoryKey == "hot" {
-			// HOT is handled after shared filters so search/type/favorite still apply.
-		} else if categoryKey == "chance" {
-			q = q.Where("game_games.platform_category_code IN ?", []string{"live-casino", "table-games", "crash"})
-		} else {
-			var gameCategory model.GameGameCategories
-			err := h5ApplyReadableScope(db.Model(&model.GameGameCategories{}), "", scope).
-				Where("category_key = ? AND status = ?", categoryKey, 1).
-				First(&gameCategory).Error
-			if err == nil && gameCategory.ID > 0 {
-				relationQuery := h5ApplyReadableScope(db.Model(&model.GameGameCategoryRelations{}), "", scope).
-					Select("game_id").
-					Where("category_id = ?", gameCategory.ID)
-				q = q.Where(
-					"(game_games.platform_category_id = ? OR game_games.platform_category_code = ? OR game_games.id IN (?))",
-					gameCategory.ID,
-					gameCategory.CategoryKey,
-					relationQuery,
-				)
-			} else {
-				q = q.Where("game_games.platform_category_code = ?", categoryKey)
+		var category model.GameGameCategories
+		err := h5ApplyReadableScope(db.Model(&category), "", scope).Where("category_key=? AND status=1", categoryKey).Take(&category).Error
+		if err == nil {
+			q = q.Joins("JOIN game_game_category_relations display_relation ON display_relation.game_id=game_games.id AND display_relation.category_id=? AND display_relation.deleted_at IS NULL", category.ID)
+			q = h5ApplyReadableScope(q, "display_relation", scope)
+		} else if categoryKey == "hot" {
+			var configured int64
+			h5ApplyReadableScope(db.Model(&model.GameGameCategories{}), "", scope).Where("category_key=?", "hot").Count(&configured)
+			if configured > 0 {
+				q = q.Where("1=0")
 			}
+		} else {
+			q = q.Where("1=0")
 		}
 	}
+
 	if filters.GameType != "" {
 		q = q.Where("game_games.game_type = ?", h5GameType(filters.GameType))
 	}
@@ -594,4 +592,10 @@ func h5GameTypeCode(gameType string) string {
 	default:
 		return strings.ToUpper(strings.ReplaceAll(strings.TrimSpace(gameType), "-", "_"))
 	}
+}
+
+func h5CategoryConfigured(db *gorm.DB, scope content.Scope, code string) bool {
+	var count int64
+	h5ApplyReadableScope(db.Model(&model.GameGameCategories{}), "", scope).Where("category_key=? AND status=1", code).Count(&count)
+	return count > 0
 }

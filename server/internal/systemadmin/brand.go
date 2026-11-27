@@ -72,12 +72,9 @@ func (s *Service) brandSetupChecklist(row SiteRow, configuration map[string]any,
 	currency := firstNonEmpty(stringFromMap(configuration, "currencyCode"), row.CurrencyCode)
 	language := firstNonEmpty(stringFromMap(configuration, "defaultLanguage"), row.DefaultLanguage)
 
-	var domainCount, paymentCount, lobbyCount, bannerCount, supportCount int64
+	var domainCount, paymentCount, bannerCount, supportCount int64
 	if s.db.Migrator().HasTable("game_payment_channels") {
 		_ = s.db.Table("game_payment_channels").Where("site_id IN (0, ?) AND status = 1 AND country_code IN ('', ?) AND currency_code IN ('', ?) AND deleted_at IS NULL", row.ID, country, currency).Count(&paymentCount).Error
-	}
-	if s.db.Migrator().HasTable("game_lobby_sections") {
-		_ = s.db.Table("game_lobby_sections").Where("site_id = ? AND enabled = 1 AND deleted_at IS NULL", row.ID).Count(&lobbyCount).Error
 	}
 	if s.db.Migrator().HasTable("game_site_banners") {
 		_ = s.db.Table("game_site_banners").Where("site_id = ? AND enabled = 1 AND deleted_at IS NULL", row.ID).Count(&bannerCount).Error
@@ -104,7 +101,6 @@ func (s *Service) brandSetupChecklist(row SiteRow, configuration map[string]any,
 		{Key: "paymentChannel", Status: status(paymentCount > 0), Path: "/funds/deposit-channels"},
 		{Key: "provider", Status: status(providersEnabled > 0), Path: "/games/list"},
 		{Key: "games", Status: status(gamesEnabled > 0), Path: "/games/list"},
-		{Key: "lobby", Status: status(lobbyCount > 0), Path: "/games/lobby-sections"},
 		{Key: "banner", Status: status(bannerCount > 0), Path: "/operations/banners"},
 		{Key: "customerSupport", Status: status(supportCount > 0), Path: "/operations/social-links"},
 	}

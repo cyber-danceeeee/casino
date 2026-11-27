@@ -31,7 +31,7 @@ func (s *Service) ListCategories(q ListQuery) (PageResult, error) {
 		rows[i].Enabled = rows[i].Status == 1
 		signCategoryAsset(&rows[i])
 	}
-	if q.Scope.SiteScoped() {
+	if q.Scope.SiteScoped() && q.Scope.SiteID != 1 {
 		result.List = h5CategoryList(rows)
 	} else {
 		result.List = rows
@@ -50,6 +50,9 @@ func applyCategoryReadableScope(db *gorm.DB, alias string, scope content.Scope) 
 	if !scope.SiteScoped() {
 		return db.Where("1=0")
 	}
+	if scope.SiteID == 1 {
+		return content.ApplySite(db, alias, scope)
+	}
 	return content.ApplySiteStrict(db, alias, scope)
 }
 
@@ -62,7 +65,11 @@ func categoryRelationCountJoin(scope content.Scope) string {
 	}
 	join := "LEFT JOIN game_game_category_relations r ON r.category_id=c.id AND r.deleted_at IS NULL"
 	if scope.SiteID > 0 {
-		join += " AND r.site_id=" + uintString(scope.SiteID)
+		if scope.SiteID == 1 {
+			join += " AND r.site_id IN (0,1)"
+		} else {
+			join += " AND r.site_id=" + uintString(scope.SiteID)
+		}
 	}
 	return join
 }
@@ -79,6 +86,9 @@ func applyCategoryResourceScope(db *gorm.DB, alias string, scope content.Scope) 
 		}
 		return db.Where(prefix + "site_id=0")
 	}
+	if scope.SiteID == 1 {
+		return content.ApplySite(db, alias, scope)
+	}
 	return content.ApplySiteStrict(db, alias, scope)
 }
 
@@ -92,6 +102,9 @@ func applyCategoryWriteScope(db *gorm.DB, alias string, scope content.Scope) (*g
 	}
 	if scope.SiteID == 0 {
 		return nil, newError("SITE_REQUIRED", "H5 scope is required")
+	}
+	if scope.SiteID == 1 {
+		return content.ApplySite(db, alias, scope), nil
 	}
 	return content.ApplySiteStrict(db, alias, scope), nil
 }
@@ -163,7 +176,7 @@ func (s *Service) CategoryGames(id uint64, q ListQuery) (PageResult, error) {
 	}
 	var games []gameRecord
 	db := s.db.Table("game_games g").
-		Select("g.id,g.game_code,g.name,g.slug,g.category,g.cover_url,g.local_thumbnail_url,p.provider_code,g.provider_game_code,g.platform_enabled,r.sort category_sort_order").
+		Select("g.*,p.provider_code,r.sort AS category_sort_order").
 		Joins("JOIN game_game_providers p ON p.id=g.provider_id AND p.deleted_at IS NULL").
 		Joins("JOIN game_game_category_relations r ON r.game_id=g.id AND r.deleted_at IS NULL").
 		Where("r.category_id=? AND g.deleted_at IS NULL", id)
@@ -251,7 +264,11 @@ func categoryRelationScopePredicate(alias string, scope content.Scope) string {
 	}
 	predicate := "1=1"
 	if scope.SiteID > 0 {
-		predicate += " AND " + prefix + "site_id=" + uintString(scope.SiteID)
+		if scope.SiteID == 1 {
+			predicate += " AND " + prefix + "site_id IN (0,1)"
+		} else {
+			predicate += " AND " + prefix + "site_id=" + uintString(scope.SiteID)
+		}
 	}
 	return predicate
 }
@@ -265,6 +282,15 @@ func (s *Service) SaveCategory(id uint64, in CategoryInput, actor Actor) (uint64
 		return 0, err
 	}
 	err = s.db.Transaction(func(tx *gorm.DB) error {
+		if actor.Scope.SiteID == 1 {
+			var exists int64
+			if err := tx.Table("game_game_categories").Where("site_id IN (0,1) AND category_key=? AND id<>? AND deleted_at IS NULL", in.Code, id).Count(&exists).Error; err != nil {
+				return err
+			}
+			if exists > 0 {
+				return newError("CATEGORY_CODE_EXISTS", "category code already exists")
+			}
+		}
 		var before categoryRecord
 		action, permission := "create", "game:category:create"
 		if id > 0 {
@@ -411,8 +437,6 @@ func (s *Service) AddCategoryGames(id uint64, in CategoryGamesAddInput, actor Ac
 		for index, gameID := range gameIDs {
 			items, err := s.loadGameCategories(tx, actor, gameID)
 
-			items, err = s.loadGameCategories(tx, actor, gameID)
-
 			if err != nil {
 				return err
 			}
@@ -439,43 +463,25 @@ func (s *Service) AddCategoryGames(id uint64, in CategoryGamesAddInput, actor Ac
 }
 
 func (s *Service) UpdateCategoryGameSort(id uint64, gameID uint64, in CategoryGameSortInput, actor Actor) error {
+	if in.SortOrder < 0 {
+		return newError("INVALID_REQUEST", "sort order cannot be negative")
+	}
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		if err := ensureCategoryWritable(tx, id, actor.Scope); err != nil {
 			return err
 		}
-		items, err := s.loadGameCategories(tx, actor, gameID)
-
-		items, err = s.loadGameCategories(tx, actor, gameID)
-
-		if err != nil {
+		var before struct {
+			ID   uint64
+			Sort int
+		}
+		query := applyCategoryResourceScope(tx.Table("game_game_category_relations"), "", actor.Scope).Where("category_id=? AND game_id=? AND deleted_at IS NULL", id, gameID)
+		if err := query.Take(&before).Error; err != nil {
+			return notFound(err, "CATEGORY_GAME_NOT_FOUND")
+		}
+		if err := tx.Table("game_game_category_relations").Where("id=?", before.ID).Updates(map[string]any{"sort": in.SortOrder, "updated_at": time.Now()}).Error; err != nil {
 			return err
 		}
-		before := append([]gameCategoryItem(nil), items...)
-		found := false
-		for index := range items {
-			if items[index].CategoryID == id {
-				items[index].Sort = in.SortOrder
-				found = true
-			}
-		}
-		if !found {
-			return notFound(gorm.ErrRecordNotFound, "CATEGORY_GAME_NOT_FOUND")
-		}
-
-		err = s.saveGameCategories(tx, actor, gameID, items)
-
-		if err != nil {
-			return err
-		}
-		after, _ := s.loadGameCategories(tx, actor, gameID)
-		action := "sort_game"
-		resultKey := "configuration"
-
-		after, _ = s.loadGameCategories(tx, actor, gameID)
-		action = "sort_game"
-		resultKey = "configuration"
-
-		return audit(tx, actor, "game:category:assign", action, "game_category", id, before, map[string]any{"gameID": gameID, "sortOrder": in.SortOrder, resultKey: after}, fallbackReason(in.Reason, "sort_category_game"))
+		return audit(tx, actor, "game:category:assign", "sort_game", "game_category", id, before, map[string]any{"gameID": gameID, "sortOrder": in.SortOrder}, fallbackReason(in.Reason, "sort_category_game"))
 	})
 }
 
@@ -485,8 +491,6 @@ func (s *Service) RemoveCategoryGame(id uint64, gameID uint64, reason string, ac
 			return err
 		}
 		items, err := s.loadGameCategories(tx, actor, gameID)
-
-		items, err = s.loadGameCategories(tx, actor, gameID)
 
 		if err != nil {
 			return err
@@ -529,7 +533,7 @@ func syncGamePrimaryCategory(tx *gorm.DB, gameID uint64) error {
 		Select("c.id,c.category_key code").
 		Joins("JOIN game_game_categories c ON c.id=r.category_id AND c.deleted_at IS NULL").
 		Where("r.game_id=? AND r.deleted_at IS NULL", gameID).
-		Order("r.sort ASC,r.id ASC").Limit(1).Find(&primary)
+		Order("r.category_priority ASC,r.id ASC").Limit(1).Find(&primary)
 	if result.Error != nil {
 		return result.Error
 	}

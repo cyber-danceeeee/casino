@@ -48,11 +48,13 @@ const depositProgress = computed(() => {
   const amount = Number(depositAmount.value)
   return required > 0 && Number.isFinite(amount) ? Math.min(100, Math.max(0, amount / required * 100)) : 0
 })
+const previous = computed(() => [...levels.value].reverse().find((row) => Number(row.levelNo) < selectedLevel.value))
 const rewards = computed(() => selected.value ? [
-  { key: 'upgrade', label: 'Level Up Reward', amount: selected.value.levelUpReward },
-  { key: 'weekly', label: 'Weekly Reward', amount: selected.value.weeklyReward },
-  { key: 'monthly', label: 'Monthly Reward', amount: selected.value.monthlyReward },
+  { key: 'upgrade', label: 'Level Up Reward', amount: selected.value.levelUpReward, delta: Number(selected.value.levelUpReward) - Number(previous.value?.levelUpReward || 0) },
+  { key: 'weekly', label: 'Weekly Reward', amount: selected.value.weeklyReward, delta: Number(selected.value.weeklyReward) - Number(previous.value?.weeklyReward || 0) },
+  { key: 'monthly', label: 'Monthly Reward', amount: selected.value.monthlyReward, delta: Number(selected.value.monthlyReward) - Number(previous.value?.monthlyReward || 0) },
 ] : [])
+const withdrawalIncrement = computed(() => Math.max(0, Number(selected.value?.dailyWithdrawCount || 0) - Number(previous.value?.dailyWithdrawCount || 0)))
 const requirementRows = computed(() => (payload.value?.requirements || [])
   .filter((row) => row.requirementType === requirementTab.value
     && levels.value.some((level) => Number(level.levelNo) === Number(row.targetLevelNo)))
@@ -95,7 +97,7 @@ const openDialog = async (title: string, sections: Array<{ title: string; text: 
 const openRewardInfo = (reward: { label: string; amount: string }) => {
   void openDialog(reward.label, [{
     title: `VIP${selectedLevel.value} ${reward.label}`,
-    text: `Configured cash reward: ${currencySymbol()} ${money(reward.amount)}. Eligibility and claiming conditions apply. Contact support for help with an eligible reward.`,
+    text: `Cash reward: ${currencySymbol()} ${money(reward.amount)}. Eligibility and claiming conditions apply. Contact support for help with an eligible reward.`,
   }])
 }
 const openRules = () => {
@@ -104,7 +106,7 @@ const openRules = () => {
     { title: 'VIP Retention', text: 'The Retain Requirement tab lists the configured period, deposit and valid-bet requirements. A dash means no retention period has been configured for that level.' },
     { title: 'Rewards', text: 'Use the arrows to view each level’s upgrade, weekly and monthly cash rewards. Amounts and requirements come from the current VIP configuration.' },
   ]
-  if (selected.value) sections.push({ title: `VIP${selectedLevel.value} Privileges`, text: `Configured daily withdrawal count: ${selected.value.dailyWithdrawCount}. Withdrawal eligibility and account limits still apply.` })
+  if (selected.value) sections.push({ title: `VIP${selectedLevel.value} Privileges`, text: `Additional daily fee-free withdrawals: ${selected.value.dailyWithdrawCount}. Withdrawal eligibility and account limits still apply.` })
   sections.push({ title: 'Help', text: 'Contact customer support for reward eligibility, claiming conditions or questions about your VIP status.' })
   void openDialog('VIP Rules', sections)
 }
@@ -161,10 +163,11 @@ onBeforeUnmount(() => { ++loadVersion; dialog.value?.close() })
             <span class="benefit-row__label">{{ reward.label }}</span>
             <div class="benefit-row__value">
               <span class="benefit-row__cash"><i><img :src="cashIcon" alt="" />CASH</i><b>{{ currencySymbol() }} {{ money(reward.amount) }}</b></span>
-              <span class="benefit-row__delta"><svg viewBox="0 0 12 16" aria-hidden="true"><path d="m6 0 5 7H8c0 4-2 7-6 9l-2-3c4-1 5-3 5-6H2L6 0Z" /></svg>{{ money(reward.amount) }}</span>
+              <span class="benefit-row__delta"><svg viewBox="0 0 12 16" aria-hidden="true"><path d="m6 0 5 7H8c0 4-2 7-6 9l-2-3c4-1 5-3 5-6H2L6 0Z" /></svg>{{ money(reward.delta) }}</span>
               <button type="button" class="benefit-row__info" :aria-label="`About ${reward.label}`" @click="openRewardInfo(reward)"><img :src="localVipImage('info.webp')" alt="" /></button>
             </div>
           </div>
+          <template v-if="selected && selected.dailyWithdrawCount > 0"><h2>VIP Privileges</h2><div class="benefit-row"><span class="benefit-row__label">Additional Daily Fee-Free Withdrawals</span><div class="benefit-row__value"><strong>{{ selected.dailyWithdrawCount }}</strong><span v-if="withdrawalIncrement" class="benefit-row__delta">↑ {{ withdrawalIncrement }}</span></div></div></template>
         </div>
       </article>
 

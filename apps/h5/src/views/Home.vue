@@ -74,7 +74,6 @@ const androidAppRuntime = isAndroidAppRuntime()
 const homeBanners = ref(cachedHomeCatalog?.home.banners.length ? cachedHomeCatalog.home.banners : mockBanners)
 const homeCategories = ref<GameCategory[]>(cachedHomeCatalog?.home.categories ?? [])
 const homeGameSections = ref<GameSection[]>(cachedHomeCatalog?.gameSections ?? [])
-const homeProviders = ref(cachedHomeCatalog?.home.providers ?? [])
 const homeSocialLinks = ref(cachedHomeCatalog?.home.socialLinks ?? [])
 const splashVisible = ref(!homeBootState.splashCompleted)
 const splashReady = ref(homeBootState.preloadDone && homeBootState.catalogDone)
@@ -324,7 +323,7 @@ const closeLoginInviteChest = () => {
 const completeRegisterReward = () => {
   homeBootState.initialGuideCompleted = true
   clearRegisterReward()
-  void refreshMockUser()
+  void refreshMockUser().catch((error) => console.warn('[api] wallet refresh after reward claim failed.', error))
   window.setTimeout(resumeInitialHomeFlow, 120)
 }
 
@@ -368,7 +367,7 @@ const openGameCategory = (section: GameSection) => {
 
 const getSectionPageCount = (section: GameSection) => {
   const pageSize = section.pageSize || 9
-  return Math.max(1, Math.ceil((section.total ?? section.games.length) / pageSize))
+  return Math.max(1, Math.min(3, Math.ceil((section.total ?? section.games.length) / pageSize)))
 }
 
 const requestHomeSectionPage = (category: GameCategory, page: number) => {
@@ -468,7 +467,6 @@ const selectCategory = (category: CategoryKey) => {
 }
 
 const applyHomeCatalog = (catalog: HomeCatalogSnapshot) => {
-  homeProviders.value = catalog.home.providers ?? []
   homeBanners.value = catalog.home.banners.length ? catalog.home.banners : mockBanners
   homeCategories.value = catalog.home.categories
   homeSocialLinks.value = catalog.home.socialLinks
@@ -614,7 +612,7 @@ onBeforeUnmount(() => {
         @view-all="openGameCategory"
         @page="loadHomeSectionPage"
       />
-      <FooterInfo :socials="homeSocialLinks" :providers="homeProviders" />
+      <FooterInfo :socials="homeSocialLinks" />
     </main>
 
     <HomeFloatingActions

@@ -15,12 +15,10 @@ import {
   batchUpdateGames,
   createCategory,
   createCollection,
-  createLobbySection,
   createTag,
   cancelProviderSync,
   deleteCategory,
   deleteCollection,
-  deleteLobbySection,
   deleteProvider,
   deleteTag,
   fetchCategories,
@@ -53,7 +51,6 @@ import {
   updateCategory,
   updateCategoryGameSort,
   updateTag,
-  updateLobbySection,
   updateGame,
   uploadGameAsset,
   type CollectionInput,
@@ -61,7 +58,6 @@ import {
   type GameCenterQuery,
   type GameCenterRecord,
   type GameInput,
-  type LobbySectionInput,
   type ProviderGameTypeOption,
   type TaxonomyInput,
 } from "@/api/adminGames";
@@ -98,12 +94,7 @@ const visibleColumns = computed(() => {
           ? { ...column, labelKey: "gameCenter.fields.display", width: column.width || 180 }
           : column,
       );
-    const insertIndex = Math.min(2, categoryColumns.length);
-    return [
-      ...categoryColumns.slice(0, insertIndex),
-      { key: "ownership", labelKey: "gameCenter.fields.ownership", width: 120 },
-      ...categoryColumns.slice(insertIndex),
-    ];
+    return categoryColumns;
   }
 if(moduleKey.value!=="game-list")return columns;
   const hidden = new Set<string>();
@@ -248,23 +239,6 @@ const taxonomyForm = reactive<TaxonomyInput>({
   enabled: true,
   reason: "",
 });
-const lobbyForm = reactive<LobbySectionInput>({
-  sectionCode: "",
-  sectionType: "game-list",
-  titleZh: "",
-  titleEn: "",
-  displayStyle: "horizontal",
-  sourceType: "flag",
-  sourceRef: "",
-  maxItems: 12,
-  sortOrder: 0,
-  enabled: true,
-  supportedCountries: "",
-  supportedCurrencies: "",
-  config: {},
-  reason: "",
-});
-const lobbyConfigText = ref("{}");
 const detailTabs = computed(() => {
   let tabs = config.value?.detailTabs || [];
   if (isPlatform.value && moduleKey.value === "game-list")
@@ -285,7 +259,7 @@ const syncLogTabs = [
   "operationLogs",
 ];
 const createModule = computed(() =>
-  ["game-categories", "game-tags", "game-collections", "lobby-sections"].includes(moduleKey.value),
+  ["game-categories", "game-tags", "game-collections"].includes(moduleKey.value),
 );
 const selectedGameIDs = computed(() =>
   selectedRows.value.map((item) => Number(item.id)).filter((id) => id > 0),
@@ -310,11 +284,6 @@ const managedPermissions = computed(
         create: "game:collection:create",
         update: "game:collection:update",
         delete: "game:collection:delete",
-      },
-      "lobby-sections": {
-        create: "lobby:update",
-        update: "lobby:update",
-        delete: "lobby:update",
       },
     })[moduleKey.value],
 );
@@ -479,28 +448,10 @@ function tableCellValue(row: RecordValue, key: string) {
     return row.nameEn || row.displayName || row.name || row.nameZh || "-";
   return row[key] ?? "-";
 }
-function isPlatformDefaultCategoryRecord(row: RecordValue) {
-  if (row.isPlatformDefault === true || row.platformDefault === true) return true;
-  return Number(row.siteID || 0) === 0;
-}
-function isPlatformDefaultCategory(row: RecordValue) {
-  return moduleKey.value === "game-categories" && isPlatformDefaultCategoryRecord(row);
-}
-function categoryOwnershipLabel(row: RecordValue) {
-  return t(isPlatformDefaultCategory(row) ? "gameCenter.values.platform_category" : "gameCenter.values.site_category");
-}
-function categoryOwnershipTagType(row: RecordValue) {
-  return isPlatformDefaultCategory(row) ? "info" : "success";
-}
 const tableRows = computed(() => {
   return rows.value;
 });
-const siteCategoryOptions = computed(() =>
-  categories.value.filter((row) => !isPlatformDefaultCategoryRecord(row)),
-);
-const assignableCategoryOptions = computed(() =>
-  isPlatform.value ? categories.value : siteCategoryOptions.value,
-);
+const assignableCategoryOptions = computed(() => categories.value);
 function isTimelineTab(key: string) {
   return key === "sessionTimeline";
 }
@@ -643,7 +594,6 @@ function handleSelectionChange(selection: GameCenterRecord[]) {
   selectedRows.value = selection;
 }
 async function loadExpandedCategoryGames(row: GameCenterRecord) {
-  if (isPlatformDefaultCategory(row)) return;
   const state = categoryGamesState(row);
   state.loading = true;
   try {
@@ -661,7 +611,6 @@ async function loadExpandedCategoryGames(row: GameCenterRecord) {
 }
 function handleCategoryExpand(row: GameCenterRecord, expandedRows: GameCenterRecord[]) {
   if (moduleKey.value !== "game-categories") return;
-  if (isPlatformDefaultCategory(row)) return;
   const expanded = expandedRows.some((item) => Number(item.id) === Number(row.id));
   if (expanded && categoryGamesState(row).list.length === 0) void loadExpandedCategoryGames(row);
 }
@@ -735,10 +684,6 @@ function detailID(row: GameCenterRecord) {
     : row.id;
 }
 async function openDetail(row: GameCenterRecord, initialTab = "") {
-  if (isPlatformDefaultCategory(row)) {
-    ElMessage.warning(t("gameCenter.messages.platformDefaultCategoryOperationDisabled"));
-    return;
-  }
   detailVisible.value = true;
   detailLoading.value = true;
   detail.value = {};
@@ -1033,6 +978,13 @@ function gamePayload(row: GameCenterRecord, reasonValue: string): GameInput {
   return {
     name: String(row.name || ""),
     localThumbnailUrl: String(row.localThumbnailUrl || ""),
+    backgroundUrl: String(row.backgroundUrl || ""),
+    launchImageUrl: String(row.launchImageUrl || ""),
+    maintenanceMessage: String(row.maintenanceMessage || ""),
+    rtp: row.rtp == null ? null : Number(row.rtp),
+    volatility: String(row.volatility || ""),
+    supportsDemo: Boolean(row.supportsDemo),
+    supportsFreeSpins: Boolean(row.supportsFreeSpins),
     platformEnabled: gameBoolean(row, "platformEnabled"),
     isHot: gameBoolean(row, "isHot"),
     isFeatured: gameBoolean(row, "isFeatured"),
@@ -1059,10 +1011,6 @@ function toggleGameFlag(
   );
 }
 function changeBoolean(row: GameCenterRecord, key: string) {
-  if (isPlatformDefaultCategory(row)) {
-    ElMessage.warning(t("gameCenter.messages.platformDefaultCategoryOperationDisabled"));
-    return;
-  }
   if (moduleKey.value === "provider-management" || moduleKey.value === "game-sync") {
     if (key === "status" && can("game:provider:update")) toggleProvider(row);
     return;
@@ -1334,10 +1282,6 @@ async function runDemo(row: GameCenterRecord) {
 }
 
 async function openEdit(row?: GameCenterRecord) {
-  if (row && isPlatformDefaultCategory(row)) {
-    ElMessage.warning(t("gameCenter.messages.platformDefaultCategoryOperationDisabled"));
-    return;
-  }
   editing.value = row || null;
   editVisible.value = true;
   if (moduleKey.value === "game-list" && row) {
@@ -1398,27 +1342,6 @@ async function openEdit(row?: GameCenterRecord) {
     } finally {
       editLoading.value = false;
     }
-    return;
-  }
-  if (moduleKey.value === "lobby-sections") {
-    const source: RecordValue = row || {};
-    Object.assign(lobbyForm, {
-      sectionCode: String(source.sectionCode || ""),
-      sectionType: String(source.sectionType || "game-list"),
-      titleZh: String(source.titleZh || ""),
-      titleEn: String(source.titleEn || ""),
-      displayStyle: String(source.displayStyle || "horizontal"),
-      sourceType: String(source.sourceType || "flag"),
-      sourceRef: String(source.sourceRef || ""),
-      maxItems: Number(source.maxItems || 12),
-      sortOrder: Number(source.sortOrder || 0),
-      enabled: row ? Boolean(source.enabled) : true,
-      supportedCountries: String(source.supportedCountries || ""),
-      supportedCurrencies: String(source.supportedCurrencies || ""),
-      config: parseConfigValue(source.configJSON || source.configJson || "{}"),
-      reason: "",
-    });
-    lobbyConfigText.value = JSON.stringify(lobbyForm.config || {}, null, 2);
     return;
   }
   const source: RecordValue = row || {};
@@ -1485,40 +1408,6 @@ function collectionPayload(
     reason: reasonValue,
   };
 }
-function parseConfigValue(value: unknown): Record<string, unknown> {
-  if (isObject(value)) return value;
-  try {
-    const parsed = JSON.parse(String(value || "{}"));
-    return isObject(parsed) ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-function lobbyPayload(reasonValue: string): LobbySectionInput {
-  let configValue: Record<string, unknown> = {};
-  try {
-    const parsed = JSON.parse(lobbyConfigText.value || "{}");
-    configValue = isObject(parsed) ? parsed : {};
-  } catch {
-    throw new Error("INVALID_LOBBY_CONFIG");
-  }
-  return {
-    ...lobbyForm,
-    sectionCode: String(lobbyForm.sectionCode || "").trim(),
-    sectionType: String(lobbyForm.sectionType || "").trim(),
-    titleZh: String(lobbyForm.titleZh || "").trim(),
-    titleEn: String(lobbyForm.titleEn || "").trim(),
-    displayStyle: String(lobbyForm.displayStyle || "").trim(),
-    sourceType: String(lobbyForm.sourceType || "").trim(),
-    sourceRef: String(lobbyForm.sourceRef || "").trim(),
-    maxItems: Number(lobbyForm.maxItems || 12),
-    sortOrder: Number(lobbyForm.sortOrder || 0),
-    supportedCountries: String(lobbyForm.supportedCountries || "").trim(),
-    supportedCurrencies: String(lobbyForm.supportedCurrencies || "").trim(),
-    config: configValue,
-    reason: reasonValue,
-  };
-}
 function warnRequired(labelKey: string) {
   ElMessage.warning(
     t("gameCenter.validation.required", { field: t(labelKey) }),
@@ -1536,12 +1425,6 @@ function validateEditForm() {
       validateRequiredValue(gameForm.reason, "gameCenter.fields.reason")
     );
   }
-  if (moduleKey.value === "lobby-sections") {
-    return (
-      validateRequiredValue(lobbyForm.sectionCode, "gameCenter.fields.sectionCode") &&
-      validateRequiredValue(lobbyForm.sectionType, "gameCenter.fields.sectionType")
-    );
-  }
   if (moduleKey.value === "game-categories")
     return validateRequiredValue(taxonomyForm.nameEn, "gameCenter.fields.display");
   return (
@@ -1551,30 +1434,9 @@ function validateEditForm() {
   );
 }
 function toggleManaged(row: GameCenterRecord) {
-  if (isPlatformDefaultCategory(row)) {
-    ElMessage.warning(t("gameCenter.messages.platformDefaultCategoryOperationDisabled"));
-    return;
-  }
   const enabled = !Boolean(row.enabled);
   const action =
-    moduleKey.value === "lobby-sections"
-      ? updateLobbySection(row.id, {
-          sectionCode: String(row.sectionCode || ""),
-          sectionType: String(row.sectionType || "game-list"),
-          titleZh: String(row.titleZh || ""),
-          titleEn: String(row.titleEn || ""),
-          displayStyle: String(row.displayStyle || "horizontal"),
-          sourceType: String(row.sourceType || "flag"),
-          sourceRef: String(row.sourceRef || ""),
-          maxItems: Number(row.maxItems || 12),
-          sortOrder: Number(row.sortOrder || 0),
-          enabled,
-          supportedCountries: String(row.supportedCountries || ""),
-          supportedCurrencies: String(row.supportedCurrencies || ""),
-          config: parseConfigValue(row.configJSON || row.configJson || "{}"),
-          reason: "toggle_lobby_section",
-        })
-      : moduleKey.value === "game-tags"
+    moduleKey.value === "game-tags"
       ? updateTag(row.id, taxonomyPayload(row, "toggle_tag_status", enabled))
       : moduleKey.value === "game-collections"
         ? updateCollection(row.id, collectionPayload(row, "toggle_collection_status", enabled))
@@ -1587,8 +1449,6 @@ function toggleManaged(row: GameCenterRecord) {
             ? isPlatform.value
               ? "gameCenter.messages.savedImmediate"
               : "gameCenter.messages.savedImmediate"
-            : moduleKey.value === "lobby-sections"
-              ? "gameCenter.messages.savedImmediate"
             : "gameCenter.messages.saved",
         ),
       );
@@ -1632,10 +1492,6 @@ async function saveEdit() {
       );
       if (editing.value) await updateCollection(editing.value.id, payload);
       else await createCollection(payload);
-    } else if (moduleKey.value === "lobby-sections") {
-      const payload = lobbyPayload(lobbyForm.reason || "save_lobby_section");
-      if (editing.value) await updateLobbySection(editing.value.id, payload);
-      else await createLobbySection(payload);
     }
     editVisible.value = false;
     ElMessage.success(
@@ -1648,8 +1504,6 @@ async function saveEdit() {
             ? isPlatform.value
               ? "gameCenter.messages.savedImmediate"
               : "gameCenter.messages.savedImmediate"
-            : moduleKey.value === "lobby-sections"
-              ? "gameCenter.messages.savedImmediate"
             : "gameCenter.messages.saved",
       ),
     );
@@ -1699,10 +1553,6 @@ const uploadGameThumbnail = (options: UploadRequestOptions) =>
 const uploadTaxonomyIcon = (options: UploadRequestOptions) =>
   uploadGameAssetTo("taxonomyIcon", options);
 async function removeRow(row: GameCenterRecord) {
-  if (isPlatformDefaultCategory(row)) {
-    ElMessage.warning(t("gameCenter.messages.platformDefaultCategoryDeleteDisabled"));
-    return;
-  }
   try {
     const result = await ElMessageBox.prompt(
       t("gameCenter.dialogs.deleteMessage"),
@@ -1718,7 +1568,6 @@ async function removeRow(row: GameCenterRecord) {
     );
     if (moduleKey.value === "game-tags") await deleteTag(row.id, result.value);
     else if (moduleKey.value === "game-collections") await deleteCollection(row.id, result.value);
-    else if (moduleKey.value === "lobby-sections") await deleteLobbySection(row.id, result.value);
     else await deleteCategory(row.id, result.value);
     ElMessage.success(t("gameCenter.messages.deleted"));
     notifyConfigurationChanged();
@@ -2343,7 +2192,6 @@ onMounted(async () => {
         </div></template
       >
 
-      <el-alert v-if="moduleKey === 'lobby-sections'" :title="t('liveConfig.lobbyHelp')" type="info" :closable="false" show-icon />
 <el-alert
         v-if="isGameListPage || isGameCategoriesPage"
         class="configuration-help"
@@ -2372,10 +2220,7 @@ onMounted(async () => {
           fixed="left"
         >
           <template #default="{ row }">
-            <div v-if="isPlatformDefaultCategory(row)" class="category-games-panel">
-              <el-empty :description="t('gameCenter.messages.platformDefaultCategoryOperationDisabled')" />
-            </div>
-            <div v-else class="category-games-panel" v-loading="categoryGamesState(row).loading">
+            <div class="category-games-panel" v-loading="categoryGamesState(row).loading">
               <el-table
                 :data="categoryGamesState(row).list"
                 border
@@ -2484,11 +2329,6 @@ onMounted(async () => {
               fit="contain"
               lazy
             /><span v-else-if="column.image">-</span
-            ><el-tag
-              v-else-if="isGameCategoriesPage && column.key === 'ownership'"
-              :type="categoryOwnershipTagType(row)"
-              size="small"
-            >{{ categoryOwnershipLabel(row) }}</el-tag
             ><el-select
               v-else-if="
                 isGameListPage &&
@@ -2533,8 +2373,7 @@ onMounted(async () => {
                       !can('game:update')))) ||
                 (createModule &&
                   (!managedPermissions ||
-                    !can(managedPermissions.update) ||
-                    isPlatformDefaultCategory(row)))
+                    !can(managedPermissions.update)))
               "
               @change="changeBoolean(row, column.key)"
             /><span
@@ -2554,7 +2393,6 @@ onMounted(async () => {
             ><el-button
               link
               type="primary"
-              :disabled="isPlatformDefaultCategory(row)"
               @click="openDetail(row)"
             >{{
               t("common.detail")
@@ -2646,15 +2484,13 @@ onMounted(async () => {
               ><el-button
                 v-if="can(managedPermissions.update)"
                 link
-                :disabled="isPlatformDefaultCategory(row)"
-                @click="openEdit(row)"
+                  @click="openEdit(row)"
                 >{{ t("common.edit") }}</el-button
               ><el-button
                 v-if="can(managedPermissions.delete)"
                 link
                 type="danger"
-                :disabled="isPlatformDefaultCategory(row)"
-                @click="removeRow(row)"
+                  @click="removeRow(row)"
                 >{{ t("common.delete") }}</el-button
               ></template
             ></template
@@ -3058,94 +2894,6 @@ onMounted(async () => {
               ><el-input
                 v-model="gameForm.reason"
                 type="textarea" /></el-form-item></el-col></el-row></el-form
-      ><el-form
-        v-else-if="moduleKey === 'lobby-sections'"
-        v-loading="editLoading"
-        label-position="left"
-        label-width="140px"
-      >
-        <el-row :gutter="16">
-          <el-col :span="12">
-            <el-form-item :label="t('gameCenter.fields.sectionCode')" required>
-              <el-input v-model="lobbyForm.sectionCode" :disabled="Boolean(editing)" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item :label="t('gameCenter.fields.sectionType')" required>
-              <el-select v-model="lobbyForm.sectionType" filterable>
-                <el-option
-                  v-for="item in ['banner','game-list','category-list','provider-list','jackpot']"
-                  :key="item"
-                  :label="optionLabel(item)"
-                  :value="item"
-                />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item :label="t('gameCenter.fields.titleZh')">
-              <el-input v-model="lobbyForm.titleZh" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item :label="t('gameCenter.fields.titleEn')">
-              <el-input v-model="lobbyForm.titleEn" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item :label="t('gameCenter.fields.displayStyle')">
-              <el-select v-model="lobbyForm.displayStyle" filterable>
-                <el-option
-                  v-for="item in ['carousel','horizontal','grid','ticker']"
-                  :key="item"
-                  :label="optionLabel(item)"
-                  :value="item"
-                />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item :label="t('gameCenter.fields.sourceType')">
-              <el-select v-model="lobbyForm.sourceType" filterable>
-                <el-option
-                  v-for="item in ['banner','flag','category','provider','user','jackpot']"
-                  :key="item"
-                  :label="optionLabel(item)"
-                  :value="item"
-                />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item :label="t('gameCenter.fields.sourceRef')">
-              <el-input v-model="lobbyForm.sourceRef" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="6">
-            <el-form-item :label="t('gameCenter.fields.maxItems')">
-              <el-input-number v-model="lobbyForm.maxItems" :min="1" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="6">
-            <el-form-item :label="t('gameCenter.fields.sortOrder')">
-              <el-input-number v-model="lobbyForm.sortOrder" :min="0" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item :label="t('gameCenter.fields.enabled')">
-              <el-switch v-model="lobbyForm.enabled" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="24">
-            <el-form-item :label="t('gameCenter.fields.configJson')">
-              <el-input v-model="lobbyConfigText" type="textarea" :rows="6" />
-            </el-form-item>
-            <el-form-item :label="t('gameCenter.fields.reason')">
-              <el-input v-model="lobbyForm.reason" type="textarea" />
-            </el-form-item>
-          </el-col>
-        </el-row>
-      </el-form
       ><el-form v-else v-loading="editLoading" label-position="left" label-width="132px"
         ><el-row :gutter="16"
           ><el-col v-if="moduleKey !== 'game-categories'" :span="12"
@@ -3219,8 +2967,6 @@ onMounted(async () => {
                 ? isPlatform
                   ? 'common.save'
                   : 'common.save'
-                : moduleKey === 'lobby-sections'
-                  ? 'common.save'
                 : 'common.save',
           )
         }}</el-button></template

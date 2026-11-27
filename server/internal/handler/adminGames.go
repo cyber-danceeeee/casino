@@ -62,11 +62,6 @@ type AdminGamesHandler interface {
 	CreateCollection(*gin.Context)
 	UpdateCollection(*gin.Context)
 	DeleteCollection(*gin.Context)
-	ListLobbySections(*gin.Context)
-	GetLobbySection(*gin.Context)
-	CreateLobbySection(*gin.Context)
-	UpdateLobbySection(*gin.Context)
-	DeleteLobbySection(*gin.Context)
 	ListSyncLogs(*gin.Context)
 	GetSyncLog(*gin.Context)
 	ListSyncLogItems(*gin.Context)
@@ -453,52 +448,6 @@ func (h *adminGamesHandler) DeleteCollection(c *gin.Context) {
 		return
 	}
 	gameWrite(c, nil, h.service.DeleteCollection(id, in.Reason, gameActor(c)))
-}
-
-func (h *adminGamesHandler) ListLobbySections(c *gin.Context) {
-	data, err := h.service.ListLobbySections(gameListQuery(c, lobbySectionQueryKeys))
-	gameWrite(c, data, err)
-}
-func (h *adminGamesHandler) GetLobbySection(c *gin.Context) {
-	id, ok := gamePathID(c)
-	if !ok {
-		return
-	}
-	data, err := h.service.LobbySectionDetail(id, adminContentScope(c))
-	gameWrite(c, data, err)
-}
-func (h *adminGamesHandler) CreateLobbySection(c *gin.Context) {
-	var in gameadmin.LobbySectionInput
-	if !gameBind(c, &in) {
-		return
-	}
-	id, err := h.service.SaveLobbySection(0, in, gameActor(c))
-	gameWrite(c, map[string]any{"id": id}, err)
-}
-func (h *adminGamesHandler) UpdateLobbySection(c *gin.Context) {
-	id, ok := gamePathID(c)
-	if !ok {
-		return
-	}
-	var in gameadmin.LobbySectionInput
-	if !gameBind(c, &in) {
-		return
-	}
-	_, err := h.service.SaveLobbySection(id, in, gameActor(c))
-	gameWrite(c, nil, err)
-}
-func (h *adminGamesHandler) DeleteLobbySection(c *gin.Context) {
-	id, ok := gamePathID(c)
-	if !ok {
-		return
-	}
-	var in struct {
-		Reason string `json:"reason" binding:"required,max=500"`
-	}
-	if !gameBind(c, &in) {
-		return
-	}
-	gameWrite(c, nil, h.service.DeleteLobbySection(id, in.Reason, gameActor(c)))
 }
 
 func (h *adminGamesHandler) ListSyncLogs(c *gin.Context) {

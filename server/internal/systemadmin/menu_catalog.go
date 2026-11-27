@@ -48,7 +48,6 @@ var adminMenuCatalog = []menuCatalogGroup{
 		{Code: "game-sync", NameZh: "游戏厂商", NameEn: "Game Providers", Path: "/games/sync"},
 		{Code: "game-list", NameZh: "游戏列表", NameEn: "Game List", Path: "/games/list"},
 		{Code: "game-categories", NameZh: "游戏分类", NameEn: "Game Categories", Path: "/games/categories"},
-		{Code: "lobby-sections", NameZh: "大厅配置", NameEn: "Lobby Sections", Path: "/games/lobby-sections"},
 		{Code: "game-launch-records", NameZh: "游戏启动记录", NameEn: "Game Launch Records", Path: "/games/launch-records"},
 	}},
 	{Code: "bets", NameZh: "投注中心", NameEn: "Betting Center", Sort: 400, Children: []menuCatalogItem{
@@ -144,7 +143,7 @@ var defaultAdminMenuIcons = map[string]string{
 	"financial-reconciliation": "DocumentChecked", "deposit-methods": "CreditCard",
 	"deposit-channels": "Connection", "deposit-amount-options": "Sort",
 	"games": "Platform", "provider-connections": "Connection", "game-sync": "Refresh", "game-list": "Grid",
-	"game-categories": "Collection", "lobby-sections": "Menu", "game-launch-records": "VideoPlay",
+	"game-categories": "Collection", "game-launch-records": "VideoPlay",
 	"bets": "List", "bet-records": "DataLine",
 	"rollback-records": "RefreshLeft", "abnormal-bets": "WarnTriangleFilled",
 	"provider-callback-logs": "Postcard", "provider-reconciliation": "DocumentChecked", "operations": "Message", "asset-library": "FolderOpened", "banners": "Picture",

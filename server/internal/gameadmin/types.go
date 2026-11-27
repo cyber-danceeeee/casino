@@ -151,23 +151,6 @@ type CollectionInput struct {
 	Reason        string                 `json:"reason" binding:"required,max=500"`
 }
 
-type LobbySectionInput struct {
-	SectionCode         string         `json:"sectionCode" binding:"required,max=64"`
-	SectionType         string         `json:"sectionType" binding:"required,max=32"`
-	TitleZh             string         `json:"titleZh" binding:"max=128"`
-	TitleEn             string         `json:"titleEn" binding:"max=128"`
-	DisplayStyle        string         `json:"displayStyle" binding:"max=64"`
-	SourceType          string         `json:"sourceType" binding:"max=32"`
-	SourceRef           string         `json:"sourceRef" binding:"max=128"`
-	MaxItems            int            `json:"maxItems"`
-	SortOrder           int            `json:"sortOrder"`
-	Enabled             bool           `json:"enabled"`
-	SupportedCountries  string         `json:"supportedCountries" binding:"max=500"`
-	SupportedCurrencies string         `json:"supportedCurrencies" binding:"max=500"`
-	Config              map[string]any `json:"config"`
-	Reason              string         `json:"reason" binding:"required,max=500"`
-}
-
 type SyncCommand struct {
 	ProviderCode string `json:"providerCode"`
 	Reason       string `json:"reason" binding:"required,max=500"`

@@ -28,6 +28,10 @@ const coinFlyAudio = new URL('../assets/audio/coin-fly.wav', import.meta.url).hr
 
 const claiming = ref(false)
 const closing = ref(false)
+const claimError = ref('')
+const fallbackCoinsVisible = ref(false)
+let cancelled = false
+let rewardClaimed = false
 const walletsVisible = ref(false)
 const cashWalletRef = ref<HTMLElement | null>(null)
 const pixiHostRef = ref<HTMLElement | null>(null)
@@ -112,7 +116,7 @@ const clearPixi = () => {
   flightTimeline?.kill()
   flightTimeline = null
   if (pixiApp) {
-    pixiApp.destroy()
+    try { pixiApp.destroy() } catch { /* Initialization may have failed before a renderer exists. */ }
     pixiApp = null
   }
   pixiHostRef.value?.replaceChildren()
@@ -196,9 +200,11 @@ const playCoinFly = async (onCollecting?: () => void) => {
     autoDensity: true,
     resolution: Math.min(window.devicePixelRatio || 1, 2),
   })
+  if (cancelled || !host.isConnected || pixiApp !== app) { try { app.destroy() } catch {} ; return }
   host.appendChild(app.canvas)
 
   const texture = await Assets.load<Pixi.Texture>(cashIcon)
+  if (cancelled || pixiApp !== app) return
   const layer = new Container()
   app.stage.addChild(layer)
 
@@ -287,34 +293,53 @@ const playCoinFly = async (onCollecting?: () => void) => {
   })
 }
 
+const delay = (milliseconds: number) => new Promise<void>((resolve) => window.setTimeout(resolve, milliseconds))
+const playFallbackCoins = async () => {
+  fallbackCoinsVisible.value = true
+  await delay(850)
+  fallbackCoinsVisible.value = false
+  playWalletBounce()
+}
+
 const claim = async () => {
   if (claiming.value) return
   claiming.value = true
+  claimError.value = ''
   try {
-    const claimedReward = props.claimReward ? await props.claimReward() : props.reward
-    if (claimedReward) {
+    if (!rewardClaimed) {
+      const claimedReward = props.claimReward ? await props.claimReward() : props.reward
+      if (!claimedReward) throw new Error('Reward details are unavailable')
       applyRewardPayload(claimedReward)
+      rewardClaimed = true
     }
-  } catch (error) {
+  } catch {
     claiming.value = false
+    claimError.value = 'Unable to claim the reward. Please try again.'
     return
   }
+  if (cancelled) return
   walletsVisible.value = true
   await nextTick()
   playSound(claimAudio, 0.95)
   playSound(coinFlyAudio, 0.72)
-  let numberPromise: Promise<void> | null = null
-  const coinPromise = playCoinFly(() => {
-    numberPromise ||= animateNumber()
-  })
-
-  await coinPromise
-  numberPromise ||= animateNumber()
-  await numberPromise
+  // Cash has already been credited by the server. Renderer/asset failures
+  // must never leave a successful claim trapped behind a disabled button.
+  try {
+    await Promise.race([
+      playCoinFly(),
+      delay(2400).then(() => { throw new Error('Reward animation timed out') }),
+    ])
+  } catch {
+    clearPixi()
+    if (!cancelled) await playFallbackCoins()
+  }
+  if (cancelled) return
+  await animateNumber()
+  if (cancelled) return
   closeTimer = window.setTimeout(() => {
     closing.value = true
     closeTimer = window.setTimeout(() => emit('complete'), 320)
-  }, 560)
+  }, 320)
 }
 
 onMounted(() => {
@@ -322,6 +347,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  cancelled = true
   if (closeTimer) window.clearTimeout(closeTimer)
   numberTween?.kill()
   walletTimeline?.kill()
@@ -334,6 +360,7 @@ onBeforeUnmount(() => {
     <section class="register-reward" :class="{ 'is-claiming': claiming, 'is-closing': closing }" aria-label="Register gift">
       <div class="register-reward__shade" />
       <div ref="pixiHostRef" class="register-reward__pixi" aria-hidden="true" />
+      <div v-if="fallbackCoinsVisible" class="register-reward__fallback-coins" aria-hidden="true"><img v-for="coin in 12" :key="coin" :src="cashIcon" :style="{ '--coin': coin }" alt="" /></div>
 
       <div class="register-reward__wallets" :class="{ 'is-visible': walletsVisible }">
         <button class="reward-wallet reward-wallet--bonus" type="button">
@@ -423,8 +450,9 @@ onBeforeUnmount(() => {
           <span class="register-reward__ok-bottom" />
           <span class="register-reward__ok-top" />
           <span class="register-reward__ok-shine" />
-          <span class="register-reward__ok-text">Okay</span>
+          <span class="register-reward__ok-text">{{ claiming ? 'Claiming…' : 'Okay' }}</span>
         </button>
+        <p v-if="claimError" class="register-reward__error" role="alert">{{ claimError }}</p>
       </article>
     </section>
   </Teleport>
@@ -846,4 +874,11 @@ onBeforeUnmount(() => {
     padding-top: calc(env(safe-area-inset-top) + 88px);
   }
 }
+</style>
+
+<style scoped>
+.register-reward__error{position:relative;z-index:8;max-width:280px;margin:12px auto 0;color:#fff;font-size:13px;text-align:center}
+.register-reward__fallback-coins{pointer-events:none;position:fixed;inset:0;z-index:10}
+.register-reward__fallback-coins img{position:absolute;left:calc(50% + (var(--coin) - 6) * 8px);top:62%;width:24px;height:24px;animation:reward-coin-flight .85s ease-in both;animation-delay:calc(var(--coin) * 12ms)}
+@keyframes reward-coin-flight{0%{opacity:0;transform:translateY(0) scale(.7)}20%{opacity:1}80%{opacity:1}100%{opacity:0;transform:translateY(-52vh) rotate(280deg) scale(.4)}}
 </style>

@@ -6,7 +6,7 @@ import type {
   GameSection,
   SocialLink,
 } from '../mock/games'
-import { socialLinks as localSocialLinks, categories as defaultCategories } from '../mock/games'
+import { socialLinks as localSocialLinks } from '../mock/games'
 import { h5SessionFlagKey, h5SessionTokenKey, h5SessionUserKey } from '../utils/authStorage'
 import { phoneCountryCode, runtimeConfig } from './runtimeConfig'
 
@@ -795,11 +795,7 @@ const normalizeHome = (payload: RemoteHomePayload): HomePayload => {
       short: category.shortLabel,
       icon: toAssetUrl(category.iconURL) || undefined,
     }))
-    .sort((left, right) => {
-      if (left.key === 'hot') return -1
-      if (right.key === 'hot') return 1
-      return 0
-    })
+
 
   return {
     providers: payload.providers || [],
@@ -808,7 +804,7 @@ const normalizeHome = (payload: RemoteHomePayload): HomePayload => {
       title: banner.title,
       image: toAssetUrl(banner.imageURL),
     })),
-    categories: (payload.categories || []).some((category) => Number(category.id) > 0) ? categoryItems : defaultCategories,
+    categories: categoryItems,
     socialLinks: (payload.socialLinks || [])
       .filter((link) => link.label)
       .map(toSocialLink)
@@ -920,11 +916,15 @@ export const h5Api = {
   },
   getCashAudits: () => request<H5CashAuditsPayload>('/wallet/cash-audits'),
   getPendingRewards: () => request<H5PendingRewardsPayload>('/rewards/pending'),
-  claimRegisterReward: () =>
-    request<H5ClaimRegisterRewardPayload>('/rewards/register/claim', {
-      method: 'POST',
-      body: JSON.stringify({}),
-    }),
+  claimRegisterReward: async () => {
+    const controller = new AbortController()
+    const timer = window.setTimeout(() => controller.abort(), 12000)
+    try {
+      return await request<H5ClaimRegisterRewardPayload>('/rewards/register/claim', {
+        method: 'POST', body: JSON.stringify({}), signal: controller.signal,
+      })
+    } finally { window.clearTimeout(timer) }
+  },
   claimPendingReward: (rewardID: number) =>
     request<H5ClaimPendingRewardPayload>(`/rewards/${encodeURIComponent(String(rewardID))}/claim`, {
       method: 'POST',
@@ -960,11 +960,7 @@ export const h5Api = {
     return normalizeGameSection(payload, category)
   },
   async getGameSections(categories: GameCategory[]) {
-    const orderedCategories = [...categories].sort((left, right) => {
-      if (left.key === 'hot') return -1
-      if (right.key === 'hot') return 1
-      return 0
-    })
+    const orderedCategories = categories
     const sections = await Promise.all(
       orderedCategories.map(async (category) => {
         if (category.key === 'hot') {

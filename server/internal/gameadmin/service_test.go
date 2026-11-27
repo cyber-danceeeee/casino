@@ -269,52 +269,6 @@ func assertGameAdminErrorCode(t *testing.T, err error, code string) {
 	}
 }
 
-func TestH5AdminCannotModifyOtherH5LobbySection(t *testing.T) {
-	db := newGameAdminScopeTestDB(t)
-	service := &Service{db: db}
-	row := model.GameLobbySections{
-
-		SiteID:              202,
-		SectionCode:         "home-featured",
-		SectionType:         "game-list",
-		TitleZh:             "推荐",
-		TitleEn:             "Featured",
-		DisplayStyle:        "horizontal",
-		SourceType:          "flag",
-		SourceRef:           "featured",
-		MaxItems:            12,
-		SortOrder:           10,
-		Enabled:             true,
-		SupportedCountries:  "",
-		SupportedCurrencies: "",
-		ConfigJSON:          "{}",
-
-		ConfigVersion: 1,
-	}
-	if err := db.Create(&row).Error; err != nil {
-		t.Fatal(err)
-	}
-
-	_, err := service.SaveLobbySection(row.ID, LobbySectionInput{
-		SectionCode:  "home-featured",
-		SectionType:  "game-list",
-		TitleZh:      "越权",
-		TitleEn:      "Cross H5",
-		DisplayStyle: "horizontal",
-		SourceType:   "flag",
-		SourceRef:    "hot",
-		MaxItems:     8,
-		SortOrder:    1,
-		Enabled:      false,
-		Config:       map[string]any{},
-		Reason:       "attempt cross-h5 lobby update",
-	}, Actor{ID: 11, Username: "h5-a-admin", Scope: content.Scope{SiteID: 101}})
-	var appErr *Error
-	if !errors.As(err, &appErr) || appErr.Code != "LOBBY_SECTION_NOT_FOUND" {
-		t.Fatalf("expected lobby scope rejection, got %v", err)
-	}
-}
-
 func TestH5GameUpdateAndBatchAreImmediate(t *testing.T) {
 	db := newGameUpdateWorkflowTestDB(t)
 	svc := &Service{db: db}
@@ -399,7 +353,7 @@ func newGameUpdateWorkflowTestDB(t *testing.T) *gorm.DB {
 	if err := db.Exec("CREATE TABLE game_game_categories (id INTEGER PRIMARY KEY, site_id INTEGER NOT NULL DEFAULT 0, category_key TEXT NOT NULL, deleted_at DATETIME)").Error; err != nil {
 		t.Fatal(err)
 	}
-	if err := db.Exec("CREATE TABLE game_game_category_relations (id INTEGER PRIMARY KEY AUTOINCREMENT, site_id INTEGER NOT NULL DEFAULT 0, game_id INTEGER NOT NULL, category_id INTEGER NOT NULL, sort INTEGER NOT NULL DEFAULT 0, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME, UNIQUE (game_id, category_id))").Error; err != nil {
+	if err := db.Exec("CREATE TABLE game_game_category_relations (id INTEGER PRIMARY KEY AUTOINCREMENT, site_id INTEGER NOT NULL DEFAULT 0, game_id INTEGER NOT NULL, category_id INTEGER NOT NULL, sort INTEGER NOT NULL DEFAULT 0, category_priority INTEGER NOT NULL DEFAULT 0, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME, UNIQUE (game_id, category_id))").Error; err != nil {
 		t.Fatal(err)
 	}
 	if err := db.Exec("INSERT INTO game_game_categories (id,site_id,category_key) VALUES (100,0,'slots'), (200, 9, 'featured'), (201, 9, 'live')").Error; err != nil {
@@ -424,7 +378,7 @@ func newGameImportTestDB(t *testing.T) *gorm.DB {
 	sqlDB.SetMaxOpenConns(1)
 	t.Cleanup(func() { _ = sqlDB.Close() })
 	for _, statement := range []string{
-		`CREATE TABLE game_game_providers (id INTEGER PRIMARY KEY, site_id INTEGER NOT NULL DEFAULT 0, provider_code TEXT NOT NULL, name TEXT NOT NULL DEFAULT '', logo_url TEXT NOT NULL DEFAULT '', api_base_url TEXT NOT NULL DEFAULT '', environment TEXT NOT NULL DEFAULT '', api_status TEXT NOT NULL DEFAULT '', status INTEGER NOT NULL DEFAULT 1, wallet_mode TEXT NOT NULL DEFAULT '', callback_url TEXT NOT NULL DEFAULT '', supported_countries TEXT NOT NULL DEFAULT '', supported_currencies TEXT NOT NULL DEFAULT '', maintenance_message TEXT NOT NULL DEFAULT '', sort INTEGER NOT NULL DEFAULT 0, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME)`,
+		`CREATE TABLE game_game_providers (id INTEGER PRIMARY KEY, site_id INTEGER NOT NULL DEFAULT 0, provider_code TEXT NOT NULL, name TEXT NOT NULL DEFAULT '', logo_url TEXT NOT NULL DEFAULT '', api_base_url TEXT NOT NULL DEFAULT '', environment TEXT NOT NULL DEFAULT '', api_status TEXT NOT NULL DEFAULT '', status INTEGER NOT NULL DEFAULT 1, wallet_mode TEXT NOT NULL DEFAULT '', callback_url TEXT NOT NULL DEFAULT '', supported_countries TEXT NOT NULL DEFAULT '', supported_currencies TEXT NOT NULL DEFAULT '', maintenance_message TEXT NOT NULL DEFAULT '', sort INTEGER NOT NULL DEFAULT 0, category_priority INTEGER NOT NULL DEFAULT 0, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME)`,
 
 		`CREATE TABLE game_games (id INTEGER PRIMARY KEY AUTOINCREMENT, site_id INTEGER NOT NULL DEFAULT 0, game_code TEXT NOT NULL, provider_id INTEGER NOT NULL DEFAULT 0, provider_game_code TEXT NOT NULL DEFAULT '', name TEXT NOT NULL DEFAULT '', name_i18n TEXT, slug TEXT NOT NULL DEFAULT '', category TEXT NOT NULL DEFAULT '', platform_category_id INTEGER NOT NULL DEFAULT 0, platform_category_code TEXT NOT NULL DEFAULT '', game_type TEXT NOT NULL DEFAULT '', rtp REAL, volatility TEXT NOT NULL DEFAULT '', cover_url TEXT NOT NULL DEFAULT '', local_thumbnail_url TEXT NOT NULL DEFAULT '', background_url TEXT NOT NULL DEFAULT '', launch_image_url TEXT NOT NULL DEFAULT '', maintenance_message TEXT NOT NULL DEFAULT '', supports_demo INTEGER NOT NULL DEFAULT 0, supports_free_spins INTEGER NOT NULL DEFAULT 0, provider_enabled INTEGER NOT NULL DEFAULT 1, platform_enabled INTEGER NOT NULL DEFAULT 0, is_hot INTEGER NOT NULL DEFAULT 0, is_featured INTEGER NOT NULL DEFAULT 0, is_new INTEGER NOT NULL DEFAULT 0, supported_countries TEXT NOT NULL DEFAULT '', supported_currencies TEXT NOT NULL DEFAULT '', supported_devices TEXT NOT NULL DEFAULT '', raw_metadata TEXT, metadata_hash TEXT NOT NULL DEFAULT '', last_synced_at DATETIME, badge TEXT NOT NULL DEFAULT '', player_count INTEGER NOT NULL DEFAULT 0, hot_score INTEGER NOT NULL DEFAULT 0, launch_url TEXT NOT NULL DEFAULT '', status INTEGER NOT NULL DEFAULT 1, sort INTEGER NOT NULL DEFAULT 0, config_version INTEGER NOT NULL DEFAULT 1, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME, UNIQUE (site_id, game_code))`,
 
@@ -508,8 +462,39 @@ func newGameAdminScopeTestDB(t *testing.T) *gorm.DB {
 			t.Fatal(err)
 		}
 	})
-	if err := db.Exec("CREATE TABLE game_lobby_sections (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME, site_id INTEGER NOT NULL DEFAULT 0, section_code TEXT NOT NULL, section_type TEXT NOT NULL, title_zh TEXT NOT NULL, title_en TEXT NOT NULL, display_style TEXT NOT NULL, source_type TEXT NOT NULL, source_ref TEXT NOT NULL, max_items INTEGER NOT NULL DEFAULT 12, sort_order INTEGER NOT NULL DEFAULT 0, enabled INTEGER NOT NULL DEFAULT 1, supported_countries TEXT NOT NULL, supported_currencies TEXT NOT NULL, config_json TEXT, config_version INTEGER NOT NULL DEFAULT 1)").Error; err != nil {
-		t.Fatal(err)
-	}
 	return db
+}
+
+func TestSingleSiteAdminCanManageImportedCategoryMembershipAndOrder(t *testing.T) {
+	db := newGameUpdateWorkflowTestDB(t)
+	service := &Service{db: db}
+	actor := Actor{ID: 1, Scope: content.Scope{SiteID: 1}}
+	require.NoError(t, db.Exec("INSERT INTO game_game_categories(id,site_id,category_key) VALUES(101,1,'featured')").Error)
+	require.NoError(t, service.SetGameCategories(1, RelationInput{IDs: []uint64{100, 101}}, actor))
+	require.NoError(t, service.UpdateCategoryGameSort(100, 1, CategoryGameSortInput{SortOrder: 37}, actor))
+	memberships, err := service.loadGameCategories(db, actor, 1)
+	require.NoError(t, err)
+	require.Equal(t, uint64(100), memberships[0].CategoryID)
+	require.Equal(t, uint64(101), memberships[1].CategoryID)
+	// Editing membership priority must not reset an operator's display order.
+	require.NoError(t, service.SetGameCategories(1, RelationInput{IDs: []uint64{100, 101}}, actor))
+	var relation model.GameGameCategoryRelations
+	require.NoError(t, db.Where("game_id=1 AND category_id=100").Take(&relation).Error)
+	require.Equal(t, 37, relation.Sort)
+	require.NoError(t, service.RemoveCategoryGame(100, 1, "curate category", actor))
+	var game struct{ PlatformCategoryID uint64 }
+	require.NoError(t, db.Table("game_games").Where("id=1").Take(&game).Error)
+	require.Equal(t, uint64(101), game.PlatformCategoryID)
+}
+
+func TestSingleSiteAdminCanEditCatalogCategory(t *testing.T) {
+	db := newCategoryWriteScopeTestDB(t)
+	service := &Service{db: db}
+	actor := Actor{ID: 1, Scope: content.Scope{SiteID: 1}}
+	_, err := service.SaveCategory(100, CategoryInput{Code: "slots", NameZh: "精选老虎机", NameEn: "Selected Slots", Enabled: true, SortOrder: 12, Reason: "maintain homepage category"}, actor)
+	require.NoError(t, err)
+	var category categoryRecord
+	require.NoError(t, db.Table("game_game_categories").Where("id=100").Take(&category).Error)
+	require.Equal(t, "Selected Slots", category.NameEn)
+	require.Equal(t, uint64(0), category.SiteID)
 }

@@ -47,7 +47,6 @@ const gameCenterComponents: Record<string, RouteRecordRaw["component"]> = {
   "game-tags": () => import("@/views/games/GameCenterPage.vue"),
   "game-collections": () => import("@/views/games/GameCenterPage.vue"),
   "game-sync": () => import("@/views/games/GameCenterPage.vue"),
-  "lobby-sections": () => import("@/views/games/GameCenterPage.vue"),
   "game-launch-records": () => import("@/views/games/GameCenterPage.vue"),
 	"game-operations": () => import("@/views/games/GameOperationsPage.vue"),
 };

@@ -32,7 +32,7 @@ import {
 import { systemAPI, type BrandOverview } from "@/api/adminSystem";
 import { formatBackendTime } from "@/utils/timezone";
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const loading = ref(false);
 const saving = ref(false);
 const sorting = ref(false);
@@ -62,7 +62,7 @@ const actionTypes: H5NavigationAction[] = [
 ];
 const badges: H5NavigationBadge[] = ["NONE", "NEW", "HOT"];
 const visibilityOptions: H5NavigationVisibility[] = ["ALL", "GUEST", "LOGGED_IN"];
-const internalTargets = ["/", "/offers", "/share", "/profile", "/bonus-center", "/settings", "/about"];
+const internalTargets = ["/", "/offers", "/vip", "/share", "/profile", "/bonus-center", "/settings", "/about"];
 
 const emptyForm = () => ({
   menuCode: "",
@@ -85,6 +85,7 @@ const emptyForm = () => ({
   reason: "",
 });
 const form = reactive(emptyForm());
+const bundledBottomEntry = computed(() => form.displayPosition === 'BOTTOM_NAV' && ['home','offers','vip','share','profile'].includes(form.menuCode));
 
 const currentRows = computed(() =>
   rows.value
@@ -203,9 +204,9 @@ function payload(config = form): H5NavigationPayload {
     labelZh: config.labelZh.trim(),
     labelEn: config.labelEn.trim(),
     labels: { "zh-CN": config.labelZh.trim(), "en-US": config.labelEn.trim() },
-    iconAssetID: Number(config.iconAssetID || 0),
-    lottieAssetID: Number(config.lottieAssetID || 0),
-    soundAssetID: Number(config.soundAssetID || 0),
+    iconAssetID: bundledBottomEntry.value ? 0 : Number(config.iconAssetID || 0),
+    lottieAssetID: bundledBottomEntry.value ? 0 : Number(config.lottieAssetID || 0),
+    soundAssetID: bundledBottomEntry.value ? 0 : Number(config.soundAssetID || 0),
     displayPosition: config.displayPosition,
     sortOrder: Number(config.sortOrder || 0),
     badgeType: config.badgeType,
@@ -222,7 +223,7 @@ function payload(config = form): H5NavigationPayload {
 }
 
 async function save() {
-  if (!form.labelZh.trim() || !form.labelEn.trim() || (!form.iconAssetID && !form.lottieAssetID)) {
+  if (!form.labelZh.trim() || !form.labelEn.trim() || (!bundledBottomEntry.value && !form.iconAssetID && !form.lottieAssetID)) {
     ElMessage.warning(t("h5EntryLibrary.validation.required"));
     return;
   }
@@ -384,12 +385,13 @@ onMounted(load);
 
     <el-dialog v-model="editVisible" :title="editingID ? t('h5EntryLibrary.dialogs.editTitle') : t('h5EntryLibrary.dialogs.createTitle')" width="780px" destroy-on-close>
       <el-form label-position="top">
+        <el-alert v-if="bundledBottomEntry" type="info" :closable="false" :title="locale.startsWith('zh') ? '底部固定入口的图标和动画随 H5 版本更新；名称、顺序、开关和跳转保存即生效。' : 'Built-in bottom icons ship with H5. Names, order, visibility and destinations take effect when saved.'" />
         <el-row :gutter="16">
           <el-col :span="12"><el-form-item :label="t('h5EntryLibrary.fields.nameZh')" required><el-input v-model="form.labelZh" maxlength="64" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item :label="t('h5EntryLibrary.fields.nameEn')" required><el-input v-model="form.labelEn" maxlength="64" /></el-form-item></el-col>
-          <el-col :span="8"><el-form-item :label="t('h5EntryLibrary.fields.icon')"><el-select v-model="form.iconAssetID" clearable filterable :placeholder="t('h5EntryLibrary.placeholders.unconfigured')"><el-option v-for="asset in imageAssets" :key="asset.id" :label="asset.displayName || asset.originalName" :value="asset.id" /></el-select></el-form-item></el-col>
-          <el-col :span="8"><el-form-item :label="t('h5EntryLibrary.fields.lottie')"><el-select v-model="form.lottieAssetID" clearable filterable :placeholder="t('h5EntryLibrary.placeholders.unconfigured')"><el-option v-for="asset in lottieAssets" :key="asset.id" :label="asset.displayName || asset.originalName" :value="asset.id" /></el-select></el-form-item></el-col>
-          <el-col :span="8"><el-form-item :label="t('h5EntryLibrary.fields.sound')"><el-select v-model="form.soundAssetID" clearable filterable :placeholder="t('h5EntryLibrary.placeholders.unconfigured')"><el-option v-for="asset in soundAssets" :key="asset.id" :label="asset.displayName || asset.originalName" :value="asset.id" /></el-select></el-form-item></el-col>
+          <el-col v-if="!bundledBottomEntry" :span="8"><el-form-item :label="t('h5EntryLibrary.fields.icon')"><el-select v-model="form.iconAssetID" clearable filterable :placeholder="t('h5EntryLibrary.placeholders.unconfigured')"><el-option v-for="asset in imageAssets" :key="asset.id" :label="asset.displayName || asset.originalName" :value="asset.id" /></el-select></el-form-item></el-col>
+          <el-col v-if="!bundledBottomEntry" :span="8"><el-form-item :label="t('h5EntryLibrary.fields.lottie')"><el-select v-model="form.lottieAssetID" clearable filterable :placeholder="t('h5EntryLibrary.placeholders.unconfigured')"><el-option v-for="asset in lottieAssets" :key="asset.id" :label="asset.displayName || asset.originalName" :value="asset.id" /></el-select></el-form-item></el-col>
+          <el-col v-if="!bundledBottomEntry" :span="8"><el-form-item :label="t('h5EntryLibrary.fields.sound')"><el-select v-model="form.soundAssetID" clearable filterable :placeholder="t('h5EntryLibrary.placeholders.unconfigured')"><el-option v-for="asset in soundAssets" :key="asset.id" :label="asset.displayName || asset.originalName" :value="asset.id" /></el-select></el-form-item></el-col>
           <el-col :span="8"><el-form-item :label="t('h5EntryLibrary.fields.position')" required><el-select v-model="form.displayPosition"><el-option v-for="position in positions" :key="position" :label="t(`h5EntryLibrary.positions.${position}`)" :value="position" /></el-select></el-form-item></el-col>
           <el-col :span="8"><el-form-item :label="t('h5EntryLibrary.fields.badge')"><el-select v-model="form.badgeType"><el-option v-for="badge in badges" :key="badge" :label="t(`h5EntryLibrary.badges.${badge}`)" :value="badge" /></el-select></el-form-item></el-col>
           <el-col :span="8"><el-form-item :label="t('h5EntryLibrary.fields.visibility')"><el-select v-model="form.visibilityScope"><el-option v-for="value in visibilityOptions" :key="value" :label="t(`h5EntryLibrary.visibility.${value}`)" :value="value" /></el-select></el-form-item></el-col>

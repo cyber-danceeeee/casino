@@ -26,15 +26,17 @@ func (h *gameBannersHandler) Home(c *gin.Context) {
 	var categories []model.GameGameCategories
 	_ = h5FindWithPlatformFallback(db.Model(&model.GameGameCategories{}), "game_game_categories", scope, &categories, func(query *gorm.DB) *gorm.DB {
 		return query.
-			Where("game_game_categories.category_key = ? OR game_game_categories.status = ?", "hot", 1).
-			Order("CASE WHEN game_game_categories.category_key = 'hot' THEN 0 ELSE 1 END ASC, sort ASC, id ASC")
+			Where("game_game_categories.status = ?", 1).
+			Order("sort ASC, id ASC")
 	})
 	hasHot := false
 	for i := range categories {
 		hasHot = hasHot || categories[i].CategoryKey == "hot"
 		categories[i].IconURL = h5AssetURL(categories[i].IconURL)
 	}
-	if !hasHot {
+	var configuredHot int64
+	_ = h5ApplyReadableScope(db.Model(&model.GameGameCategories{}), "", scope).Where("category_key=?", "hot").Count(&configuredHot).Error
+	if !hasHot && configuredHot == 0 {
 		categories = append([]model.GameGameCategories{{
 			CategoryKey: "hot",
 			Label:       "HOT",

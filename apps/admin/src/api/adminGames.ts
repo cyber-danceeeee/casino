@@ -6,6 +6,13 @@ export type GameCenterRecord = Record<string, unknown> & { id: number }
 export type GameCenterDetail = Record<string, unknown>
 
 export type GameInput = {
+  backgroundUrl?: string
+  launchImageUrl?: string
+  maintenanceMessage?: string
+  rtp?: number | null
+  volatility?: string
+  supportsDemo?: boolean
+  supportsFreeSpins?: boolean
   name: string
   localThumbnailUrl: string
   platformEnabled: boolean
@@ -65,22 +72,6 @@ export type CollectionInput = {
   reason?: string
 }
 
-export type LobbySectionInput = {
-  sectionCode: string
-  sectionType: string
-  titleZh: string
-  titleEn: string
-  displayStyle: string
-  sourceType: string
-  sourceRef: string
-  maxItems: number
-  sortOrder: number
-  enabled: boolean
-  supportedCountries: string
-  supportedCurrencies: string
-  config: Record<string, unknown>
-  reason: string
-}
 
 export type ProviderGameTypeOption = {
   providerCode: string
@@ -185,8 +176,3 @@ export const fetchSyncLogOperationLogs = (id: number, params: GameCenterQuery) =
   apiGet<PageResult<GameCenterRecord>>(`/admin/game-sync-logs/${id}/operation-logs`, params)
 export const fetchLaunchLogs = (params: GameCenterQuery) => apiGet<PageResult<GameCenterRecord>>('/admin/game-launch-logs', params)
 export const fetchLaunchLog = (id: number) => apiGet<GameCenterDetail>(`/admin/game-launch-logs/${id}`)
-export const fetchLobbySections = (params: GameCenterQuery) => apiGet<PageResult<GameCenterRecord>>('/admin/lobby-sections', params)
-export const fetchLobbySection = (id: number) => apiGet<GameCenterDetail>(`/admin/lobby-sections/${id}`)
-export const createLobbySection = (payload: LobbySectionInput) => apiPost<{ id: number }>('/admin/lobby-sections', payload)
-export const updateLobbySection = (id: number, payload: LobbySectionInput) => apiPatch<void>(`/admin/lobby-sections/${id}`, payload)
-export const deleteLobbySection = (id: number, reason: string) => apiDelete<void>(`/admin/lobby-sections/${id}`, { reason })

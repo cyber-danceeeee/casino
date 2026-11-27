@@ -22,7 +22,7 @@ const syncedPages = new Map<string, number>()
 const pageCount = (section: GameSection) => {
   const total = section.total ?? section.games.length
   const pageSize = section.pageSize || 9
-  return Math.max(1, Math.ceil(total / pageSize))
+  return Math.max(1, Math.min(3, Math.ceil(total / pageSize)))
 }
 
 const currentPage = (section: GameSection) => section.page || 1

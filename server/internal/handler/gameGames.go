@@ -29,7 +29,6 @@ type GameGamesHandler interface {
 	GetByID(c *gin.Context)
 	List(c *gin.Context)
 	Bootstrap(c *gin.Context)
-	Lobby(c *gin.Context)
 	PublicList(c *gin.Context)
 	PublicDetail(c *gin.Context)
 	Launch(c *gin.Context)

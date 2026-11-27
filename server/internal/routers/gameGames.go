@@ -14,7 +14,6 @@ func init() {
 
 func gameGamesRouter(group *gin.RouterGroup, h handler.GameGamesHandler) {
 	group.GET("/bootstrap", h.Bootstrap)
-	group.GET("/lobby", h.Lobby)
 	group.GET("/games", h.PublicList)
 
 	g := group.Group("/games")

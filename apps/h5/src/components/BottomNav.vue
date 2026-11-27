@@ -14,6 +14,7 @@ import {
 import { runtimeConfig } from '../services/runtimeConfig'
 import { h5Image } from '../utils/staticAssets'
 
+const hasBundledIcon = (item: H5NavigationItem) => ['home','offers','vip','share','profile'].includes(item.menuCode)
 const worldCup = h5Image('world-cup-source.gif')
 const fallbackItems: H5NavigationItem[] = [
   { id: -1, menuCode: 'home', label: 'Home', labelZh: '首页', labelEn: 'Home', labels: { 'zh-CN': '首页', 'en-US': 'Home' }, iconURL: '', lottieURL: '', soundURL: '', displayPosition: 'BOTTOM_NAV', badgeType: 'NONE', actionType: 'OPEN_INTERNAL_PAGE', actionTarget: '/', providerCode: '', gameID: 0, providerGameCode: '', gameName: '', sortOrder: 10, configVersion: 0, enabled: true },
@@ -38,7 +39,7 @@ const navItems = computed(() => {
   })
 })
 const isChinese = computed(() => runtimeConfig.value.language.current.toLowerCase().startsWith('zh'))
-const itemLabel = (item: H5NavigationItem) => item.label || (isChinese.value ? item.labelZh : item.labelEn)
+const itemLabel = (item: H5NavigationItem) => item.label?.trim() || (isChinese.value ? item.labelZh : item.labelEn)?.trim() || fallbackItems.find((entry) => entry.menuCode === item.menuCode)?.[isChinese.value ? 'labelZh' : 'labelEn'] || item.menuCode
 
 const refreshNavigation = async () => {
   try {
@@ -134,8 +135,8 @@ const openNavItem = (item: H5NavigationItem, index: number) => {
     >
       <span class="bottom-nav__icon" aria-hidden="true">
         <ActivityUnreadBadge v-if="item.menuCode === 'offers' && offersUnread" class="bottom-nav__activity-badge" />
-        <LottiePlayer v-if="item.lottieURL" :src="item.lottieURL" />
-        <img v-else-if="item.iconURL" :src="item.iconURL" alt="" />
+        <LottiePlayer v-if="!hasBundledIcon(item) && item.lottieURL" :src="item.lottieURL" />
+        <img v-else-if="!hasBundledIcon(item) && item.iconURL" :src="item.iconURL" alt="" />
         <svg v-else-if="item.menuCode === 'home'" viewBox="0 0 24 24">
           <path d="M4 4h6v6H4V4Zm10 0h6v6h-6V4ZM4 14h6v6H4v-6Zm10 0h6v6h-6v-6Z" />
         </svg>
@@ -148,12 +149,12 @@ const openNavItem = (item: H5NavigationItem, index: number) => {
         <span v-else-if="item.actionType === 'OPEN_GAME'" class="bottom-nav__placeholder" />
         <svg v-else-if="item.menuCode === 'share'" viewBox="0 0 24 24">
           <path
-            d="M18 16.1c-.76 0-1.44.3-1.96.77L8.9 12.72a3.22 3.22 0 0 0 0-1.44l7.06-4.11A3 3 0 1 0 15 5c0 .23.03.45.08.66L8.02 9.77a3 3 0 1 0 0 4.46l7.12 4.16c-.04.19-.06.4-.06.61a2.92 2.92 0 1 0 2.92-2.9Z"
+            d="M8 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm9 1a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM8 11a6 6 0 0 0-6 6v3h9v-3c0-2 .6-3.7 1.8-5A6 6 0 0 0 8 11Zm9 1a5 5 0 0 0-5 5v4h10v-4a5 5 0 0 0-5-5Z"
           />
         </svg>
         <svg v-else viewBox="0 0 24 24">
           <path
-            d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 9a7 7 0 0 1 14 0H5Z"
+            d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 4a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7Zm-6.5 12a6.7 6.7 0 0 1 13 0A8 8 0 0 1 12 20a8 8 0 0 1-6.5-2Z"
           />
         </svg>
         <em v-if="item.badgeType !== 'NONE'" class="bottom-nav__entry-badge">{{ item.badgeType }}</em>
@@ -190,10 +191,10 @@ const openNavItem = (item: H5NavigationItem, index: number) => {
   position: relative;
   display: grid;
   justify-items: center;
-  gap: 5px;
+  gap: 8px;
   min-width: 0;
   padding: 0;
-  color: rgba(207, 220, 248, 0.62);
+  color: #8f9aae;
 
   &.is-active {
     color: #ffffff;
@@ -296,8 +297,8 @@ const openNavItem = (item: H5NavigationItem, index: number) => {
   display: block;
   max-width: 100%;
   overflow: hidden;
-  font-size: 13px;
-  font-weight: 300;
+  font-size: 12px;
+  font-weight: 400;
   line-height: 1;
   text-overflow: ellipsis;
   white-space: nowrap;

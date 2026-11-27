@@ -239,13 +239,6 @@ export const menuGroups: MenuGroup[] = [
         icon: Collection,
       },
       {
-        key: "lobby-sections",
-        label: "大厅配置",
-        i18nKey: "menu.games.lobbySections",
-        path: "/games/lobby-sections",
-        icon: Menu,
-      },
-      {
         key: "game-tags",
         label: "游戏标签",
         i18nKey: "menu.games.gameTags",

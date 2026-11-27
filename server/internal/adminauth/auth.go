@@ -212,9 +212,6 @@ const (
 	PermissionGameSyncLogView               = "game:sync-log:view"
 	PermissionGameLaunchLogView             = "game:launch-log:view"
 	PermissionGameAssetUpload               = "game:asset:upload"
-	PermissionLobbyList                     = "lobby:list"
-	PermissionLobbyView                     = "lobby:view"
-	PermissionLobbyUpdate                   = "lobby:update"
 	PermissionAgentList                     = "agent:list"
 	PermissionAgentView                     = "agent:view"
 	PermissionAgentCreate                   = "agent:create"
@@ -399,9 +396,6 @@ var userCenterPermissions = []string{
 	PermissionGameSyncLogView,
 	PermissionGameLaunchLogView,
 	PermissionGameAssetUpload,
-	PermissionLobbyList,
-	PermissionLobbyView,
-	PermissionLobbyUpdate,
 	PermissionAgentList,
 	PermissionAgentView,
 	PermissionAgentCreate,

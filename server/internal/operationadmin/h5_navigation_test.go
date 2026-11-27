@@ -103,3 +103,19 @@ func newH5NavigationTestDB(t *testing.T) *gorm.DB {
 	require.NoError(t, db.Exec("INSERT INTO game_site_config (id, country_code, currency_code, default_language) VALUES (20, 'MY', 'MYR', 'en-US'), (21, 'MY', 'MYR', 'en-US')").Error)
 	return db
 }
+
+func TestBundledBottomNavigationSavesWithoutUploadedAssets(t *testing.T) {
+	db := newH5NavigationTestDB(t)
+	service := New(db)
+	actor := Actor{ID: 7, Scope: content.Scope{SiteID: 1}}
+	input := H5NavigationInput{MenuCode: "vip", LabelZh: "VIP", LabelEn: "VIP", DisplayPosition: "BOTTOM_NAV", BadgeType: "NONE", VisibilityScope: "ALL", Enabled: true, ActionType: "OPEN_INTERNAL_PAGE", ActionTarget: "/vip"}
+	_, err := service.SaveH5Navigation(0, input, actor)
+	require.NoError(t, err)
+	items, err := service.H5Navigation(actor.Scope, "en", "ID", false, "BOTTOM_NAV", time.Now())
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	require.Equal(t, "VIP", items[0].Label)
+	input.MenuCode = "custom-entry"
+	_, err = service.SaveH5Navigation(0, input, actor)
+	require.Error(t, err)
+}

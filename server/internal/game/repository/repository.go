@@ -128,22 +128,22 @@ func (r *Repository) UpsertGame(ctx context.Context, provider *model.GameGamePro
 	rawMetadata := string(game.RawMetadata)
 	rawMetadata = syncedJSONOrDefault(rawMetadata, "{}")
 	rawMetadataHash := metadataHash(rawMetadata)
-	platformCategory, err := r.ResolvePlatformCategory(ctx, scope, provider.ProviderCode, game.Category, game.GameType)
-	if err != nil {
-		return false, false, err
-	}
-	var platformCategoryID uint64
-	var platformCategoryCode string
-	if platformCategory != nil {
-		platformCategoryID = platformCategory.ID
-		platformCategoryCode = platformCategory.CategoryKey
-	}
-
 	var existing model.GameGames
 	err = content.ApplySite(r.db.WithContext(ctx).Model(&model.GameGames{}), "", scope).
 		Where("provider_id = ? AND provider_game_code = ?", provider.ID, game.ProviderGameID).
 		First(&existing).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
+		platformCategory, err := r.ResolvePlatformCategory(ctx, scope, provider.ProviderCode, game.Category, game.GameType)
+		if err != nil {
+			return false, false, err
+		}
+		var platformCategoryID uint64
+		var platformCategoryCode string
+		if platformCategory != nil {
+			platformCategoryID = platformCategory.ID
+			platformCategoryCode = platformCategory.CategoryKey
+		}
+
 		row := &model.GameGames{
 
 			SiteID:               scope.SiteID,
@@ -171,6 +171,9 @@ func (r *Repository) UpsertGame(ctx context.Context, provider *model.GameGamePro
 		if err := r.db.WithContext(ctx).Create(row).Error; err != nil {
 			return false, false, err
 		}
+		if err := r.syncPrimaryCategoryRelation(ctx, row.ID, 0, platformCategoryID); err != nil {
+			return false, false, err
+		}
 		return true, false, nil
 	}
 	if err != nil {
@@ -178,20 +181,18 @@ func (r *Repository) UpsertGame(ctx context.Context, provider *model.GameGamePro
 	}
 
 	updates := map[string]any{
-		"name":                   game.Name,
-		"slug":                   game.Slug,
-		"category":               game.Category,
-		"platform_category_id":   platformCategoryID,
-		"platform_category_code": platformCategoryCode,
-		"game_type":              game.GameType,
-		"cover_url":              game.ThumbnailURL,
-		"supports_demo":          game.SupportsDemo,
-		"supports_free_spins":    game.SupportsFreeSpins,
-		"provider_enabled":       game.IsEnabled,
-		"raw_metadata":           rawMetadata,
-		"metadata_hash":          rawMetadataHash,
-		"last_synced_at":         now,
-		"status":                 effectiveGameStatus(game.IsEnabled, existing.PlatformEnabled),
+		"name":                game.Name,
+		"slug":                game.Slug,
+		"category":            game.Category,
+		"game_type":           game.GameType,
+		"cover_url":           game.ThumbnailURL,
+		"supports_demo":       game.SupportsDemo,
+		"supports_free_spins": game.SupportsFreeSpins,
+		"provider_enabled":    game.IsEnabled,
+		"raw_metadata":        rawMetadata,
+		"metadata_hash":       rawMetadataHash,
+		"last_synced_at":      now,
+		"status":              effectiveGameStatus(game.IsEnabled, existing.PlatformEnabled),
 	}
 	if game.LocalThumbnailURL != "" {
 		updates["local_thumbnail_url"] = game.LocalThumbnailURL
@@ -199,8 +200,6 @@ func (r *Repository) UpsertGame(ctx context.Context, provider *model.GameGamePro
 	changed := existing.Name != game.Name ||
 		existing.Slug != game.Slug ||
 		existing.Category != game.Category ||
-		existing.PlatformCategoryID != platformCategoryID ||
-		existing.PlatformCategoryCode != platformCategoryCode ||
 		existing.GameType != game.GameType ||
 		existing.CoverURL != game.ThumbnailURL ||
 		(game.LocalThumbnailURL != "" && existing.LocalThumbnailURL != game.LocalThumbnailURL) ||
@@ -290,6 +289,7 @@ func (r *Repository) ResolvePlatformCategory(ctx context.Context, scope content.
 
 func (r *Repository) ensurePlatformCategory(ctx context.Context, scope content.Scope, code string) (*model.GameGameCategories, error) {
 	def := platformCategoryDefault(code)
+	def.NameEn, def.NameZh = def.Label, def.Label
 	var category model.GameGameCategories
 	err := content.ApplySite(r.db.WithContext(ctx).Model(&model.GameGameCategories{}), "", scope).Where("category_key = ?", def.CategoryKey).First(&category).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {

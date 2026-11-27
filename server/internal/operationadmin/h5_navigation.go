@@ -19,8 +19,6 @@ import (
 	"casino/internal/storage"
 )
 
-const ()
-
 var (
 	h5NavigationCodePattern    = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,63}$`)
 	allowedH5NavigationActions = map[string]bool{
@@ -360,6 +358,9 @@ func (s *Service) H5Navigation(scope content.Scope, language string, country str
 		if !h5NavigationVisible(configuration, language, country, loggedIn, at) {
 			continue
 		}
+		if bundledBottomNavigation(configuration.MenuCode, configuration.DisplayPosition) {
+			configuration.IconAssetID, configuration.LottieAssetID, configuration.SoundAssetID = 0, 0, 0
+		}
 		iconURL, iconOK := s.publicH5NavigationAsset(scope, configuration.IconAssetID, "IMAGE")
 		lottieURL, lottieOK := s.publicH5NavigationAsset(scope, configuration.LottieAssetID, "LOTTIE")
 		if (configuration.IconAssetID > 0 && !iconOK) || (configuration.LottieAssetID > 0 && !lottieOK) {
@@ -386,10 +387,24 @@ func requireH5NavigationSiteScope(scope content.Scope) error {
 	return nil
 }
 
+func bundledBottomNavigation(code, position string) bool {
+	if position != "BOTTOM_NAV" {
+		return false
+	}
+	switch code {
+	case "home", "offers", "vip", "share", "profile":
+		return true
+	}
+	return false
+}
+
 func normalizeH5NavigationInput(tx *gorm.DB, in H5NavigationInput, scope content.Scope) (H5NavigationConfiguration, error) {
 	code := strings.ToLower(strings.TrimSpace(in.MenuCode))
 	if !h5NavigationCodePattern.MatchString(code) {
 		return H5NavigationConfiguration{}, newError("INVALID_H5_NAVIGATION_CODE", "navigation code must use lowercase letters, numbers, or hyphens")
+	}
+	if bundledBottomNavigation(code, strings.ToUpper(strings.TrimSpace(in.DisplayPosition))) {
+		in.IconAssetID, in.LottieAssetID, in.SoundAssetID = 0, 0, 0
 	}
 	labels := normalizeH5NavigationLabels(in.Labels, in.LabelZh, in.LabelEn)
 	if labels["zh-CN"] == "" || labels["en-US"] == "" {
@@ -479,7 +494,7 @@ func h5NavigationGame(tx *gorm.DB, scope content.Scope, gameID uint64, providerC
 }
 
 func (s *Service) validateH5NavigationAssets(db *gorm.DB, scope content.Scope, configuration H5NavigationConfiguration) error {
-	if configuration.IconAssetID == 0 && configuration.LottieAssetID == 0 {
+	if !bundledBottomNavigation(configuration.MenuCode, configuration.DisplayPosition) && configuration.IconAssetID == 0 && configuration.LottieAssetID == 0 {
 		return newError("H5_NAVIGATION_ASSET_REQUIRED", "an icon or Lottie asset is required")
 	}
 	for _, expected := range []struct {

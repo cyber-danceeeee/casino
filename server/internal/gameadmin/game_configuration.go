@@ -24,9 +24,9 @@ func gameConfigurationUpdate(actor Actor, values map[string]any) map[string]any 
 func (s *Service) loadGameCategories(tx *gorm.DB, actor Actor, gameID uint64) ([]gameCategoryItem, error) {
 	var rows []gameCategoryItem
 	if err := applyCategoryResourceScope(tx.Table("game_game_category_relations"), "", actor.Scope).
-		Select("category_id category_id,sort").
+		Select("category_id,category_priority AS sort").
 		Where("game_id=? AND deleted_at IS NULL", gameID).
-		Order("sort ASC,id ASC").
+		Order("category_priority ASC,id ASC").
 		Find(&rows).Error; err != nil {
 		return nil, err
 	}

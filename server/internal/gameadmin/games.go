@@ -36,7 +36,7 @@ func gameListSelect(scope content.Scope) string {
 		g.provider_enabled,g.platform_enabled,g.is_hot,g.is_featured,g.is_new,
 		g.status,g.sort,g.config_version,
 		g.supported_countries,g.supported_currencies,g.supported_devices,g.last_synced_at,g.created_at,g.updated_at,
-		(SELECT GROUP_CONCAT(c.category_key ORDER BY r.sort,r.id SEPARATOR ',') FROM game_game_category_relations r JOIN game_game_categories c ON c.id=r.category_id AND c.deleted_at IS NULL WHERE r.game_id=g.id AND r.deleted_at IS NULL AND ` + categoryRelationScopePredicate("r", scope) + ` AND ` + categoryRelationScopePredicate("c", scope) + `) platform_category_codes,
+		(SELECT GROUP_CONCAT(c.category_key ORDER BY r.category_priority,r.id SEPARATOR ',') FROM game_game_category_relations r JOIN game_game_categories c ON c.id=r.category_id AND c.deleted_at IS NULL WHERE r.game_id=g.id AND r.deleted_at IS NULL AND ` + categoryRelationScopePredicate("r", scope) + ` AND ` + categoryRelationScopePredicate("c", scope) + `) platform_category_codes,
 		(SELECT GROUP_CONCAT(t.code ORDER BY t.sort_order,t.id SEPARATOR ',') FROM game_game_tag_relations tr JOIN game_game_tags t ON t.id=tr.tag_id AND t.deleted_at IS NULL WHERE tr.game_id=g.id AND tr.deleted_at IS NULL) tag_codes`
 }
 
@@ -726,7 +726,7 @@ func (s *Service) batchReplaceRelations(tx *gorm.DB, actor Actor, gameIDs []uint
 		targetTable   string
 		orderColumn   string
 	}{
-		"category": {"game_game_category_relations", "category_id", "game_game_categories", "sort"},
+		"category": {"game_game_category_relations", "category_id", "game_game_categories", "category_priority"},
 		"tag":      {"game_game_tag_relations", "tag_id", "game_game_tags", ""},
 	}[kind]
 	if config.relationTable == "" {

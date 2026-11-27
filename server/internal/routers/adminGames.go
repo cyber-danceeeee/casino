@@ -74,9 +74,4 @@ func adminGamesRouter(group *gin.RouterGroup, h handler.AdminGamesHandler) {
 	g.GET("/game-launch-logs", adminauth.Require(adminauth.PermissionGameLaunchLogView), h.ListLaunchLogs)
 	g.GET("/game-launch-logs/:id", adminauth.Require(adminauth.PermissionGameLaunchLogView), h.GetLaunchLog)
 	g.POST("/game-assets/upload", adminauth.Require(adminauth.PermissionGameAssetUpload), h.UploadGameAsset)
-	g.GET("/lobby-sections", adminauth.Require(adminauth.PermissionLobbyList), h.ListLobbySections)
-	g.GET("/lobby-sections/:id", adminauth.Require(adminauth.PermissionLobbyView), h.GetLobbySection)
-	g.POST("/lobby-sections", adminauth.Require(adminauth.PermissionLobbyUpdate), h.CreateLobbySection)
-	g.PATCH("/lobby-sections/:id", adminauth.Require(adminauth.PermissionLobbyUpdate), h.UpdateLobbySection)
-	g.DELETE("/lobby-sections/:id", adminauth.Require(adminauth.PermissionLobbyUpdate), h.DeleteLobbySection)
 }

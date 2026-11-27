@@ -8,10 +8,11 @@ import (
 type GameGameCategoryRelations struct {
 	sgorm.Model `gorm:"embedded"` // embed id and time
 
-	SiteID     uint64 `gorm:"column:site_id;type:bigint(20) unsigned;default:0;not null" json:"siteID"`
-	GameID     uint64 `gorm:"column:game_id;type:bigint(20) unsigned;not null;uniqueIndex:uk_game_game_category_relations_game_category" json:"gameID"`
-	CategoryID uint64 `gorm:"column:category_id;type:bigint(20) unsigned;not null;uniqueIndex:uk_game_game_category_relations_game_category" json:"categoryID"`
-	Sort       int    `gorm:"column:sort;type:int(11);default:0;not null" json:"sort"`
+	SiteID           uint64 `gorm:"column:site_id;type:bigint(20) unsigned;default:0;not null" json:"siteID"`
+	GameID           uint64 `gorm:"column:game_id;type:bigint(20) unsigned;not null;uniqueIndex:uk_game_game_category_relations_game_category" json:"gameID"`
+	CategoryID       uint64 `gorm:"column:category_id;type:bigint(20) unsigned;not null;uniqueIndex:uk_game_game_category_relations_game_category" json:"categoryID"`
+	CategoryPriority int    `gorm:"column:category_priority;default:0;not null" json:"categoryPriority"`
+	Sort             int    `gorm:"column:sort;type:int(11);default:0;not null" json:"sort"`
 }
 
 // GameGameCategoryRelationsColumnNames Whitelist for custom query fields to prevent sql injection attacks

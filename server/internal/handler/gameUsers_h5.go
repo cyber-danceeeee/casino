@@ -734,7 +734,10 @@ func claimPendingActivityReward(user model.GameUsers, recordID uint64) (model.Ga
 }
 
 func claimPendingRegisterReward(user model.GameUsers) (model.GameUserWallets, gin.H, error) {
-	db := database.GetDB()
+	return claimRegisterRewardFromDB(database.GetDB(), user)
+}
+
+func claimRegisterRewardFromDB(db *gorm.DB, user model.GameUsers) (model.GameUserWallets, gin.H, error) {
 	var updatedWallet model.GameUserWallets
 	var reward gin.H
 	err := db.Transaction(func(tx *gorm.DB) error {
@@ -743,7 +746,14 @@ func claimPendingRegisterReward(user model.GameUsers) (model.GameUserWallets, gi
 			Where("user_id = ? AND status = 1 AND deleted_at IS NULL", user.ID).
 			Order("id ASC").
 			Take(&claim).Error; err != nil {
-			return err
+			if !errors.Is(err, gorm.ErrRecordNotFound) {
+				return err
+			}
+			// A retry after a lost response or failed animation returns the original
+			// successful claim; it must never credit the wallet a second time.
+			if err = tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("user_id=? AND status=2 AND deleted_at IS NULL", user.ID).Order("id DESC").Take(&claim).Error; err != nil {
+				return err
+			}
 		}
 
 		var wallet model.GameUserWallets
@@ -754,6 +764,11 @@ func claimPendingRegisterReward(user model.GameUsers) (model.GameUserWallets, gi
 			return err
 		}
 
+		if claim.Status == 2 {
+			updatedWallet = wallet
+			reward = registerRewardPayload(claim, h5DecimalValue(claim.CashBefore), h5DecimalValue(claim.CashAfter), claim.WalletTransactionID)
+			return nil
+		}
 		amount := h5DecimalValue(claim.Amount)
 		before := h5DecimalValue(wallet.CashBalance)
 		after := before.Add(amount)
@@ -769,6 +784,7 @@ func claimPendingRegisterReward(user model.GameUsers) (model.GameUserWallets, gi
 
 		key := claim.IdempotencyKey
 		ledger := model.GameWalletTransactions{
+			SiteID:              user.SiteID,
 			TxnNo:               h5OrderNo("REG"),
 			UserID:              user.ID,
 			WalletID:            wallet.ID,
